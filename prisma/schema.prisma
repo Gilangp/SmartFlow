@@ -1,0 +1,174 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================================================
+// Users Table (FR-AUTH-01, FR-AUTH-02, FR-AUTH-03)
+// ============================================================================
+model User {
+  id                String        @id @default(cuid())
+  name              String
+  email             String        @unique
+  password          String        // Hashed with Bcrypt (NFR-SEC-01)
+  paydayDate        Int?          // 1-31, for routine income cycle
+  themePreference   String        @default("light") // "light" or "dark" (FR-AUTH-03)
+  
+  // Income allocation percentages (for auto-distribution)
+  allocationEmergency   Int       @default(0)  // Percentage (0-100)
+  allocationSavings     Int       @default(0)  // Percentage (0-100)
+  allocationWishlist    Int       @default(0)  // Percentage (0-100)
+  // Rest goes to MAIN pocket (100 - emergency - savings - wishlist)
+  
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+
+  // Relations
+  pockets           Pocket[]
+  categories        Category[]
+  transactions      Transaction[]
+  incomeRecords     IncomeRecord[]
+
+  @@map("users")
+}
+
+// ============================================================================
+// Pockets Table (FR-PKT-01 through FR-PKT-04)
+// The 4 Financial Pockets: Main, Emergency, Savings, Wishlist
+// ============================================================================
+enum PocketType {
+  MAIN      // Liquid main wallet (FR-PKT-01)
+  EMERGENCY // Emergency shield with target (FR-PKT-02)
+  SAVINGS   // Growth asset savings (FR-PKT-03)
+  WISHLIST  // Goal achievement with progress tracking (FR-PKT-04)
+}
+
+model Pocket {
+  id            String        @id @default(cuid())
+  userId        String
+  name          String
+  type          PocketType
+  balance       Decimal       @default(0.00) @db.Decimal(15, 2)
+  targetAmount  Decimal?      @db.Decimal(15, 2) // For Emergency and Wishlist
+  status        String        @default("active") // "active" or "completed" (for Wishlist)
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  user          User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  transactions  Transaction[]
+
+  @@unique([userId, type]) // Each user has exactly 1 of each pocket type
+  @@map("pockets")
+}
+
+// ============================================================================
+// Categories Table (FR-CAT-01 through FR-CAT-04)
+// Master data for user-defined transaction categories
+// ============================================================================
+enum CategoryType {
+  NEED // Kebutuhan (Necessity)
+  WANT // Keinginan (Desire)
+}
+
+model Category {
+  id          String        @id @default(cuid())
+  userId      String
+  name        String
+  type        CategoryType  // "NEED" or "WANT" (BR-02)
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  user        User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  transactions Transaction[]
+
+  @@unique([userId, name]) // User cannot have duplicate category names
+  @@map("categories")
+}
+
+// ============================================================================
+// Transactions Table (FR-TRX-01, FR-TRX-03)
+// All financial flow records: income and expenses
+// ============================================================================
+enum TransactionType {
+  INCOME_ROUTINE  // Regular monthly income (FR-IN-01)
+  INCOME_BONUS    // Bonus/insidental income (FR-IN-01)
+  EXPENSE         // Expense transaction (FR-TRX-03)
+}
+
+enum TransactionStatus {
+  PENDING    // Waiting for user confirmation (for auto-generated income)
+  COMPLETED  // Confirmed/completed
+  CANCELLED  // Cancelled or rejected
+}
+
+model Transaction {
+  id          String        @id @default(cuid())
+  userId      String
+  pocketId    String
+  categoryId  String?       // Optional for income transactions
+  type        TransactionType
+  amount      Decimal       @db.Decimal(15, 2)
+  date        DateTime      @db.Date
+  status      TransactionStatus @default(COMPLETED) // PENDING for auto-generated income
+  notes       String?
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  user        User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  pocket      Pocket        @relation(fields: [pocketId], references: [id], onDelete: Restrict)
+  category    Category?     @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+
+  @@map("transactions")
+}
+
+// ============================================================================
+// Income Records Table (FR-IN-02, FR-IN-03)
+// Tracks income events and distribution allocations
+// ============================================================================
+model IncomeRecord {
+  id              String        @id @default(cuid())
+  userId          String
+  type            TransactionType // INCOME_ROUTINE or INCOME_BONUS
+  amount          Decimal       @db.Decimal(15, 2)
+  
+  // Distribution breakdown (FR-IN-03)
+  allocationMain        Decimal   @default(0.00) @db.Decimal(15, 2)
+  allocationEmergency   Decimal   @default(0.00) @db.Decimal(15, 2)
+  allocationSavings     Decimal   @default(0.00) @db.Decimal(15, 2)
+  allocationWishlist    Decimal   @default(0.00) @db.Decimal(15, 2)
+  
+  notes           String?
+  recordedAt      DateTime      @default(now())
+
+  user            User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("income_records")
+}
+
+// ============================================================================
+// Daily Performance Log (For FR-DASH-04 AI Roaster, FR-EVAL-01)
+// Used to track daily spending patterns for AI analysis
+// ============================================================================
+model DailyPerformance {
+  id              String        @id @default(cuid())
+  userId          String
+  date            DateTime      @db.Date
+  dailyAllowance  Decimal       @db.Decimal(15, 2) // Calculated jatah harian
+  totalSpent      Decimal       @default(0.00) @db.Decimal(15, 2)
+  percentageUsed  Decimal       @default(0.00) @db.Decimal(5, 2)
+  status          String        // "GREEN", "YELLOW", "RED" (FR-DASH-02)
+  surplusTransferred Decimal?   @db.Decimal(15, 2) // For FR-EVAL-01
+  
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  @@unique([userId, date])
+  @@map("daily_performance")
+}
