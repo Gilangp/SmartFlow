@@ -3,96 +3,175 @@ import { verifyToken, extractTokenFromHeader } from '@/lib/auth';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { prisma } from '@/lib/db';
 
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || process.env.GOOGLE_AI_API_KEY || '');
+const genAI = new GoogleGenerativeAI(
+  process.env.GEMINI_API_KEY || process.env.GOOGLE_AI_API_KEY || ''
+);
+
+type AIResponse = {
+  totalAmount: number;
+  category: string;
+  notes: string;
+};
+
+// 🔹 Helper: Clean AI response
+function cleanAIResponse(text: string): string {
+  return text
+    .replace(/```json/g, '')
+    .replace(/```/g, '')
+    .trim();
+}
+
+// 🔹 Helper: Safe JSON parse
+function safeParseJSON(text: string): AIResponse | null {
+  try {
+    return JSON.parse(text);
+  } catch {
+    return null;
+  }
+}
+
+// 🔹 Helper: Fallback parsing (regex sederhana)
+function fallbackParser(text: string) {
+  const matches = text.match(/(\d+)\s?(rb|k)?/gi) || [];
+
+  let total = 0;
+
+  matches.forEach((m) => {
+    const num = parseInt(m.replace(/[^\d]/g, ''));
+    if (m.toLowerCase().includes('rb') || m.toLowerCase().includes('k')) {
+      total += num * 1000;
+    } else {
+      total += num;
+    }
+  });
+
+  return {
+    totalAmount: total,
+    category: 'Lainnya',
+    notes: text,
+  };
+}
 
 export async function POST(request: NextRequest) {
   try {
-    const token = extractTokenFromHeader(request.headers.get('Authorization') || '');
+    // 🔹 AUTH
+    const token = extractTokenFromHeader(
+      request.headers.get('Authorization') || ''
+    );
+
     if (!token) {
-      return NextResponse.json({ success: false, message: 'No token provided' }, { status: 401 });
+      return NextResponse.json(
+        { success: false, message: 'No token provided' },
+        { status: 401 }
+      );
     }
 
     const decoded = verifyToken(token);
     if (!decoded) {
-      return NextResponse.json({ success: false, message: 'Invalid token' }, { status: 401 });
+      return NextResponse.json(
+        { success: false, message: 'Invalid token' },
+        { status: 401 }
+      );
     }
 
+    // 🔹 BODY
     const body = await request.json();
     const { text } = body;
 
     if (!text) {
-      return NextResponse.json({ success: false, message: 'Text input is required' }, { status: 400 });
+      return NextResponse.json(
+        { success: false, message: 'Text input is required' },
+        { status: 400 }
+      );
     }
 
-    // Get user's categories to help AI map correctly
+    // 🔹 GET USER CATEGORIES
     const categories = await prisma.category.findMany({
       where: { userId: decoded.userId },
-      select: { name: true }
+      select: { name: true },
     });
-    
-    const categoryNames = categories.map(c => c.name).join(', ');
 
+    const categoryNames = categories.map((c) => c.name).join(', ');
+
+    // 🔹 PROMPT (lebih ketat)
     const prompt = `
-Ekstrak informasi transaksi MULTIPLE dari teks berikut dan hitung total dari semua item.
-Teks pengguna: "${text}"
+Kamu adalah parser data keuangan.
 
 Tugas:
-1. Identifikasi SEMUA item dan nominal yang disebutkan (misal: "esteh 3k", "bakso 10rb", "mie 2k").
-2. Ekstrak setiap "amount" sebagai angka utuh (3k=3000, 10rb=10000, 2k=2000, dst).
-3. Hitung TOTAL amount dari semua item yang ditemukan.
-4. Tentukan "category" utama dari daftar ini jika cocok: [${categoryNames}]. Jika tidak ada yang persis, simpulkan kategori yang paling masuk akal (misal: "Makan", "Jajan").
-5. "notes" adalah full teks dari input user (jangan diubah).
+Ekstrak semua nominal dari teks dan hitung total.
 
-Format JSON WAJIB:
+Rules:
+- 3k = 3000
+- 10rb = 10000
+- Output HARUS JSON valid
+- Jangan gunakan markdown
+- Jangan tambahkan penjelasan
+
+Kategori yang tersedia:
+[${categoryNames}]
+
+Format:
 {
-  "totalAmount": 15000,
-  "category": "Makan",
-  "notes": "esteh 3k, bakso 10rb, mie 2k"
+  "totalAmount": number,
+  "category": string,
+  "notes": string
 }
 
-Contoh: 
-- Input: "beli jajan, esteh 3k, bakso 10rb, mie 2k"
-- Output: {"totalAmount": 15000, "category": "Makan", "notes": "beli jajan, esteh 3k, bakso 10rb, mie 2k"}
-
-HANYA kembalikan JSON, tanpa markdown, tanpa teks tambahan.
+Input:
+"${text}"
 `;
 
     try {
-      const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+      const model = genAI.getGenerativeModel({
+        model: 'gemini-2.5-flash',
+      });
+
       const result = await model.generateContent(prompt);
       const response = await result.response;
-      let textResponse = response.text().trim();
-      
-      // Clean up markdown if AI still outputs it
-      if (textResponse.startsWith('```json')) {
-        textResponse = textResponse.replace(/```json/g, '').replace(/```/g, '').trim();
-      } else if (textResponse.startsWith('```')) {
-        textResponse = textResponse.replace(/```/g, '').trim();
-      }
+      let rawText = response.text();
 
-      const parsedData = JSON.parse(textResponse);
+      const cleaned = cleanAIResponse(rawText);
+      let parsed = safeParseJSON(cleaned);
+
+      // 🔥 FALLBACK kalau AI gagal
+      if (!parsed || !parsed.totalAmount) {
+        parsed = fallbackParser(text);
+      }
 
       return NextResponse.json({
         success: true,
         message: 'Text processed successfully',
         data: {
-          amount: parsedData.totalAmount || parsedData.amount, // Support both totalAmount and amount
-          category: parsedData.category,
-          notes: parsedData.notes,
-        }
+          amount: parsed.totalAmount,
+          category: parsed.category || 'Lainnya',
+          notes: parsed.notes || text,
+        },
       });
     } catch (aiError) {
       console.error('AI Processing Error:', aiError);
-      return NextResponse.json({
-        success: false,
-        message: 'Gagal mengekstrak data dari teks (AI Error)',
-      }, { status: 500 });
-    }
 
+      // 🔥 FULL FALLBACK (no AI)
+      const fallback = fallbackParser(text);
+
+      return NextResponse.json({
+        success: true,
+        message: 'Fallback mode used',
+        data: {
+          amount: fallback.totalAmount,
+          category: fallback.category,
+          notes: fallback.notes,
+        },
+      });
+    }
   } catch (error) {
     console.error('Smart Input error:', error);
+
     return NextResponse.json(
-      { success: false, message: 'Failed to process input', error: String(error) },
+      {
+        success: false,
+        message: 'Failed to process input',
+        error: String(error),
+      },
       { status: 500 }
     );
   }

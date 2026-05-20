@@ -3,67 +3,95 @@ import { prisma } from '@/lib/db';
 import { hashPassword, generateToken } from '@/lib/auth';
 import { RegisterRequest, AuthResponse } from '@/types';
 
-export async function POST(request: NextRequest): Promise<NextResponse<AuthResponse>> {
+// 🔹 Helper
+function errorResponse(message: string, status: number) {
+  return NextResponse.json({ success: false, message }, { status });
+}
+
+export async function POST(
+  request: NextRequest
+): Promise<NextResponse<AuthResponse>> {
   try {
     const body: RegisterRequest = await request.json();
     const { name, email, password, paydayDate } = body;
 
-    // Validate input
+    // 🔹 VALIDATION
     if (!name || !email || !password) {
-      return NextResponse.json(
-        { success: false, message: 'Missing required fields' },
-        { status: 400 }
-      );
+      return errorResponse('Missing required fields', 400);
     }
 
-    // Check if user exists
+    if (typeof name !== 'string' || name.trim().length < 2) {
+      return errorResponse('Name must be at least 2 characters', 400);
+    }
+
+    if (typeof password !== 'string' || password.length < 6) {
+      return errorResponse('Password must be at least 6 characters', 400);
+    }
+
+    const normalizedEmail = email.toLowerCase().trim();
+
+    // 🔹 CHECK EXISTING USER
     const existingUser = await prisma.user.findUnique({
-      where: { email },
+      where: { email: normalizedEmail },
     });
 
     if (existingUser) {
-      return NextResponse.json(
-        { success: false, message: 'Email already registered' },
-        { status: 409 }
-      );
+      return errorResponse('Email already registered', 409);
     }
 
-    // Hash password
+    // 🔹 HASH PASSWORD
     const hashedPassword = await hashPassword(password);
 
-    // Create user
-    const user = await prisma.user.create({
-      data: {
-        name,
-        email,
-        password: hashedPassword,
-        paydayDate: paydayDate || 1,
-        themePreference: 'light',
-      },
-    });
-
-    // Create default pockets (FR-PKT-01 through FR-PKT-04)
-    const pocketTypes = [
-      { name: 'Dompet Utama', type: 'MAIN' },
-      { name: 'Dana Darurat', type: 'EMERGENCY', targetAmount: 500000 },
-      { name: 'Tabungan Aset', type: 'SAVINGS' },
-      { name: 'Wishlist', type: 'WISHLIST', targetAmount: 0 },
-    ];
-
-    for (const pocket of pocketTypes) {
-      await prisma.pocket.create({
+    // 🔥 TRANSACTION (INI WAJIB)
+    const result = await prisma.$transaction(async (tx) => {
+      // Create user
+      const user = await tx.user.create({
         data: {
-          userId: user.id,
-          name: pocket.name,
-          type: pocket.type as any,
-          balance: 0,
-          targetAmount: pocket.targetAmount || null,
+          name: name.trim(),
+          email: normalizedEmail,
+          password: hashedPassword,
+          paydayDate: paydayDate || 1,
+          themePreference: 'light',
         },
       });
-    }
 
-    // Generate token
-    const token = generateToken(user.id, user.email);
+      // Create pockets (bulk insert)
+      await tx.pocket.createMany({
+        data: [
+          {
+            userId: user.id,
+            name: 'Dompet Utama',
+            type: 'MAIN',
+            balance: 0,
+          },
+          {
+            userId: user.id,
+            name: 'Dana Darurat',
+            type: 'EMERGENCY',
+            balance: 0,
+            targetAmount: 500000,
+          },
+          {
+            userId: user.id,
+            name: 'Tabungan Aset',
+            type: 'SAVINGS',
+            balance: 0,
+          },
+          {
+            userId: user.id,
+            name: 'Wishlist',
+            type: 'WISHLIST',
+            balance: 0,
+            targetAmount: 0,
+          },
+        ],
+      });
+
+      return user;
+    });
+
+    // 🔹 TOKEN
+    const token = generateToken(result.id, result.email);
 
     return NextResponse.json(
       {
@@ -71,19 +99,23 @@ export async function POST(request: NextRequest): Promise<NextResponse<AuthRespo
         message: 'Registration successful',
         token,
         user: {
-          id: user.id,
-          name: user.name,
-          email: user.email,
-          themePreference: user.themePreference as 'light' | 'dark',
-          paydayDate: user.paydayDate || undefined,
+          id: result.id,
+          name: result.name,
+          email: result.email,
+          themePreference: result.themePreference as 'light' | 'dark',
+          paydayDate: result.paydayDate || undefined,
         },
       },
       { status: 201 }
     );
   } catch (error) {
     console.error('Registration error:', error);
+
     return NextResponse.json(
-      { success: false, message: 'Registration failed', error: String(error) },
+      {
+        success: false,
+        message: 'Internal server error',
+      },
       { status: 500 }
     );
   }

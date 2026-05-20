@@ -3,32 +3,112 @@ import { verifyToken, extractTokenFromHeader } from '@/lib/auth';
 import { prisma } from '@/lib/db';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || process.env.GOOGLE_AI_API_KEY || '');
+// Init AI
+const genAI = new GoogleGenerativeAI(
+  process.env.GEMINI_API_KEY || process.env.GOOGLE_AI_API_KEY || ''
+);
+
+// Tone pool (dipisah biar reusable)
+const TONES = [
+  'lucu tapi nyelekit',
+  'pedas dan jujur',
+  'sarkas tapi relate',
+  'dark humor ringan',
+  'kayak temen yang nyindir halus tapi nyakitin',
+];
+
+// Helper: generate prompt
+function buildRoastPrompt({
+  totalIncome,
+  totalExpense,
+  balance,
+  expenses,
+  tone,
+}: {
+  totalIncome: number;
+  totalExpense: number;
+  balance: number;
+  expenses: string[];
+  tone: string;
+}) {
+  return `
+Kamu adalah AI financial advisor yang JULID tapi pintar.
+
+Tugas:
+- Berikan roasting dengan gaya: ${tone}
+- Fokus ke kebiasaan finansial user
+- Harus relevan dari data
+- Maksimal 2-3 baris (WAJIB singkat)
+
+Data:
+- Pemasukan: Rp ${totalIncome}
+- Pengeluaran: Rp ${totalExpense}
+- Sisa saldo: Rp ${balance}
+
+Rincian:
+${expenses.join('\n')}
+
+Aturan:
+- Jangan terlalu panjang
+- Jangan generik
+- Harus spesifik dari data
+- Gunakan bahasa santai Indonesia
+
+Output:
+Langsung roasting (tanpa tanda kutip, tanpa penjelasan)
+`;
+}
+
+// Helper: fallback roast
+function fallbackRoast(totalIncome: number, totalExpense: number) {
+  if (totalExpense > totalIncome) {
+    return 'Gaya hidup sultan, pemasukan rakyat jelata. Konsisten... bikin minus.';
+  }
+  return 'Keuangan aman sih... tapi bukan karena hemat, kayaknya karena belum sempet boros aja.';
+}
 
 export async function GET(request: NextRequest) {
   try {
-    const token = extractTokenFromHeader(request.headers.get('Authorization') || '');
+    // =====================
+    // AUTH
+    // =====================
+    const token = extractTokenFromHeader(
+      request.headers.get('Authorization') || ''
+    );
+
     if (!token) {
-      return NextResponse.json({ success: false, message: 'No token provided' }, { status: 401 });
+      return NextResponse.json(
+        { success: false, message: 'No token provided' },
+        { status: 401 }
+      );
     }
 
     const decoded = verifyToken(token);
     if (!decoded) {
-      return NextResponse.json({ success: false, message: 'Invalid token' }, { status: 401 });
+      return NextResponse.json(
+        { success: false, message: 'Invalid token' },
+        { status: 401 }
+      );
     }
 
+    // =====================
+    // USER
+    // =====================
     const user = await prisma.user.findUnique({
       where: { id: decoded.userId },
-      include: {
-        pockets: true,
-      },
+      include: { pockets: true },
     });
 
     if (!user) {
-      return NextResponse.json({ success: false, message: 'User not found' }, { status: 404 });
+      return NextResponse.json(
+        { success: false, message: 'User not found' },
+        { status: 404 }
+      );
     }
 
-    // Get last 7 days transactions
+    // =====================
+    // TRANSACTIONS (7 DAYS)
+    // =====================
     const sevenDaysAgo = new Date();
     sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
 
@@ -41,81 +121,98 @@ export async function GET(request: NextRequest) {
       orderBy: { date: 'asc' },
     });
 
-    if (transactions.length === 0) {
+    if (!transactions.length) {
       return NextResponse.json({
         success: true,
-        data: { message: "Wah, 7 hari terakhir kamu belum catat pengeluaran apa-apa. Takut ketahuan miskin atau emang rajin puasa?" }
+        data: {
+          message:
+            '7 hari terakhir kosong. Antara disiplin... atau denial finansial 😌',
+        },
       });
     }
 
-    // Prepare data for AI
+    // =====================
+    // AGGREGATION
+    // =====================
     let totalExpense = 0;
     let totalIncome = 0;
-    const expenseList = transactions
-      .filter((t) => t.type === 'EXPENSE')
-      .map((t) => {
-        totalExpense += Number(t.amount);
-        return `- ${t.category?.name || 'Lainnya'} (${t.category?.type === 'WANT' ? 'Keinginan' : 'Kebutuhan'}): Rp ${t.amount}`;
-      });
 
-    transactions
-      .filter((t) => t.type.startsWith('INCOME'))
-      .forEach((t) => {
-        totalIncome += Number(t.amount);
-      });
+    const expenseList: string[] = [];
 
-    const mainWallet = user.pockets.find(p => p.type === 'MAIN');
-    
-    const tones = [
-      'lucu dan menghibur',
-      'pedes dan nyelekit',
-      'sarcastic dan menyindir',
-      'dark humor tapi ngakak',
-      'cerita kocak tapi dalam',
-    ];
-    
-    const randomTone = tones[Math.floor(Math.random() * tones.length)];
-    
-    const prompt = `
-Sebagai asisten keuangan yang julid dan blak-blakan, berikan roasting ${randomTone} tentang perilaku keuangan orang ini.
+    for (const t of transactions) {
+      const amount = Number(t.amount);
 
-PENTING: Roasting HANYA 2-3 baris! Singkat, padat, dan mengena!
-Bahasanya santai, kekinian, harus nyelekit tapi tetap relevan dengan kondisi finansialnya.
+      if (t.type === 'EXPENSE') {
+        totalExpense += amount;
 
-Data Keuangan 7 Hari Terakhir:
-- Pemasukan: Rp ${totalIncome}
-- Pengeluaran: Rp ${totalExpense}
-- Sisa Saldo Dompet Utama: Rp ${mainWallet?.balance.toString() || 0}
+        expenseList.push(
+          `- ${t.category?.name || 'Lainnya'} (${t.category?.type === 'WANT' ? 'Keinginan' : 'Kebutuhan'}): Rp ${amount}`
+        );
+      }
 
-Rincian Pengeluaran:
-${expenseList.join('\n')}
-
-Tulis roasting singkat (2-3 baris) sekarang, jangan panjang!
-`;
-
-    // Try to get response from Gemini
-    try {
-      const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
-      const result = await model.generateContent(prompt);
-      const response = await result.response;
-      const text = response.text();
-
-      return NextResponse.json({
-        success: true,
-        data: { message: text }
-      });
-    } catch (aiError) {
-      console.error('AI API Error:', aiError);
-      return NextResponse.json({
-        success: true,
-        data: { message: "API AI lagi ngambek atau key-nya belum diset. Yang pasti, jangan boros hari ini!" }
-      });
+      if (t.type.startsWith('INCOME')) {
+        totalIncome += amount;
+      }
     }
 
+    const mainWallet = user.pockets.find((p) => p.type === 'MAIN');
+    const balance = Number(mainWallet?.balance || 0);
+
+    // =====================
+    // PROMPT
+    // =====================
+    const randomTone = TONES[Math.floor(Math.random() * TONES.length)];
+
+    const prompt = buildRoastPrompt({
+      totalIncome,
+      totalExpense,
+      balance,
+      expenses: expenseList,
+      tone: randomTone,
+    });
+
+    // =====================
+    // AI CALL
+    // =====================
+    try {
+      const model = genAI.getGenerativeModel({
+        model: 'gemini-2.5-flash',
+      });
+
+      const result = await model.generateContent(prompt);
+      const response = await result.response;
+      let text = response.text().trim();
+
+      // clean weird formatting
+      text = text.replace(/^["']|["']$/g, '');
+
+      if (!text || text.length < 10) {
+        throw new Error('AI returned weak response');
+      }
+
+      return NextResponse.json({
+        success: true,
+        data: { message: text },
+      });
+    } catch (aiError) {
+      console.error('AI ERROR:', aiError);
+
+      return NextResponse.json({
+        success: true,
+        data: {
+          message: fallbackRoast(totalIncome, totalExpense),
+        },
+      });
+    }
   } catch (error) {
-    console.error('AI Roaster error:', error);
+    console.error('ROAST ERROR:', error);
+
     return NextResponse.json(
-      { success: false, message: 'Failed to generate roast', error: String(error) },
+      {
+        success: false,
+        message: 'Failed to generate roast',
+        error: String(error),
+      },
       { status: 500 }
     );
   }

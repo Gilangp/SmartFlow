@@ -13,27 +13,13 @@ function formatCurrency(amount: number): string {
 }
 
 function formatCurrencyFull(amount: number): string {
-  return `Rp ${amount.toLocaleString('id-ID', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  return `Rp ${amount.toLocaleString('id-ID', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
 }
 
-const pocketIcons: Record<string, string> = {
-  MAIN: '💳',
-  EMERGENCY: '🛡️',
-  SAVINGS: '📈',
-  WISHLIST: '🎯',
-};
-
-const pocketGradients: Record<string, string> = {
-  MAIN: 'pocket-main',
-  EMERGENCY: 'pocket-emergency',
-  SAVINGS: 'pocket-savings',
-  WISHLIST: 'pocket-wishlist',
-};
-
 const statusConfig = {
-  GREEN: { color: 'text-emerald-400', bg: 'bg-emerald-500', label: 'Aman', emoji: '✅', ring: 'ring-emerald-500/30' },
-  YELLOW: { color: 'text-amber-400', bg: 'bg-amber-500', label: 'Hati-hati', emoji: '⚠️', ring: 'ring-amber-500/30' },
-  RED: { color: 'text-rose-400', bg: 'bg-rose-500', label: 'Overbudget!', emoji: '🚨', ring: 'ring-rose-500/30' },
+  GREEN: { label: 'Aman', progressColor: 'bg-emerald-500' },
+  YELLOW: { label: 'Hati-hati', progressColor: 'bg-amber-500' },
+  RED: { label: 'Overbudget', progressColor: 'bg-rose-500' },
 };
 
 export default function DashboardPage() {
@@ -86,7 +72,7 @@ export default function DashboardPage() {
 
   useEffect(() => {
     fetchDashboard();
-    // Auto-fetch AI roast on page load
+    
     const fetchAutoRoast = async () => {
       const token = getToken();
       if (!token) return;
@@ -97,9 +83,8 @@ export default function DashboardPage() {
         });
         const data = await res.json();
         if (data.success) setAiRoast(data.data.message);
-        else setAiRoast('AI lagi istirahat. Coba lagi nanti! 😴');
       } catch {
-        setAiRoast('Gagal memuat AI Roaster. Periksa koneksi kamu.');
+        // Silent fail
       } finally {
         setAiLoading(false);
       }
@@ -117,9 +102,8 @@ export default function DashboardPage() {
       });
       const data = await res.json();
       if (data.success) setAiRoast(data.data.message);
-      else setAiRoast('AI lagi istirahat. Coba lagi nanti! 😴');
     } catch {
-      setAiRoast('Gagal memuat AI Roaster. Periksa koneksi kamu.');
+      // Silent fail
     } finally {
       setAiLoading(false);
     }
@@ -127,10 +111,10 @@ export default function DashboardPage() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-surface-950 flex items-center justify-center">
+      <div className="min-h-screen bg-white dark:bg-gray-950 flex items-center justify-center">
         <div className="text-center">
-          <div className="w-12 h-12 border-2 border-primary-500 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-          <p className="text-slate-400 text-sm">Memuat dashboard...</p>
+          <div className="w-8 h-8 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin mx-auto mb-3" />
+          <p className="text-gray-400 text-sm">Memuat dashboard...</p>
         </div>
       </div>
     );
@@ -140,126 +124,113 @@ export default function DashboardPage() {
 
   const { dailyMetrics, user, recentTransactions } = dashboard;
   const status = statusConfig[dailyMetrics.status];
-  const pocketSummary = dailyMetrics.pocketSummary;
+  const progressPercent = Math.min(dailyMetrics.percentageUsed, 100);
 
   const todayStr = new Date().toLocaleDateString('id-ID', {
     weekday: 'long',
     day: 'numeric',
     month: 'long',
-    year: 'numeric',
   });
 
   return (
-    <div className="page-shell">
+    <div className="min-h-screen bg-white dark:bg-gray-950 pb-20">
       {/* Header */}
-      <header className="page-header">
-        <div className="max-w-2xl mx-auto px-4 py-4 flex items-center justify-between">
-          <div>
-            <p className="text-xs text-slate-400 dark:text-slate-500">{todayStr}</p>
-            <h1 className="text-lg font-bold text-surface-900 dark:text-white">
-              Hei, {user.name.split(' ')[0]}! 👋
-            </h1>
-          </div>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={toggleTheme}
-              className="w-9 h-9 rounded-xl bg-surface-100 dark:bg-surface-800 flex items-center justify-center text-surface-600 dark:text-slate-300 hover:bg-surface-200 dark:hover:bg-surface-700 transition-all"
-              aria-label="Toggle theme"
-            >
-              {theme === 'dark' ? '☀️' : '🌙'}
-            </button>
+      <header className="sticky top-0 z-40 bg-white/80 dark:bg-gray-950/80 backdrop-blur-xl border-b border-gray-100 dark:border-gray-800">
+        <div className="max-w-2xl mx-auto px-5 py-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-xs text-gray-400 dark:text-gray-600">{todayStr}</p>
+              <h1 className="text-xl font-semibold text-gray-900 dark:text-white">
+                Hai, {user.name.split(' ')[0]}
+              </h1>
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={toggleTheme}
+                className="w-9 h-9 rounded-xl bg-gray-100 dark:bg-gray-800 flex items-center justify-center text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700 transition-all"
+                aria-label="Toggle theme"
+              >
+                {theme === 'dark' ? '☀️' : '🌙'}
+              </button>
+              <button
+                onClick={fetchAiRoast}
+                disabled={aiLoading}
+                className="px-4 py-2 rounded-xl bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 text-sm font-medium transition-all hover:bg-indigo-100 dark:hover:bg-indigo-500/20 disabled:opacity-50"
+              >
+                {aiLoading ? (
+                  <span className="flex items-center gap-2">
+                    <span className="w-3 h-3 border border-indigo-600 border-t-transparent rounded-full animate-spin" />
+                    Memuat
+                  </span>
+                ) : (
+                  'Roast AI'
+                )}
+              </button>
+            </div>
           </div>
         </div>
       </header>
 
-      <main className="page-content space-y-5">
-        {/* ── AI Financial Roaster ──────────────────── */}
-        <section className="card p-5">
-          <div className="flex items-center justify-between mb-3">
-            <div className="flex items-center gap-2">
-              <div className="w-8 h-8 bg-gradient-to-br from-accent-500 to-rose-500 rounded-lg flex items-center justify-center text-sm">
-                🤖
+      <main className="max-w-2xl mx-auto px-5 py-6 space-y-6">
+        {/* AI Roast Card */}
+        {aiRoast && (
+          <div className="bg-indigo-50 dark:bg-indigo-500/5 rounded-2xl p-5 border-l-4 border-indigo-500">
+            <div className="flex items-start gap-3">
+              <div className="w-8 h-8 rounded-full bg-indigo-100 dark:bg-indigo-500/20 flex items-center justify-center flex-shrink-0 mt-0.5">
+                <span className="text-indigo-600 dark:text-indigo-400 text-sm font-bold">AI</span>
               </div>
               <div>
-                <h2 className="text-sm font-bold text-surface-900 dark:text-white">AI Financial Roaster</h2>
-                <p className="text-xs text-slate-400">Analisis jujur kebiasaan belanjamu</p>
+                <p className="text-xs text-indigo-500 dark:text-indigo-400 font-medium mb-1">AI Financial Roaster</p>
+                <p className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed">
+                  "{aiRoast}"
+                </p>
               </div>
             </div>
-            <button
-              id="btn-ai-roast"
-              onClick={fetchAiRoast}
-              disabled={aiLoading}
-              className="px-3 py-1.5 bg-accent-600/10 hover:bg-accent-600/20 text-accent-500 rounded-lg text-xs font-semibold transition-all disabled:opacity-50"
-            >
-              {aiLoading ? 'Loading...' : 'Roast Me!'}
-            </button>
           </div>
-          <div className="min-h-[60px] flex items-center">
-            {aiLoading ? (
-              <div className="flex items-center gap-2 text-sm text-slate-400">
-                <div className="w-4 h-4 border border-accent-500 border-t-transparent rounded-full animate-spin" />
-                AI sedang menganalisis pola belanjamu...
-              </div>
-            ) : aiRoast ? (
-              <p className="text-sm text-surface-700 dark:text-slate-300 leading-relaxed italic">
-                "{aiRoast}"
-              </p>
-            ) : (
-              <p className="text-sm text-slate-400 leading-relaxed">
-                Klik <strong className="text-accent-400">Roast Me!</strong> untuk mendapatkan analisis AI tentang kebiasaan belanjamu 7 hari terakhir. Siap-siap kena semprot! 🌶️
-              </p>
-            )}
-          </div>
-        </section>
+        )}
 
-        {/* ── Daily Allowance Hero Card ─────────────── */}
-        <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-primary-600 via-primary-700 to-accent-700 p-6 text-white shadow-2xl glow-primary">
-          {/* Background pattern */}
-          <div className="absolute inset-0 opacity-10">
-            <div className="absolute top-0 right-0 w-64 h-64 rounded-full bg-white blur-3xl transform translate-x-1/2 -translate-y-1/2" />
-            <div className="absolute bottom-0 left-0 w-40 h-40 rounded-full bg-white blur-2xl transform -translate-x-1/2 translate-y-1/2" />
-          </div>
-
+        {/* Daily Allowance Card */}
+        <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-indigo-600 via-indigo-700 to-indigo-800 p-6 shadow-xl">
+          <div className="absolute top-0 right-0 w-40 h-40 bg-white/5 rounded-full blur-3xl" />
+          <div className="absolute bottom-0 left-0 w-40 h-40 bg-indigo-400/10 rounded-full blur-3xl" />
+          
           <div className="relative z-10">
-            <div className="flex justify-between items-start mb-4">
+            <div className="flex justify-between items-start mb-6">
               <div>
-                <p className="text-primary-200 text-xs font-medium uppercase tracking-wider mb-1">Jatah Boleh Jajan Hari Ini</p>
-                <div className="text-4xl font-black tabular-nums animate-fade-in">
+                <p className="text-indigo-200 text-xs font-medium tracking-wide mb-1">
+                  Jatah Hari Ini
+                </p>
+                <p className="text-3xl font-bold text-white tracking-tight">
                   {formatCurrencyFull(dailyMetrics.dailyAllowance)}
-                </div>
+                </p>
               </div>
-              <div className={`px-3 py-1.5 rounded-xl bg-white/15 backdrop-blur-sm border border-white/20 flex items-center gap-1.5`}>
-                <span className="text-sm">{status.emoji}</span>
-                <span className="text-xs font-bold">{status.label}</span>
+              <div className="px-3 py-1.5 rounded-full bg-white/10 backdrop-blur-sm border border-white/20">
+                <span className="text-xs font-medium text-white">{status.label}</span>
               </div>
             </div>
 
-            {/* Progress bar */}
-            <div className="mb-4">
-              <div className="flex justify-between text-xs text-primary-200 mb-1.5">
-                <span>Terpakai hari ini</span>
-                <span className="font-semibold">{Math.round(dailyMetrics.percentageUsed)}%</span>
+            {/* Progress Bar */}
+            <div className="space-y-2 mb-5">
+              <div className="flex justify-between text-xs">
+                <span className="text-indigo-200">Penggunaan hari ini</span>
+                <span className="text-white font-medium">{Math.round(progressPercent)}%</span>
               </div>
-              <div className="h-2.5 bg-white/20 rounded-full overflow-hidden">
+              <div className="h-2 bg-white/20 rounded-full overflow-hidden">
                 <div
-                  className={`h-full rounded-full transition-all duration-700 ${
-                    dailyMetrics.status === 'RED' ? 'bg-rose-400' :
-                    dailyMetrics.status === 'YELLOW' ? 'bg-amber-400' :
-                    'bg-emerald-400'
-                  }`}
-                  style={{ width: `${Math.min(dailyMetrics.percentageUsed, 100)}%` }}
+                  className={`h-full rounded-full transition-all duration-500 ease-out ${status.progressColor}`}
+                  style={{ width: `${progressPercent}%` }}
                 />
               </div>
             </div>
 
             <div className="grid grid-cols-2 gap-3">
-              <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-3 border border-white/10">
-                <p className="text-primary-200 text-xs mb-0.5">Sudah terpakai</p>
-                <p className="font-bold tabular-nums">{formatCurrency(dailyMetrics.totalSpent)}</p>
+              <div className="bg-white/10 rounded-xl p-3">
+                <p className="text-indigo-200 text-xs mb-0.5">Terpakai</p>
+                <p className="text-white font-semibold">{formatCurrency(dailyMetrics.totalSpent)}</p>
               </div>
-              <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-3 border border-white/10">
-                <p className="text-primary-200 text-xs mb-0.5">Sisa hari ini</p>
-                <p className={`font-bold tabular-nums ${dailyMetrics.remaining < 0 ? 'text-rose-300' : ''}`}>
+              <div className="bg-white/10 rounded-xl p-3">
+                <p className="text-indigo-200 text-xs mb-0.5">Sisa</p>
+                <p className="text-white font-semibold">
                   {dailyMetrics.remaining < 0 ? '-' : ''}{formatCurrency(Math.abs(dailyMetrics.remaining))}
                 </p>
               </div>
@@ -267,100 +238,117 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* ── Quick Action FAB ───────────────────────── */}
+        {/* Add Transaction Button */}
         <button
-          id="btn-add-transaction"
           onClick={() => setShowAddModal(true)}
-          className="w-full py-4 bg-gradient-to-r from-primary-600 to-accent-600 hover:from-primary-500 hover:to-accent-500 text-white rounded-2xl font-bold text-sm shadow-xl hover:shadow-glow-primary transition-all duration-200 active:scale-95 flex items-center justify-center gap-2"
+          className="w-full py-3.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-medium text-sm shadow-lg shadow-indigo-600/20 transition-all active:scale-[0.98]"
         >
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 4v16m8-8H4" />
-          </svg>
-          Tambah Transaksi
+          + Catat Transaksi
         </button>
 
-        {/* ── 4 Pocket Summary ──────────────────────── */}
+        {/* Pocket Cards */}
         <section>
-          <div className="flex items-center justify-between mb-3">
-            <h2 className="text-base font-bold text-surface-900 dark:text-white">Kantong Finansial</h2>
-            <button onClick={() => router.push('/pockets')} className="text-xs text-primary-500 font-medium hover:text-primary-400">
-              Lihat semua →
+          <div className="flex items-baseline justify-between mb-4">
+            <h2 className="text-base font-semibold text-gray-900 dark:text-white">
+              Kantong
+            </h2>
+            <button 
+              onClick={() => router.push('/pockets')}
+              className="text-xs text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition"
+            >
+              Lihat semua
             </button>
           </div>
+          
           <div className="grid grid-cols-2 gap-3">
-            {pocketSummary.map((pocket) => (
+            {dailyMetrics.pocketSummary.map((pocket) => (
               <div
                 key={pocket.id}
-                className={`${pocketGradients[pocket.type]} rounded-2xl p-4 text-white relative overflow-hidden cursor-pointer hover:scale-[1.02] transition-transform shadow-lg`}
                 onClick={() => router.push('/pockets')}
+                className="bg-gray-50 dark:bg-gray-900 rounded-xl p-4 cursor-pointer transition-all hover:bg-gray-100 dark:hover:bg-gray-800 active:scale-[0.98]"
               >
-                <div className="absolute top-0 right-0 w-20 h-20 bg-white/10 rounded-full transform translate-x-6 -translate-y-6" />
-                <div className="relative z-10">
-                  <div className="text-xl mb-1">{pocketIcons[pocket.type]}</div>
-                  <p className="text-white/70 text-xs font-medium mb-0.5">{pocket.name}</p>
-                  <p className="text-lg font-black tabular-nums leading-tight">
-                    {formatCurrency(pocket.balance)}
-                  </p>
-                  {pocket.targetAmount && (
-                    <div className="mt-2">
-                      <div className="h-1 bg-white/20 rounded-full overflow-hidden">
-                        <div
-                          className="h-full bg-white/70 rounded-full transition-all"
-                          style={{ width: `${Math.min(pocket.progressPercentage || 0, 100)}%` }}
-                        />
-                      </div>
-                      <p className="text-white/60 text-xs mt-1">
-                        {(pocket.progressPercentage || 0).toFixed(0)}% dari target
-                      </p>
-                    </div>
-                  )}
+                <div className="flex items-start justify-between mb-2">
+                  <span className="text-xs font-medium text-gray-500 dark:text-gray-500 uppercase tracking-wide">
+                    {pocket.name}
+                  </span>
                 </div>
+                <p className="text-xl font-semibold text-gray-900 dark:text-white mb-2">
+                  {formatCurrency(pocket.balance)}
+                </p>
+                {pocket.targetAmount && (
+                  <div className="space-y-1">
+                    <div className="h-1 bg-gray-200 dark:bg-gray-800 rounded-full overflow-hidden">
+                      <div
+                        className="h-full bg-indigo-500 rounded-full transition-all"
+                        style={{ width: `${Math.min(pocket.progressPercentage || 0, 100)}%` }}
+                      />
+                    </div>
+                    <p className="text-[11px] text-gray-400">
+                      {Math.round(pocket.progressPercentage || 0)}% dari target
+                    </p>
+                  </div>
+                )}
               </div>
             ))}
           </div>
         </section>
 
-        {/* ── Recent Transactions ───────────────────── */}
+        {/* Recent Transactions */}
         <section>
-          <div className="flex items-center justify-between mb-3">
-            <h2 className="text-base font-bold text-surface-900 dark:text-white">Transaksi Terakhir</h2>
-            <button onClick={() => router.push('/transactions')} className="text-xs text-primary-500 font-medium hover:text-primary-400">
-              Lihat semua →
+          <div className="flex items-baseline justify-between mb-4">
+            <h2 className="text-base font-semibold text-gray-900 dark:text-white">
+              Transaksi Terbaru
+            </h2>
+            <button 
+              onClick={() => router.push('/transactions')}
+              className="text-xs text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition"
+            >
+              Lihat semua
             </button>
           </div>
-          <div className="card divide-y divide-surface-100 dark:divide-surface-700/50 overflow-hidden">
+
+          <div className="space-y-2">
             {recentTransactions.length === 0 ? (
-              <div className="p-8 text-center">
-                <div className="text-4xl mb-2">📭</div>
-                <p className="text-sm text-slate-400">Belum ada transaksi</p>
-                <p className="text-xs text-slate-500 mt-1">Mulai catat pengeluaran pertamamu!</p>
+              <div className="bg-gray-50 dark:bg-gray-900 rounded-xl p-8 text-center">
+                <p className="text-sm text-gray-400">Belum ada transaksi</p>
+                <p className="text-xs text-gray-400 mt-1">Mulai catat pengeluaran pertamamu</p>
               </div>
             ) : (
               recentTransactions.slice(0, 5).map((tx) => (
-                <div key={tx.id} className="flex items-center gap-3 p-4 hover:bg-surface-50 dark:hover:bg-surface-700/30 transition-colors">
-                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-lg flex-shrink-0 ${
-                    tx.type === 'EXPENSE' ? 'bg-rose-100 dark:bg-rose-900/30' : 'bg-emerald-100 dark:bg-emerald-900/30'
+                <div
+                  key={tx.id}
+                  className="group flex items-center gap-3 p-3 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-900 transition-colors cursor-pointer"
+                  onClick={() => router.push(`/transactions/${tx.id}`)}
+                >
+                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${
+                    tx.type === 'EXPENSE' 
+                      ? 'bg-rose-50 dark:bg-rose-500/10' 
+                      : 'bg-emerald-50 dark:bg-emerald-500/10'
                   }`}>
-                    {tx.type === 'EXPENSE' ? '💸' : tx.type === 'INCOME_BONUS' ? '🎁' : '💰'}
+                    <span className={`text-base ${
+                      tx.type === 'EXPENSE' 
+                        ? 'text-rose-500' 
+                        : 'text-emerald-500'
+                    }`}>
+                      {tx.type === 'EXPENSE' ? '↓' : '↑'}
+                    </span>
                   </div>
+                  
                   <div className="flex-1 min-w-0">
-                    <p className="font-medium text-sm text-surface-900 dark:text-white truncate">
+                    <p className="font-medium text-sm text-gray-900 dark:text-white truncate">
                       {tx.category || (tx.type === 'EXPENSE' ? 'Pengeluaran' : 'Pemasukan')}
                     </p>
-                    <p className="text-xs text-slate-400 flex items-center gap-1">
+                    <div className="flex items-center gap-1 text-xs text-gray-400">
                       <span>{tx.pocket}</span>
                       <span>•</span>
                       <span>{new Date(tx.date).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' })}</span>
-                      {tx.categoryType && (
-                        <>
-                          <span>•</span>
-                          <span className={tx.categoryType === 'NEED' ? 'text-primary-500' : 'text-accent-400'}>{tx.categoryType}</span>
-                        </>
-                      )}
-                    </p>
+                    </div>
                   </div>
-                  <p className={`font-bold text-sm tabular-nums flex-shrink-0 ${
-                    tx.type.startsWith('INCOME') ? 'text-emerald-500' : 'text-rose-500'
+                  
+                  <p className={`font-medium text-sm flex-shrink-0 ${
+                    tx.type.startsWith('INCOME') 
+                      ? 'text-emerald-600 dark:text-emerald-400' 
+                      : 'text-rose-600 dark:text-rose-400'
                   }`}>
                     {tx.type.startsWith('INCOME') ? '+' : '-'}{formatCurrency(tx.amount)}
                   </p>
@@ -372,12 +360,14 @@ export default function DashboardPage() {
       </main>
 
       <BottomNav />
+      
       {showAddModal && (
         <AddTransactionModal
           onClose={() => setShowAddModal(false)}
           onSuccess={() => {
             setShowAddModal(false);
             fetchDashboard();
+            fetchAiRoast();
           }}
         />
       )}

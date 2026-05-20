@@ -3,42 +3,58 @@ import { prisma } from '@/lib/db';
 import { comparePasswords, generateToken } from '@/lib/auth';
 import { LoginRequest, AuthResponse } from '@/types';
 
-export async function POST(request: NextRequest): Promise<NextResponse<AuthResponse>> {
+// 🔹 Helper: standardized response
+function errorResponse(message: string, status: number) {
+  return NextResponse.json(
+    { success: false, message },
+    { status }
+  );
+}
+
+export async function POST(
+  request: NextRequest
+): Promise<NextResponse<AuthResponse>> {
   try {
+    // 🔹 Parse body
     const body: LoginRequest = await request.json();
     const { email, password } = body;
 
+    // 🔹 Basic validation
     if (!email || !password) {
-      return NextResponse.json(
-        { success: false, message: 'Email and password are required' },
-        { status: 400 }
-      );
+      return errorResponse('Email and password are required', 400);
     }
 
-    // Find user
+    // 🔹 Normalize email (IMPORTANT)
+    const normalizedEmail = email.toLowerCase().trim();
+
+    // 🔹 Find user
     const user = await prisma.user.findUnique({
-      where: { email },
+      where: { email: normalizedEmail },
     });
 
+    // 🔥 Jangan kasih tau mana yang salah (security)
     if (!user) {
-      return NextResponse.json(
-        { success: false, message: 'Invalid email or password' },
-        { status: 401 }
-      );
+      return errorResponse('Invalid email or password', 401);
     }
 
-    // Compare passwords
-    const isValidPassword = await comparePasswords(password, user.password);
+    // 🔹 Compare password
+    const isValidPassword = await comparePasswords(
+      password,
+      user.password
+    );
 
     if (!isValidPassword) {
-      return NextResponse.json(
-        { success: false, message: 'Invalid email or password' },
-        { status: 401 }
-      );
+      return errorResponse('Invalid email or password', 401);
     }
 
-    // Generate token
+    // 🔹 Generate token
     const token = generateToken(user.id, user.email);
+
+    // 🔹 Optional: last login update (good practice)
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { lastLoginAt: new Date() },
+    });
 
     return NextResponse.json({
       success: true,
@@ -54,8 +70,12 @@ export async function POST(request: NextRequest): Promise<NextResponse<AuthRespo
     });
   } catch (error) {
     console.error('Login error:', error);
+
     return NextResponse.json(
-      { success: false, message: 'Login failed', error: String(error) },
+      {
+        success: false,
+        message: 'Internal server error',
+      },
       { status: 500 }
     );
   }

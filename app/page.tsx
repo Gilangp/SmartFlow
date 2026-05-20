@@ -1,218 +1,645 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 
 export default function Home() {
   const [mounted, setMounted] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [showBackToTop, setShowBackToTop] = useState(false);
+  const [openFaq, setOpenFaq] = useState<number | null>(null);
+  const [activeNav, setActiveNav] = useState('beranda');
 
   useEffect(() => {
     setMounted(true);
   }, []);
 
-  return (
-    <div className="min-h-screen bg-gradient-to-br from-surface-950 via-surface-900 to-surface-950 overflow-hidden relative">
-      {/* Animated gradient background - optimized */}
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute -top-40 -right-40 w-96 h-96 bg-primary-500/20 rounded-full blur-3xl animate-pulse-slow" />
-        <div className="absolute -bottom-40 -left-40 w-96 h-96 bg-accent-500/20 rounded-full blur-3xl animate-pulse-slow" style={{ animationDelay: '1s' }} />
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-primary-500/5 rounded-full blur-3xl" />
-        
-        {/* Enhanced grid pattern */}
-        <div 
-          className="absolute inset-0 opacity-[0.02]"
-          style={{
-            backgroundImage: `
-              linear-gradient(rgba(255,255,255,0.3) 1px, transparent 1px),
-              linear-gradient(90deg, rgba(255,255,255,0.3) 1px, transparent 1px)
-            `,
-            backgroundSize: '60px 60px'
-          }}
-        />
-        
-        {/* Subtle radial gradient overlay */}
-        <div className="absolute inset-0 bg-gradient-radial from-transparent via-surface-950/20 to-surface-950" />
+  useEffect(() => {
+    const handleScroll = () => {
+      setShowBackToTop(window.scrollY > 300);
+      
+      const sections = ['beranda', 'fitur', 'cara-kerja', 'testimoni'];
+      const scrollPos = window.scrollY + 100;
+      
+      for (const section of sections) {
+        const element = document.getElementById(section);
+        if (element) {
+          const { offsetTop, offsetHeight } = element;
+          if (scrollPos >= offsetTop && scrollPos < offsetTop + offsetHeight) {
+            setActiveNav(section);
+            break;
+          }
+        }
+      }
+    };
+    
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
+
+  const scrollToSection = useCallback((sectionId: string) => {
+    const element = document.getElementById(sectionId);
+    if (element) {
+      element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      setMobileMenuOpen(false);
+    }
+  }, []);
+
+  const features = [
+    {
+      icon: '📊',
+      title: 'Jatah Harian Otomatis',
+      description: 'Sistem membagi penghasilan dengan sisa hari dalam bulan. Fokus ke batas harian, bukan total saldo.',
+      metric: 'Update real-time'
+    },
+    {
+      icon: '🤖',
+      title: 'AI Pintar',
+      description: 'Cukup ketik "makan siang 25rb", AI otomatis mengisi kategori. Cepat dan praktis.',
+      metric: 'Natural Language'
+    },
+    {
+      icon: '👛',
+      title: '4 Kantong Keuangan',
+      description: 'Main, Darurat, Tabungan, Wishlist. Masing-masing punya aturan berbeda.',
+      metric: 'Smart allocation'
+    }
+  ];
+
+  const steps = [
+    { number: '01', title: 'Daftar Akun', description: 'Gunakan email kampus atau upload KTM. Verifikasi cepat.', duration: '2 menit' },
+    { number: '02', title: 'Atur Penghasilan', description: 'Masukkan pemasukan bulanan, atur tanggal gajian.', duration: '1 menit' },
+    { number: '03', title: 'Mulai Hemat', description: 'Catat transaksi dan ikuti jatah harianmu.', duration: '30 detik/hari' }
+  ];
+
+  const testimonials = [
+    {
+      name: 'Andi Wijaya',
+      role: 'Teknik Informatika, UGM',
+      quote: 'Dulu selalu boncos akhir bulan. Sekarang pakai SmartFlow, 3 bulan nabung 40% lebih banyak.',
+      rating: 5
+    },
+    {
+      name: 'Sari Dewi',
+      role: 'Manajemen, UI',
+      quote: 'Sistem jatah harian bikin sadar pengeluaran. Gak pernah lagi panik akhir bulan.',
+      rating: 5
+    },
+    {
+      name: 'Rizki Pratama',
+      role: 'Kedokteran, UNAIR',
+      quote: 'Input pakai AI super praktis. Sekarang malah rajin catat pengeluaran.',
+      rating: 5
+    }
+  ];
+
+  const faqs = [
+    { 
+      q: 'Apa itu sistem jatah harian?', 
+      a: 'Kami membagi total penghasilanmu dengan sisa hari dalam bulan. Hasilnya adalah batas maksimal yang bisa kamu habiskan hari ini. Ini lebih realistis daripada lihat total saldo.' 
+    },
+    { 
+      q: 'Apakah data keuanganku aman?', 
+      a: 'Sangat aman. Kami menggunakan enkripsi end-to-end dan tidak menyimpan data sensitif. Data hanya bisa diakses oleh kamu sendiri.' 
+    },
+    { 
+      q: 'Bagaimana cara verifikasi mahasiswa?', 
+      a: 'Cukup gunakan email kampus (.ac.id) atau upload foto KTM. Proses verifikasi otomatis kurang dari 5 menit.' 
+    },
+    { 
+      q: 'Apakah benar-benar gratis?', 
+      a: 'Ya, 100% gratis untuk mahasiswa Indonesia. Tidak ada biaya tersembunyi atau iklan.' 
+    }
+  ];
+
+  const packages = [
+    {
+      name: 'Trial',
+      price: 'Gratis',
+      period: '14 hari',
+      description: 'Coba semua fitur tanpa ribet',
+      features: [
+        'Semua fitur lengkap',
+        'AI Financial Assistant',
+        'Input pakai bahasa sehari-hari',
+        '4 Kantong + progress tracking'
+      ],
+      popular: false,
+      buttonText: 'Coba Gratis',
+      buttonVariant: 'outline'
+    },
+    {
+      name: 'Student',
+      price: 'Rp 0',
+      period: 'selamanya',
+      description: 'Untuk mahasiswa terverifikasi',
+      features: [
+        'Semua fitur lengkap',
+        'AI Financial Assistant',
+        'Input pakai bahasa sehari-hari',
+        '4 Kantong + progress tracking',
+        'Verifikasi mahasiswa'
+      ],
+      popular: true,
+      buttonText: 'Daftar Sekarang',
+      buttonVariant: 'primary'
+    },
+    {
+      name: 'Premium',
+      price: 'Rp 49.000',
+      period: 'bulan',
+      description: 'Untuk profesional muda',
+      features: [
+        'Semua fitur Student',
+        'Export data ke Excel',
+        'Prioritas support 24/7',
+        'Analisis mendalam',
+        'Tanpa batasan transaksi'
+      ],
+      popular: false,
+      buttonText: 'Langganan',
+      buttonVariant: 'outline'
+    }
+  ];
+
+  if (!mounted) {
+    return (
+      <div className="min-h-screen bg-white flex items-center justify-center">
+        <div className="w-10 h-10 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
       </div>
+    );
+  }
 
-      <div className="relative z-10 flex flex-col min-h-screen">
-        {/* Navbar - better spacing */}
-        <nav className="flex items-center justify-between px-6 py-5 max-w-7xl mx-auto w-full">
-          <Link href="/" className="flex items-center gap-2 group cursor-pointer">
-            <div className="w-9 h-9 bg-gradient-to-br from-primary-500 to-accent-500 rounded-xl flex items-center justify-center shadow-lg transition-transform group-hover:scale-105">
-              <span className="text-white text-sm font-bold">SF</span>
+  return (
+    <div className="min-h-screen bg-white">
+      {/* Navigation */}
+      <nav className="fixed top-0 left-0 right-0 z-50 bg-white/95 backdrop-blur-md border-b border-gray-100">
+        <div className="max-w-6xl mx-auto px-4">
+          <div className="flex justify-between items-center h-14 sm:h-16">
+            {/* Logo */}
+            <button 
+              onClick={() => scrollToSection('beranda')}
+              className="flex items-center gap-2"
+            >
+              <div className="w-7 h-7 sm:w-8 sm:h-8 bg-indigo-600 rounded-lg flex items-center justify-center">
+                <span className="text-white font-bold text-xs sm:text-sm">SF</span>
+              </div>
+              <span className="font-bold text-lg sm:text-xl text-gray-900">SmartFlow</span>
+            </button>
+
+            {/* Desktop Navigation */}
+            <div className="hidden md:flex items-center gap-6">
+              {[
+                { id: 'fitur', label: 'Fitur' },
+                { id: 'cara-kerja', label: 'Cara Kerja' },
+                { id: 'testimoni', label: 'Testimoni' }
+              ].map((item) => (
+                <button
+                  key={item.id}
+                  onClick={() => scrollToSection(item.id)}
+                  className={`text-sm transition ${
+                    activeNav === item.id 
+                      ? 'text-indigo-600 font-semibold' 
+                      : 'text-gray-600 hover:text-gray-900'
+                  }`}
+                >
+                  {item.label}
+                </button>
+              ))}
             </div>
-            <span className="text-white font-bold text-xl tracking-tight">SmartFlow</span>
-          </Link>
-          <div className="flex gap-4">
-            <Link 
-              href="/auth/login" 
-              className="text-slate-300 hover:text-white text-sm font-medium px-4 py-2 rounded-xl transition-all duration-200 hover:bg-white/5"
-            >
-              Masuk
-            </Link>
-            <Link 
-              href="/auth/register" 
-              className="bg-gradient-to-r from-primary-600 to-primary-500 hover:from-primary-500 hover:to-primary-400 text-white text-sm font-semibold px-5 py-2 rounded-xl shadow-lg shadow-primary-500/20 transition-all duration-300 hover:scale-105 hover:shadow-primary-500/30"
-            >
-              Mulai Gratis
-            </Link>
+
+            {/* Right Actions */}
+            <div className="flex items-center gap-2">
+              <div className="hidden sm:flex items-center gap-2">
+                <Link href="/auth/login" className="text-sm text-gray-600 hover:text-gray-900 px-3 py-1.5 transition">
+                  Masuk
+                </Link>
+                <Link href="/auth/register" className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-1.5 rounded-lg text-sm font-medium transition">
+                  Daftar
+                </Link>
+              </div>
+
+              {/* Mobile Menu Button */}
+              <button
+                onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+                className="md:hidden p-2 rounded-lg text-gray-600 hover:bg-gray-100 transition"
+              >
+                <span className="text-xl">{mobileMenuOpen ? '✕' : '☰'}</span>
+              </button>
+            </div>
           </div>
-        </nav>
+        </div>
 
-        {/* Hero Section */}
-        <main className="flex-1 flex flex-col items-center justify-center px-4 py-12 text-center max-w-6xl mx-auto w-full">
-          <div className={`transition-all duration-1000 ease-out ${mounted ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'}`}>
-            {/* Badge - more interactive */}
-            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary-500/10 border border-primary-500/20 text-primary-300 text-sm font-medium mb-8 backdrop-blur-sm hover:border-primary-500/40 transition-all">
-              <span className="relative flex h-2 w-2">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-              </span>
-              Student Financial Companion — Powered by AI
+        {/* Mobile Menu */}
+        <div className={`md:hidden bg-white border-t border-gray-100 transition-all duration-300 ${
+          mobileMenuOpen ? 'opacity-100 visible' : 'opacity-0 invisible hidden'
+        }`}>
+          <div className="flex flex-col py-2">
+            {[
+              { id: 'fitur', label: 'Fitur' },
+              { id: 'cara-kerja', label: 'Cara Kerja' },
+              { id: 'testimoni', label: 'Testimoni' }
+            ].map((item) => (
+              <button
+                key={item.id}
+                onClick={() => scrollToSection(item.id)}
+                className="px-4 py-3 text-left text-gray-700 hover:bg-gray-50 transition"
+              >
+                {item.label}
+              </button>
+            ))}
+            <div className="border-t border-gray-100 mt-2 pt-3 px-4 space-y-2">
+              <Link href="/auth/login" className="block w-full text-center border border-indigo-600 text-indigo-600 px-4 py-2 rounded-lg font-medium">
+                Masuk
+              </Link>
+              <Link href="/auth/register" className="block w-full text-center bg-indigo-600 text-white px-4 py-2 rounded-lg font-medium">
+                Daftar Gratis
+              </Link>
+            </div>
+          </div>
+        </div>
+      </nav>
+
+      {/* Hero Section */}
+      <section id="beranda" className="pt-20 pb-12 sm:pt-28 sm:pb-16 md:pt-32 md:pb-20">
+        <div className="max-w-5xl mx-auto px-4">
+          <div className="text-center">
+            {/* Badge */}
+            <div className="inline-flex items-center gap-1.5 bg-indigo-50 border border-indigo-100 px-3 py-1 rounded-full text-xs sm:text-sm text-indigo-700 mb-4 sm:mb-6">
+              <span className="w-1.5 h-1.5 bg-indigo-500 rounded-full"></span>
+              Didukung AI untuk Mahasiswa
             </div>
 
-            {/* Headline - better typography */}
-            <h1 className="text-5xl sm:text-6xl lg:text-7xl xl:text-8xl font-black text-white mb-8 leading-tight tracking-tighter">
-              Stop Lihat{' '}
-              <span className="bg-gradient-to-r from-primary-400 via-accent-400 to-primary-400 bg-clip-text text-transparent animate-gradient">
-                Total Saldo,
-              </span>
+            {/* Heading */}
+            <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold text-gray-900 leading-tight mb-4 sm:mb-6">
+              Berhenti Lihat
+              <span className="text-indigo-600"> Total Saldo</span>
               <br />
               Fokus ke{' '}
-              <span className="bg-gradient-to-r from-emerald-400 via-primary-400 to-emerald-400 bg-clip-text text-transparent animate-gradient">
-                Jatah Hari Ini
+              <span className="bg-gradient-to-r from-indigo-600 to-indigo-500 bg-clip-text text-transparent">
+                Jatah Harian
               </span>
             </h1>
 
-            {/* Subheadline - more readable */}
-            <p className="text-lg sm:text-xl text-slate-300 max-w-3xl mx-auto mb-12 leading-relaxed">
-              SmartFlow mengubah cara kamu kelola uang — dari sekadar lihat saldo ke{' '}
-              <strong className="text-white font-bold">strategi harian yang cerdas</strong>. 
-              Dengan AI yang jujur (dan agak nyebelin), kamu bakal sadar ke mana duit kamu pergi.
+            {/* Description */}
+            <p className="text-base sm:text-lg text-gray-600 max-w-2xl mx-auto mb-6 sm:mb-8 leading-relaxed px-2">
+              SmartFlow mengubah cara mahasiswa kelola uang. Dari sekadar lihat saldo 
+              jadi strategi harian yang cerdas. Biar AI yang hitung, kamu fokus ke tujuan.
             </p>
 
-            {/* CTA Buttons - better visual hierarchy */}
-            <div className="flex flex-col sm:flex-row gap-5 justify-center mb-20">
-              <Link
-                href="/auth/register"
-                className="group relative inline-flex items-center justify-center gap-2 bg-gradient-to-r from-primary-600 via-primary-500 to-accent-600 hover:from-primary-500 hover:via-primary-400 hover:to-accent-500 text-white px-8 py-4 rounded-2xl text-base font-bold shadow-2xl shadow-primary-500/25 transition-all duration-300 hover:scale-105 hover:shadow-primary-500/40 overflow-hidden"
-              >
-                <span className="relative z-10">🚀 Mulai Gratis Sekarang</span>
-                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-700" />
+            {/* CTA Buttons */}
+            <div className="flex flex-col sm:flex-row gap-3 justify-center mb-10 sm:mb-12">
+              <Link href="/auth/register" className="inline-flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-5 sm:px-6 py-2.5 sm:py-3 rounded-lg font-medium transition">
+                <span>🚀</span>
+                Mulai Gratis
               </Link>
-              <Link
-                href="/auth/login"
-                className="inline-flex items-center justify-center bg-white/5 hover:bg-white/10 text-white border border-white/20 hover:border-white/30 px-8 py-4 rounded-2xl text-base font-semibold backdrop-blur-sm transition-all duration-300 hover:scale-105"
+              <button 
+                onClick={() => scrollToSection('fitur')}
+                className="inline-flex items-center justify-center gap-2 bg-white border border-gray-300 text-gray-700 px-5 sm:px-6 py-2.5 sm:py-3 rounded-lg font-medium hover:bg-gray-50 transition"
               >
-                Sudah punya akun? Masuk →
-              </Link>
+                <span>▶</span>
+                Lihat Fitur
+              </button>
             </div>
 
-            {/* Feature pills - more compact and scannable */}
-            <div className="flex flex-wrap justify-center gap-3 mb-24">
+            {/* Stats */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 max-w-2xl mx-auto">
               {[
-                { icon: '✅', text: 'Gratis Selamanya' },
-                { icon: '🤖', text: 'AI Smart Input' },
-                { icon: '💰', text: '4 Kantong Pintar' },
-                { icon: '📊', text: 'Daily Budget Tracker' },
-                { icon: '🔒', text: 'Data Aman Terenkripsi' }
-              ].map((feature) => (
-                <span 
-                  key={feature.text} 
-                  className="px-3 py-1.5 bg-white/5 border border-white/10 rounded-full text-sm text-slate-300 hover:bg-white/10 hover:border-white/20 transition-all cursor-default"
-                >
-                  {feature.icon} {feature.text}
-                </span>
+                { value: '4.8', label: 'Rating', suffix: '/5' },
+                { value: '10rb+', label: 'Mahasiswa' },
+                { value: '85%', label: 'Lebih Hemat' },
+                { value: '24/7', label: 'AI Support' }
+              ].map((stat, idx) => (
+                <div key={idx} className="text-center p-2.5 sm:p-3 rounded-xl bg-gray-50">
+                  <div className="text-lg sm:text-xl font-bold text-gray-900">
+                    {stat.value}{stat.suffix || ''}
+                  </div>
+                  <div className="text-xs text-gray-500">{stat.label}</div>
+                </div>
               ))}
             </div>
           </div>
+        </div>
+      </section>
 
-          {/* Feature Cards - staggered animation */}
-          <div className="grid sm:grid-cols-3 gap-6 w-full max-w-6xl">
-            {[
-              {
-                gradient: "from-primary-600 to-primary-800",
-                icon: "📅",
-                title: "Jatah Harian Otomatis",
-                description: "Sistem kalkulasi cerdas yang membagi saldo ke jatah per hari — bukan per bulan. Anti bokek akhir bulan!",
-                delay: "delay-0"
-              },
-              {
-                gradient: "from-emerald-600 to-teal-700",
-                icon: "🏦",
-                title: "4 Kantong Finansial",
-                description: "Pisahkan uang jajan, dana darurat, tabungan, dan wishlist secara otomatis setiap terima kiriman.",
-                delay: "delay-100"
-              },
-              {
-                gradient: "from-accent-600 to-rose-700",
-                icon: "🤖",
-                title: "AI Financial Roaster",
-                description: "AI yang siap 'nge-roast' kebiasaan belanja kamu dengan bahasa yang jujur tapi menghibur. Biar kapok!",
-                delay: "delay-200"
-              }
-            ].map((card, idx) => (
+      {/* Features Section */}
+      <section id="fitur" className="py-12 sm:py-16 bg-gray-50">
+        <div className="max-w-6xl mx-auto px-4">
+          <div className="text-center mb-8 sm:mb-12">
+            <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold text-gray-900 mb-2 sm:mb-3">
+              Fitur Andalan
+            </h2>
+            <p className="text-gray-600 max-w-md mx-auto text-sm sm:text-base">
+              Dirancang khusus untuk masalah keuangan mahasiswa
+            </p>
+          </div>
+
+          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
+            {features.map((feature, idx) => (
               <div 
                 key={idx}
-                className={`transition-all duration-700 ease-out ${mounted ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'} ${card.delay}`}
+                className="bg-white p-5 sm:p-6 rounded-xl border border-gray-100 hover:shadow-md transition hover:-translate-y-0.5"
               >
-                <FeatureCard {...card} />
+                <div className="text-2xl sm:text-3xl mb-3 sm:mb-4">{feature.icon}</div>
+                <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-1 sm:mb-2">
+                  {feature.title}
+                </h3>
+                <p className="text-gray-600 text-sm mb-2 sm:mb-3 leading-relaxed">
+                  {feature.description}
+                </p>
+                <span className="text-xs text-indigo-600 font-medium">
+                  {feature.metric}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* How It Works */}
+      <section id="cara-kerja" className="py-12 sm:py-16">
+        <div className="max-w-6xl mx-auto px-4">
+          <div className="text-center mb-8 sm:mb-12">
+            <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold text-gray-900 mb-2 sm:mb-3">
+              Cara Kerja
+            </h2>
+            <p className="text-gray-600 max-w-md mx-auto text-sm sm:text-base">
+              Tiga langkah menuju kebebasan finansial
+            </p>
+          </div>
+
+          <div className="grid sm:grid-cols-3 gap-6 sm:gap-8">
+            {steps.map((step, idx) => (
+              <div key={idx} className="text-center">
+                <div className="text-3xl sm:text-4xl font-bold text-indigo-600 mb-3">
+                  {step.number}
+                </div>
+                <h3 className="text-lg sm:text-xl font-semibold text-gray-900 mb-1 sm:mb-2">
+                  {step.title}
+                </h3>
+                <p className="text-gray-600 text-sm mb-2 px-2">
+                  {step.description}
+                </p>
+                <div className="inline-flex items-center gap-1 text-xs text-gray-400">
+                  <span>⏱</span>
+                  <span>{step.duration}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Testimonials */}
+      <section id="testimoni" className="py-12 sm:py-16 bg-gray-50">
+        <div className="max-w-6xl mx-auto px-4">
+          <div className="text-center mb-8 sm:mb-12">
+            <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold text-gray-900 mb-2 sm:mb-3">
+              Kata Pengguna
+            </h2>
+            <p className="text-gray-600 max-w-md mx-auto text-sm sm:text-base">
+              Ribuan mahasiswa sudah merasakan manfaatnya
+            </p>
+          </div>
+
+          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
+            {testimonials.map((testimonial, idx) => (
+              <div key={idx} className="bg-white p-5 sm:p-6 rounded-xl border border-gray-100">
+                <div className="flex gap-0.5 mb-3">
+                  {[...Array(testimonial.rating)].map((_, i) => (
+                    <span key={i} className="text-yellow-400 text-sm">★</span>
+                  ))}
+                </div>
+                <p className="text-gray-700 text-sm italic mb-3 leading-relaxed">
+                  "{testimonial.quote}"
+                </p>
+                <div>
+                  <p className="font-semibold text-gray-900 text-sm">{testimonial.name}</p>
+                  <p className="text-xs text-gray-500">{testimonial.role}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Pricing - 3 Packages */}
+      <section className="py-12 sm:py-16">
+        <div className="max-w-6xl mx-auto px-4">
+          <div className="text-center mb-8 sm:mb-12">
+            <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold text-gray-900 mb-2 sm:mb-3">
+              Pilihan Sesuai Kebutuhan
+            </h2>
+            <p className="text-gray-600 max-w-md mx-auto text-sm sm:text-base">
+              Pilih paket yang paling cocok untukmu
+            </p>
+          </div>
+
+          <div className="grid md:grid-cols-3 gap-5 sm:gap-6">
+            {packages.map((pkg, idx) => (
+              <div 
+                key={idx}
+                className={`bg-white rounded-xl border ${
+                  pkg.popular 
+                    ? 'border-indigo-300 shadow-lg relative' 
+                    : 'border-gray-200'
+                } p-5 sm:p-6 transition hover:shadow-md`}
+              >
+                {pkg.popular && (
+                  <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-indigo-600 text-white text-xs font-medium px-3 py-1 rounded-full">
+                    Paling Populer
+                  </div>
+                )}
+                
+                <div className="text-center mb-4">
+                  <h3 className="text-xl font-bold text-gray-900 mb-1">{pkg.name}</h3>
+                  <p className="text-xs text-gray-500">{pkg.description}</p>
+                  <div className="mt-3">
+                    <span className="text-3xl font-bold text-indigo-600">{pkg.price}</span>
+                    <span className="text-sm text-gray-500"> / {pkg.period}</span>
+                  </div>
+                </div>
+
+                <ul className="space-y-2 mb-5 text-left text-sm">
+                  {pkg.features.map((feature, i) => (
+                    <li key={i} className="flex items-center gap-2">
+                      <span className="text-emerald-500 text-sm">✓</span>
+                      <span className="text-gray-700">{feature}</span>
+                    </li>
+                  ))}
+                </ul>
+
+                <Link 
+                  href="/auth/register" 
+                  className={`block w-full text-center py-2.5 rounded-lg font-medium transition ${
+                    pkg.buttonVariant === 'primary'
+                      ? 'bg-indigo-600 hover:bg-indigo-700 text-white'
+                      : 'border border-indigo-600 text-indigo-600 hover:bg-indigo-50'
+                  }`}
+                >
+                  {pkg.buttonText}
+                </Link>
               </div>
             ))}
           </div>
 
-          {/* Stats - with animated counters */}
-          <div className={`mt-20 grid grid-cols-1 sm:grid-cols-3 gap-12 max-w-3xl mx-auto transition-all duration-700 delay-300 ${mounted ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'}`}>
-            <StatCard value="3x" label="Lebih hemat" description="dari pengguna aktif" />
-            <StatCard value="< 3" label="Langkah" description="catat transaksi" />
-            <StatCard value="100%" label="Gratis" description="untuk mahasiswa" />
-          </div>
-        </main>
-
-        {/* Footer - better spacing */}
-        <footer className="text-center py-8 border-t border-white/5 mt-12">
-          <p className="text-slate-500 text-sm">
-            © 2025 SmartFlow • Dibuat dengan ❤️ untuk mahasiswa Indonesia
+          <p className="text-center text-xs text-gray-500 mt-6">
+            🔒 Privasi terjamin • Semua paket bebas iklan
           </p>
-        </footer>
-      </div>
-    </div>
-  );
-}
+        </div>
+      </section>
 
-function FeatureCard({
-  gradient,
-  icon,
-  title,
-  description,
-}: {
-  gradient: string;
-  icon: string;
-  title: string;
-  description: string;
-}) {
-  return (
-    <div className="group relative p-6 rounded-2xl bg-gradient-to-br from-white/5 to-white/0 border border-white/10 hover:border-white/20 hover:bg-white/10 transition-all duration-500 text-left overflow-hidden">
-      <div className={`absolute top-0 left-0 w-full h-1 bg-gradient-to-r ${gradient} opacity-70 group-hover:opacity-100 transition-all duration-500 group-hover:h-1.5`} />
-      
-      {/* Animated shine effect */}
-      <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/5 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000" />
-      
-      <div className="text-4xl mb-4 transform transition-transform group-hover:scale-110">{icon}</div>
-      <h3 className="text-white font-bold text-lg mb-3">{title}</h3>
-      <p className="text-slate-400 text-sm leading-relaxed">{description}</p>
-    </div>
-  );
-}
+      {/* FAQ */}
+      <section className="py-12 sm:py-16 bg-gray-50">
+        <div className="max-w-2xl mx-auto px-4">
+          <div className="text-center mb-8">
+            <h2 className="text-2xl sm:text-3xl font-bold text-gray-900">
+              Pertanyaan Umum
+            </h2>
+          </div>
 
-function StatCard({ value, label, description }: { value: string; label: string; description: string }) {
-  return (
-    <div className="text-center group">
-      <div className="text-4xl sm:text-5xl font-black text-transparent bg-gradient-to-r from-white to-slate-400 bg-clip-text mb-2 group-hover:scale-105 transition-transform">
-        {value}
-      </div>
-      <div className="text-white font-semibold text-base mb-1">{label}</div>
-      <div className="text-slate-500 text-sm">{description}</div>
+          <div className="space-y-2 sm:space-y-3">
+            {faqs.map((faq, idx) => (
+              <div key={idx} className="bg-white rounded-lg border border-gray-100">
+                <button
+                  onClick={() => setOpenFaq(openFaq === idx ? null : idx)}
+                  className="w-full flex items-center justify-between p-3 sm:p-4 text-left"
+                >
+                  <span className="font-medium text-gray-900 text-sm sm:text-base">{faq.q}</span>
+                  <span className={`text-gray-500 transition-transform duration-300 ${openFaq === idx ? 'rotate-180' : ''}`}>
+                    ▼
+                  </span>
+                </button>
+                <div className={`px-3 sm:px-4 pb-3 sm:pb-4 ${openFaq === idx ? 'block' : 'hidden'}`}>
+                  <p className="text-gray-600 text-sm leading-relaxed">{faq.a}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Final CTA */}
+      <section className="bg-indigo-600 py-12 sm:py-16">
+        <div className="max-w-3xl mx-auto px-4 text-center">
+          <h2 className="text-xl sm:text-2xl md:text-3xl font-bold text-white mb-3">
+            Siap Ubah Kebiasaan Keuangan?
+          </h2>
+          <p className="text-indigo-100 text-sm sm:text-base mb-5">
+            Bergabung dengan 10.000+ mahasiswa yang sudah lebih hemat
+          </p>
+          <Link href="/auth/register" className="inline-flex items-center gap-2 bg-white text-indigo-600 hover:bg-gray-100 px-5 sm:px-6 py-2.5 sm:py-3 rounded-lg font-medium transition shadow-lg">
+            <span>🎓</span>
+            Daftar Gratis — Tanpa Kartu Kredit
+          </Link>
+          <p className="text-indigo-200 text-xs mt-3 flex flex-wrap items-center justify-center gap-2">
+            <span>⏱ Setup 2 menit</span>
+            <span className="hidden xs:inline">•</span>
+            <span>✓ Verifikasi mahasiswa</span>
+            <span className="hidden xs:inline">•</span>
+            <span>💯 Mulai dari trial 14 hari</span>
+          </p>
+        </div>
+      </section>
+
+      {/* Footer - Lengkap dengan Logo, Links, Social Media */}
+      <footer className="bg-gray-900 text-white py-10 sm:py-12">
+        <div className="max-w-6xl mx-auto px-4">
+          {/* Main Footer Content */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8 mb-8">
+            {/* Brand Column */}
+            <div>
+              <div className="flex items-center gap-2 mb-3">
+                <div className="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center">
+                  <span className="text-white font-bold text-sm">SF</span>
+                </div>
+                <span className="font-bold text-lg">SmartFlow</span>
+              </div>
+              <p className="text-gray-400 text-sm leading-relaxed">
+                Student Financial Companion — bantu mahasiswa Indonesia kelola keuangan dengan cerdas.
+              </p>
+            </div>
+
+            {/* Quick Links */}
+            <div>
+              <h4 className="font-semibold text-white text-sm mb-3">Tautan</h4>
+              <ul className="space-y-2">
+                <li>
+                  <button onClick={() => scrollToSection('fitur')} className="text-gray-400 hover:text-white text-sm transition">
+                    Fitur
+                  </button>
+                </li>
+                <li>
+                  <button onClick={() => scrollToSection('cara-kerja')} className="text-gray-400 hover:text-white text-sm transition">
+                    Cara Kerja
+                  </button>
+                </li>
+                <li>
+                  <button onClick={() => scrollToSection('testimoni')} className="text-gray-400 hover:text-white text-sm transition">
+                    Testimoni
+                  </button>
+                </li>
+              </ul>
+            </div>
+
+            {/* Legal */}
+            <div>
+              <h4 className="font-semibold text-white text-sm mb-3">Legal</h4>
+              <ul className="space-y-2">
+                <li>
+                  <Link href="/privacy" className="text-gray-400 hover:text-white text-sm transition">
+                    Kebijakan Privasi
+                  </Link>
+                </li>
+                <li>
+                  <Link href="/terms" className="text-gray-400 hover:text-white text-sm transition">
+                    Syarat & Ketentuan
+                  </Link>
+                </li>
+              </ul>
+            </div>
+
+            {/* Social Media */}
+            <div>
+              <h4 className="font-semibold text-white text-sm mb-3">Ikuti Kami</h4>
+              <div className="flex gap-3">
+                <a href="#" className="w-9 h-9 bg-gray-800 hover:bg-indigo-600 rounded-lg flex items-center justify-center transition">
+                  <span className="text-sm">📷</span>
+                </a>
+                <a href="#" className="w-9 h-9 bg-gray-800 hover:bg-indigo-600 rounded-lg flex items-center justify-center transition">
+                  <span className="text-sm">🐦</span>
+                </a>
+                <a href="#" className="w-9 h-9 bg-gray-800 hover:bg-indigo-600 rounded-lg flex items-center justify-center transition">
+                  <span className="text-sm">📘</span>
+                </a>
+                <a href="#" className="w-9 h-9 bg-gray-800 hover:bg-indigo-600 rounded-lg flex items-center justify-center transition">
+                  <span className="text-sm">💬</span>
+                </a>
+              </div>
+              <p className="text-gray-500 text-xs mt-3">
+                hello@smartflow.id
+              </p>
+            </div>
+          </div>
+
+          {/* Copyright */}
+          <div className="border-t border-gray-800 pt-6 text-center">
+            <p className="text-gray-500 text-xs">
+              © 2024 SmartFlow — Student Financial Companion. Untuk mahasiswa Indonesia.
+            </p>
+          </div>
+        </div>
+      </footer>
+
+      {/* Back to Top */}
+      {showBackToTop && (
+        <button
+          onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+          className="fixed bottom-5 right-4 sm:bottom-6 sm:right-6 w-9 h-9 sm:w-10 sm:h-10 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg shadow-lg transition-all hover:scale-105 z-40 flex items-center justify-center text-sm"
+        >
+          ↑
+        </button>
+      )}
     </div>
   );
 }

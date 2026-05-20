@@ -26,6 +26,8 @@ model User {
   allocationSavings     Int       @default(0)  // Percentage (0-100)
   allocationWishlist    Int       @default(0)  // Percentage (0-100)
   // Rest goes to MAIN pocket (100 - emergency - savings - wishlist)
+
+  lastLoginAt DateTime? @db.Timestamp(0)
   
   createdAt         DateTime      @default(now())
   updatedAt         DateTime      @updatedAt
