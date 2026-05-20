@@ -119,12 +119,12 @@ smartflowV2/
 
 ## Fitur yang Akan Datang
 
-- [ ] Smart Input dengan AI/NLP
-- [ ] AI Roaster Widget
-- [ ] Daily Rollover Logic
-- [ ] Income Distribution Simulator
-- [ ] Advanced Analytics & Reports
-- [ ] Mobile App (React Native)
+- [x] Smart Input dengan AI/NLP
+- [x] AI Roaster Widget
+- [x] Daily Rollover Logic
+- [x] Income Distribution Simulator
+- [x] Advanced Analytics & Reports (via Dashboard)
+- [x] Mobile App (PWA Ready)
 - [ ] Push Notifications
 - [ ] Offline Mode
 

@@ -50,8 +50,8 @@ export async function GET(request: NextRequest) {
     const dailyAllowance = calculateDailyAllowance(mainBalance, 0, daysLeft);
 
     // Get today's spending
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    const todayStr = new Date().toISOString().split('T')[0];
+    const today = new Date(todayStr + 'T00:00:00.000Z');
     
     const todayTransactions = await prisma.transaction.findMany({
       where: {
@@ -67,6 +67,53 @@ export async function GET(request: NextRequest) {
     const totalSpent = todayTransactions.reduce((sum, t) => sum + t.amount.toNumber(), 0);
     const percentageUsed = calculateSpendingPercentage(totalSpent, dailyAllowance);
     const status = determineSpendingStatus(percentageUsed);
+
+    // Save/Update today's performance
+    await prisma.dailyPerformance.upsert({
+      where: {
+        userId_date: {
+          userId: decoded.userId,
+          date: today,
+        },
+      },
+      update: {
+        dailyAllowance: dailyAllowance,
+        totalSpent: totalSpent,
+        percentageUsed: percentageUsed,
+        status: status,
+      },
+      create: {
+        userId: decoded.userId,
+        date: today,
+        dailyAllowance: dailyAllowance,
+        totalSpent: totalSpent,
+        percentageUsed: percentageUsed,
+        status: status,
+      },
+    });
+
+    // Check for yesterday's rollover surplus
+    const yesterday = new Date(today.getTime());
+    yesterday.setDate(yesterday.getDate() - 1);
+
+    const yesterdayPerformance = await prisma.dailyPerformance.findUnique({
+      where: {
+        userId_date: {
+          userId: decoded.userId,
+          date: yesterday,
+        },
+      },
+    });
+
+    let rolloverSurplus = null;
+    let rolloverPerformanceId = null;
+    if (yesterdayPerformance && yesterdayPerformance.surplusTransferred === null) {
+      const surplus = yesterdayPerformance.dailyAllowance.toNumber() - yesterdayPerformance.totalSpent.toNumber();
+      if (surplus > 0) {
+        rolloverSurplus = surplus;
+        rolloverPerformanceId = yesterdayPerformance.id;
+      }
+    }
 
     // Get pocket summaries
     const pocketSummaries = user.pockets.map((p) => {
@@ -115,6 +162,8 @@ export async function GET(request: NextRequest) {
           percentageUsed: Math.round(percentageUsed * 100) / 100,
           status,
           remaining: Math.max(0, dailyAllowance - totalSpent),
+          rolloverSurplus,
+          rolloverPerformanceId,
           pocketSummary: pocketSummaries,
         },
         recentTransactions: recentTransactions.map((t) => ({
