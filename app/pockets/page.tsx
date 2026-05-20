@@ -15,37 +15,51 @@ interface Pocket {
 }
 
 function formatCurrency(amount: number): string {
+  if (amount >= 1000000) return `Rp ${(amount / 1000000).toFixed(1)}jt`;
+  if (amount >= 1000) return `Rp ${(amount / 1000).toFixed(0)}rb`;
   return `Rp ${amount.toLocaleString('id-ID')}`;
+}
+
+function formatCurrencyFull(amount: number): string {
+  return `Rp ${amount.toLocaleString('id-ID', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
 }
 
 const POCKET_META = {
   MAIN: {
-    icon: '💳',
     label: 'Dompet Utama',
-    description: 'Uang jajan harian — basis kalkulasi Jatah Harian',
-    gradient: 'from-indigo-600 to-violet-700',
-    tip: 'Saldo ini yang digunakan untuk menghitung jatah harian kamu.',
+    description: 'Uang jajan harian',
+    tip: 'Saldo ini yang digunakan untuk menghitung jatah harian',
+    gradient: 'from-indigo-600 to-indigo-700',
+    canWithdraw: false,
+    canSetTarget: false,
+    withdrawWarning: '',
   },
   EMERGENCY: {
-    icon: '🛡️',
     label: 'Dana Darurat',
-    description: 'Pelindung keuangan — gunakan hanya saat darurat',
-    gradient: 'from-rose-500 to-orange-600',
-    tip: 'Dana darurat ideal adalah 3-6x pengeluaran bulanan.',
+    description: 'Pelindung keuangan',
+    tip: 'Gunakan hanya saat benar-benar darurat',
+    gradient: 'from-rose-600 to-rose-700',
+    canWithdraw: true,
+    canSetTarget: true,
+    withdrawWarning: 'Dana darurat seharusnya hanya digunakan untuk keadaan benar-benar mendesak. Menarik dana ini akan mengurangi perlindungan finansial Anda.',
   },
   SAVINGS: {
-    icon: '📈',
-    label: 'Tabungan Aset',
-    description: 'Investasi masa depan — biarkan bertumbuh',
-    gradient: 'from-emerald-500 to-teal-600',
-    tip: 'Uang di sini sebaiknya tidak diambil — biarkan bertumbuh!',
+    label: 'Tabungan',
+    description: 'Investasi masa depan',
+    tip: 'Biarkan uangmu bertumbuh di sini',
+    gradient: 'from-emerald-600 to-emerald-700',
+    canWithdraw: true,
+    canSetTarget: false,
+    withdrawWarning: 'Menarik dari tabungan akan memperlambat tujuan keuangan jangka panjang Anda.',
   },
   WISHLIST: {
-    icon: '🎯',
     label: 'Wishlist',
-    description: 'Tabungan tujuan — untuk impian kamu',
-    gradient: 'from-fuchsia-500 to-pink-600',
-    tip: 'Kumpulkan sampai 100% lalu nikmati hasilnya!',
+    description: 'Tabungan tujuan',
+    tip: 'Kumpulkan sampai target tercapai',
+    gradient: 'from-fuchsia-600 to-fuchsia-700',
+    canWithdraw: true,
+    canSetTarget: true,
+    withdrawWarning: 'Menarik dari wishlist berarti impian Anda harus ditunda lebih lama.',
   },
 };
 
@@ -53,9 +67,9 @@ export default function PocketsPage() {
   const router = useRouter();
   const [pockets, setPockets] = useState<Pocket[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [selectedPocket, setSelectedPocket] = useState<Pocket | null>(null);
-  const [showWithdrawWarning, setShowWithdrawWarning] = useState(false);
   const [editTarget, setEditTarget] = useState<{ pocket: Pocket; value: string } | null>(null);
+  const [withdrawData, setWithdrawData] = useState<{ pocket: Pocket; amount: string } | null>(null);
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
   const getToken = useCallback(() => localStorage.getItem('sf-token'), []);
@@ -89,6 +103,32 @@ export default function PocketsPage() {
     } finally { setIsSaving(false); }
   };
 
+  const handleWithdraw = async () => {
+    if (!withdrawData) return;
+    setIsSaving(true);
+    const token = getToken();
+    try {
+      const res = await fetch('/api/transactions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          type: 'EXPENSE',
+          amount: parseFloat(withdrawData.amount),
+          pocketId: withdrawData.pocket.id,
+          categoryId: null,
+          notes: `Penarikan dari ${withdrawData.pocket.name}`,
+          date: new Date().toISOString(),
+        }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setWithdrawData(null);
+        setShowConfirmModal(false);
+        fetchPockets();
+      }
+    } finally { setIsSaving(false); }
+  };
+
   const sortedPockets = [...pockets].sort((a, b) => {
     const order = ['MAIN', 'EMERGENCY', 'SAVINGS', 'WISHLIST'];
     return order.indexOf(a.type) - order.indexOf(b.type);
@@ -97,81 +137,102 @@ export default function PocketsPage() {
   const totalWealth = pockets.reduce((s, p) => s + p.balance, 0);
 
   return (
-    <div className="page-shell">
-      <header className="page-header">
-        <div className="max-w-2xl mx-auto px-4 py-4">
-          <h1 className="text-xl font-bold text-surface-900 dark:text-white">Kantong Finansial</h1>
-          <p className="text-sm text-slate-400">Total kekayaan: <span className="font-bold text-primary-500">{formatCurrency(totalWealth)}</span></p>
+    <div className="min-h-screen bg-white dark:bg-gray-950 pb-20">
+      {/* Header */}
+      <header className="sticky top-0 z-40 bg-white/80 dark:bg-gray-950/80 backdrop-blur-xl border-b border-gray-100 dark:border-gray-800">
+        <div className="max-w-2xl mx-auto px-5 py-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-xl font-semibold text-gray-900 dark:text-white">Kantong</h1>
+              <p className="text-xs text-gray-500 dark:text-gray-500 mt-0.5">
+                Total: <span className="font-semibold text-indigo-600 dark:text-indigo-400">{formatCurrency(totalWealth)}</span>
+              </p>
+            </div>
+          </div>
         </div>
       </header>
 
-      <main className="page-content space-y-4">
+      <main className="max-w-2xl mx-auto px-5 py-6 space-y-4">
         {isLoading ? (
           Array.from({ length: 4 }).map((_, i) => (
-            <div key={i} className="skeleton h-36 rounded-2xl" />
+            <div key={i} className="h-44 bg-gray-100 dark:bg-gray-800 rounded-2xl animate-pulse" />
           ))
         ) : (
           sortedPockets.map((pocket) => {
             const meta = POCKET_META[pocket.type];
+            const hasTarget = pocket.targetAmount && meta.canSetTarget;
+            const isCompleted = pocket.status === 'completed';
+            const progress = Math.min(pocket.progressPercentage || 0, 100);
+            const canWithdraw = meta.canWithdraw && pocket.balance > 0;
+            
             return (
-              <div key={pocket.id} className={`bg-gradient-to-br ${meta.gradient} rounded-3xl p-5 text-white shadow-xl relative overflow-hidden`}>
-                {/* Decorative circles */}
-                <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full transform translate-x-12 -translate-y-12" />
-                <div className="absolute bottom-0 left-0 w-24 h-24 bg-white/10 rounded-full transform -translate-x-8 translate-y-8" />
-
+              <div
+                key={pocket.id}
+                className={`relative overflow-hidden rounded-2xl bg-gradient-to-r ${meta.gradient} p-5 text-white shadow-lg`}
+              >
+                {/* Decorative elements */}
+                <div className="absolute top-0 right-0 w-32 h-32 bg-white/5 rounded-full blur-2xl transform translate-x-16 -translate-y-16" />
+                <div className="absolute bottom-0 left-0 w-24 h-24 bg-white/5 rounded-full blur-2xl transform -translate-x-12 translate-y-12" />
+                
                 <div className="relative z-10">
+                  {/* Header */}
                   <div className="flex items-start justify-between mb-3">
-                    <div className="flex items-center gap-2">
-                      <span className="text-2xl">{meta.icon}</span>
-                      <div>
-                        <h2 className="font-bold text-base">{pocket.name}</h2>
-                        <p className="text-white/70 text-xs">{meta.description}</p>
-                      </div>
+                    <div>
+                      <h2 className="font-semibold text-base">{meta.label}</h2>
+                      <p className="text-white/70 text-xs">{meta.description}</p>
                     </div>
-                    {pocket.status === 'completed' && (
-                      <span className="px-2 py-1 bg-white/20 rounded-lg text-xs font-bold">✅ Completed</span>
+                    {isCompleted && (
+                      <span className="px-2 py-0.5 bg-white/20 rounded-lg text-xs font-medium">
+                        Tercapai
+                      </span>
                     )}
                   </div>
 
-                  <p className="text-3xl font-black tabular-nums mb-3">
+                  {/* Balance */}
+                  <p className="text-3xl font-bold mb-3">
                     {formatCurrency(pocket.balance)}
                   </p>
 
-                  {/* Progress bar for EMERGENCY and WISHLIST */}
-                  {pocket.targetAmount && (
+                  {/* Progress Bar for EMERGENCY and WISHLIST */}
+                  {hasTarget && pocket.targetAmount && (
                     <div className="mb-3">
                       <div className="flex justify-between text-xs text-white/70 mb-1">
-                        <span>Target: {formatCurrency(pocket.targetAmount)}</span>
-                        <span className="font-bold">{Math.min((pocket.progressPercentage || 0), 100).toFixed(1)}%</span>
+                        <span>Target: {formatCurrencyFull(pocket.targetAmount)}</span>
+                        <span className="font-medium">{Math.round(progress)}%</span>
                       </div>
-                      <div className="h-2 bg-white/20 rounded-full overflow-hidden">
+                      <div className="h-1.5 bg-white/20 rounded-full overflow-hidden">
                         <div
-                          className="h-full bg-white/80 rounded-full transition-all duration-700"
-                          style={{ width: `${Math.min(pocket.progressPercentage || 0, 100)}%` }}
+                          className="h-full bg-white/80 rounded-full transition-all duration-500"
+                          style={{ width: `${progress}%` }}
                         />
                       </div>
                     </div>
                   )}
 
                   {/* Tip */}
-                  <p className="text-white/60 text-xs italic mb-3">{meta.tip}</p>
+                  <p className="text-white/60 text-xs italic mb-3">
+                    {meta.tip}
+                  </p>
 
                   {/* Actions */}
                   <div className="flex gap-2">
-                    {(pocket.type === 'EMERGENCY' || pocket.type === 'WISHLIST') && (
+                    {meta.canSetTarget && (
                       <button
                         onClick={() => setEditTarget({ pocket, value: String(pocket.targetAmount || '') })}
-                        className="px-3 py-1.5 bg-white/15 hover:bg-white/25 backdrop-blur-sm rounded-xl text-xs font-semibold transition-all border border-white/20"
+                        className="px-3 py-1.5 bg-white/15 hover:bg-white/25 rounded-lg text-xs font-medium transition-all"
                       >
-                        🎯 Set Target
+                        Set Target
                       </button>
                     )}
-                    {pocket.type === 'EMERGENCY' && (
+                    {canWithdraw && (
                       <button
-                        onClick={() => { setSelectedPocket(pocket); setShowWithdrawWarning(true); }}
-                        className="px-3 py-1.5 bg-white/15 hover:bg-white/25 backdrop-blur-sm rounded-xl text-xs font-semibold transition-all border border-white/20"
+                        onClick={() => {
+                          setWithdrawData({ pocket, amount: '' });
+                          setShowConfirmModal(true);
+                        }}
+                        className="px-3 py-1.5 bg-white/15 hover:bg-white/25 rounded-lg text-xs font-medium transition-all"
                       >
-                        ⚠️ Tarik Dana
+                        Tarik Dana
                       </button>
                     )}
                   </div>
@@ -181,74 +242,112 @@ export default function PocketsPage() {
           })
         )}
 
-        {/* Info card */}
-        <div className="card p-4">
-          <h3 className="font-bold text-sm text-surface-900 dark:text-white mb-2">💡 Cara Kerja 4 Kantong</h3>
-          <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
-            Saat menerima pemasukan rutin, dana akan dialokasikan otomatis ke semua kantong berdasarkan prioritas. 
-            Hanya saldo <strong className="text-primary-500">Dompet Utama</strong> yang digunakan untuk menghitung Jatah Harian kamu.
+        {/* Info Card */}
+        <div className="bg-gray-50 dark:bg-gray-900 rounded-xl p-4 border border-gray-100 dark:border-gray-800">
+          <h3 className="font-semibold text-sm text-gray-900 dark:text-white mb-1">
+            Cara Kerja
+          </h3>
+          <p className="text-xs text-gray-600 dark:text-gray-400 leading-relaxed">
+            Saat menerima pemasukan, dana akan dialokasikan ke semua kantong. 
+            Hanya saldo <span className="font-medium text-indigo-600 dark:text-indigo-400">Dompet Utama</span> yang digunakan untuk menghitung Jatah Harian.
           </p>
         </div>
       </main>
 
-      {/* Emergency withdrawal warning modal */}
-      {showWithdrawWarning && selectedPocket && (
-        <div className="modal-backdrop" onClick={() => setShowWithdrawWarning(false)}>
-          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-            <div className="p-6">
-              <div className="text-center mb-5">
-                <div className="text-5xl mb-3">🚨</div>
-                <h2 className="text-xl font-black text-surface-900 dark:text-white">Yakin Ini Darurat?</h2>
-                <p className="text-slate-400 text-sm mt-2">
-                  Dana Darurat seharusnya hanya digunakan untuk keadaan benar-benar mendesak. Menarik dana ini akan mengurangi perlindungan finansial kamu.
-                </p>
-              </div>
-              <div className="space-y-2">
-                <button
-                  onClick={() => { setShowWithdrawWarning(false); }}
-                  className="w-full py-3 bg-surface-100 dark:bg-surface-700 text-surface-700 dark:text-slate-200 rounded-xl font-bold transition-all hover:bg-surface-200 dark:hover:bg-surface-600"
-                >
-                  ❌ Batal — Saya Tidak Perlu
-                </button>
-                <button
-                  onClick={() => { setShowWithdrawWarning(false); }}
-                  className="w-full py-3 bg-rose-600 hover:bg-rose-500 text-white rounded-xl font-bold transition-all"
-                >
-                  Ya, Ini Benar-benar Darurat
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* Set Target Modal */}
       {editTarget && (
-        <div className="modal-backdrop" onClick={() => setEditTarget(null)}>
-          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-            <div className="modal-header">
-              <h2 className="text-lg font-bold text-surface-900 dark:text-white">Set Target {editTarget.pocket.name}</h2>
-              <button onClick={() => setEditTarget(null)} className="text-slate-400 hover:text-slate-600">✕</button>
+        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-end sm:items-center justify-center p-4" onClick={() => setEditTarget(null)}>
+          <div className="bg-white dark:bg-gray-900 rounded-2xl w-full max-w-md shadow-xl" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between p-5 border-b border-gray-100 dark:border-gray-800">
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+                Set Target {editTarget.pocket.name}
+              </h2>
+              <button onClick={() => setEditTarget(null)} className="w-8 h-8 rounded-lg flex items-center justify-center text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800 transition">
+                ✕
+              </button>
             </div>
-            <div className="p-6 space-y-4">
+            
+            <div className="p-5 space-y-4">
               <div>
-                <label className="form-label">Nominal Target (Rp)</label>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+                  Nominal Target
+                </label>
                 <input
                   type="number"
                   value={editTarget.value}
                   onChange={(e) => setEditTarget((prev) => prev ? { ...prev, value: e.target.value } : null)}
                   placeholder="Contoh: 5000000"
-                  className="form-input text-lg font-mono"
+                  className="w-full px-4 py-2.5 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500 transition-all font-mono"
                   min={1}
                 />
               </div>
+              
               <button
                 onClick={handleSetTarget}
                 disabled={!editTarget.value || isSaving}
-                className="w-full py-3.5 bg-primary-600 text-white rounded-xl font-bold disabled:opacity-50 transition-all"
+                className="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-medium text-sm transition-all disabled:opacity-50"
               >
-                {isSaving ? 'Menyimpan...' : '✅ Simpan Target'}
+                {isSaving ? 'Menyimpan...' : 'Simpan Target'}
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Withdraw Modal */}
+      {showConfirmModal && withdrawData && (
+        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-end sm:items-center justify-center p-4" onClick={() => { setShowConfirmModal(false); setWithdrawData(null); }}>
+          <div className="bg-white dark:bg-gray-900 rounded-2xl w-full max-w-md shadow-xl" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between p-5 border-b border-gray-100 dark:border-gray-800">
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+                Tarik Dana dari {withdrawData.pocket.name}
+              </h2>
+              <button onClick={() => { setShowConfirmModal(false); setWithdrawData(null); }} className="w-8 h-8 rounded-lg flex items-center justify-center text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800 transition">
+                ✕
+              </button>
+            </div>
+            
+            <div className="p-5 space-y-4">
+              {/* Warning Message */}
+              <div className="p-3 rounded-lg bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/20">
+                <p className="text-xs text-amber-700 dark:text-amber-400 leading-relaxed">
+                  {POCKET_META[withdrawData.pocket.type].withdrawWarning}
+                </p>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+                  Jumlah Penarikan
+                </label>
+                <input
+                  type="number"
+                  value={withdrawData.amount}
+                  onChange={(e) => setWithdrawData((prev) => prev ? { ...prev, amount: e.target.value } : null)}
+                  placeholder="Masukkan nominal"
+                  className="w-full px-4 py-2.5 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500 transition-all font-mono"
+                  min={1}
+                  max={withdrawData.pocket.balance}
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  Max: {formatCurrencyFull(withdrawData.pocket.balance)}
+                </p>
+              </div>
+              
+              <div className="flex gap-3">
+                <button
+                  onClick={() => { setShowConfirmModal(false); setWithdrawData(null); }}
+                  className="flex-1 py-3 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 rounded-lg font-medium text-sm transition-all"
+                >
+                  Batal
+                </button>
+                <button
+                  onClick={handleWithdraw}
+                  disabled={!withdrawData.amount || parseFloat(withdrawData.amount) <= 0 || parseFloat(withdrawData.amount) > withdrawData.pocket.balance || isSaving}
+                  className="flex-1 py-3 bg-rose-600 hover:bg-rose-700 text-white rounded-lg font-medium text-sm transition-all disabled:opacity-50"
+                >
+                  {isSaving ? 'Memproses...' : 'Konfirmasi Tarik'}
+                </button>
+              </div>
             </div>
           </div>
         </div>

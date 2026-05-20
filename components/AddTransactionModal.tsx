@@ -1,3 +1,4 @@
+// components/AddTransactionModal.tsx
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -67,7 +68,6 @@ export default function AddTransactionModal({ onClose, onSuccess }: AddTransacti
         const mainPocket = pktData.data.find((p: Pocket) => p.type === 'MAIN');
         if (mainPocket) setForm((f) => ({ ...f, pocketId: mainPocket.id }));
       }
-      // Set allocation from user data
       if (userData.success && userData.data) {
         setAllocation({
           allocationEmergency: userData.data.allocationEmergency || 0,
@@ -103,7 +103,7 @@ export default function AddTransactionModal({ onClose, onSuccess }: AddTransacti
         }));
         setMode('manual');
       } else {
-        setError('AI gagal memproses. Isi manual ya!');
+        setError('AI gagal memproses. Isi manual.');
         setMode('manual');
       }
     } catch {
@@ -149,36 +149,41 @@ export default function AddTransactionModal({ onClose, onSuccess }: AddTransacti
     }
   };
 
+  const hasAllocation = allocation.allocationEmergency > 0 || allocation.allocationSavings > 0 || allocation.allocationWishlist > 0;
+  const amountNum = parseFloat(form.amount) || 0;
+  const emergency = allocation.allocationEmergency || 0;
+  const savings = allocation.allocationSavings || 0;
+  const wishlist = allocation.allocationWishlist || 0;
+  const main = Math.max(0, 100 - emergency - savings - wishlist);
+
   return (
-    <div className="modal-backdrop" onClick={(e) => e.target === e.currentTarget && onClose()}>
-      <div className="modal-content">
-        <div className="modal-header">
-          <h2 className="text-lg font-bold text-surface-900 dark:text-white">Tambah Transaksi</h2>
-          <button onClick={onClose} className="w-8 h-8 rounded-lg flex items-center justify-center text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-surface-100 dark:hover:bg-surface-700 transition-all">
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
+    <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-end sm:items-center justify-center p-4" onClick={(e) => e.target === e.currentTarget && onClose()}>
+      <div className="bg-white dark:bg-gray-900 rounded-2xl w-full max-w-md max-h-[90vh] overflow-y-auto shadow-xl">
+        <div className="flex items-center justify-between p-5 border-b border-gray-100 dark:border-gray-800">
+          <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Tambah Transaksi</h2>
+          <button onClick={onClose} className="w-8 h-8 rounded-lg flex items-center justify-center text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800 transition">
+            ✕
           </button>
         </div>
 
-        <div className="p-6">
+        <div className="p-5">
           {error && (
-            <div className="mb-4 p-3 rounded-xl bg-rose-100 dark:bg-rose-900/30 border border-rose-200 dark:border-rose-700/50 text-rose-600 dark:text-rose-300 text-sm">
+            <div className="mb-4 p-3 rounded-lg bg-rose-50 dark:bg-rose-500/10 border border-rose-100 dark:border-rose-500/20 text-rose-600 dark:text-rose-400 text-sm">
               {error}
             </div>
           )}
 
           {/* Mode Toggle */}
-          <div className="flex gap-2 mb-5 p-1 bg-surface-100 dark:bg-surface-700 rounded-xl">
+          <div className="flex gap-2 mb-5 p-1 bg-gray-100 dark:bg-gray-800 rounded-lg">
             <button
               onClick={() => setMode('smart')}
-              className={`flex-1 py-2 rounded-lg text-sm font-semibold transition-all ${mode === 'smart' ? 'bg-white dark:bg-surface-800 text-primary-600 dark:text-primary-400 shadow-sm' : 'text-slate-500'}`}
+              className={`flex-1 py-2 rounded-lg text-sm font-medium transition-all ${mode === 'smart' ? 'bg-white dark:bg-gray-700 text-indigo-600 dark:text-indigo-400 shadow-sm' : 'text-gray-500'}`}
             >
               Smart Input
             </button>
             <button
               onClick={() => setMode('manual')}
-              className={`flex-1 py-2 rounded-lg text-sm font-semibold transition-all ${mode === 'manual' ? 'bg-white dark:bg-surface-800 text-primary-600 dark:text-primary-400 shadow-sm' : 'text-slate-500'}`}
+              className={`flex-1 py-2 rounded-lg text-sm font-medium transition-all ${mode === 'manual' ? 'bg-white dark:bg-gray-700 text-indigo-600 dark:text-indigo-400 shadow-sm' : 'text-gray-500'}`}
             >
               Manual
             </button>
@@ -187,14 +192,14 @@ export default function AddTransactionModal({ onClose, onSuccess }: AddTransacti
           {/* Smart Input */}
           {mode === 'smart' && (
             <div className="space-y-4">
-              <div className="p-3 rounded-xl bg-primary-50 dark:bg-primary-900/20 border border-primary-200 dark:border-primary-700/30">
-                <p className="text-xs text-primary-600 dark:text-primary-300 font-medium mb-2">Contoh input:</p>
+              <div className="p-3 rounded-lg bg-indigo-50 dark:bg-indigo-500/10 border border-indigo-100 dark:border-indigo-500/20">
+                <p className="text-xs text-indigo-600 dark:text-indigo-400 font-medium mb-2">Contoh input:</p>
                 <div className="flex flex-wrap gap-1.5">
                   {SMART_INPUT_EXAMPLES.map((ex) => (
                     <button
                       key={ex}
                       onClick={() => setSmartText(ex)}
-                      className="px-2.5 py-1 bg-primary-100 dark:bg-primary-800/40 text-primary-700 dark:text-primary-300 rounded-lg text-xs hover:bg-primary-200 dark:hover:bg-primary-700/40 transition-colors"
+                      className="px-2 py-1 bg-indigo-100 dark:bg-indigo-800/40 text-indigo-700 dark:text-indigo-300 rounded-lg text-xs hover:bg-indigo-200 dark:hover:bg-indigo-700/40 transition"
                     >
                       {ex}
                     </button>
@@ -203,29 +208,21 @@ export default function AddTransactionModal({ onClose, onSuccess }: AddTransacti
               </div>
               <div>
                 <textarea
-                  id="smart-input-text"
                   value={smartText}
                   onChange={(e) => setSmartText(e.target.value)}
-                  placeholder="Ketik apa saja... contoh: 'Makan soto ayam 18rb di warung sebelah kampus'"
+                  placeholder="Ketik apa saja... contoh: 'Makan soto ayam 18rb'"
                   rows={3}
-                  className="w-full px-4 py-3 rounded-xl border border-surface-200 dark:border-surface-600 bg-white dark:bg-surface-700 text-surface-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-primary-500/50 focus:border-primary-500 resize-none text-sm"
+                  className="w-full px-4 py-2.5 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/50 resize-none text-sm"
                 />
               </div>
               <button
                 onClick={handleSmartInput}
                 disabled={!smartText.trim() || aiProcessing}
-                className="w-full py-3.5 bg-gradient-to-r from-accent-600 to-primary-600 hover:from-accent-500 hover:to-primary-500 text-white rounded-xl font-bold text-sm disabled:opacity-50 transition-all active:scale-95 flex items-center justify-center gap-2 shadow-lg"
+                className="w-full py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-medium text-sm transition-all disabled:opacity-50"
               >
-                {aiProcessing ? (
-                  <>
-                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                    Memproses...
-                  </>
-                ) : (
-                  <>Proses dengan AI</>
-                )}
+                {aiProcessing ? 'Memproses...' : 'Proses dengan AI'}
               </button>
-              <button onClick={() => setMode('manual')} className="w-full text-sm text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors py-1">
+              <button onClick={() => setMode('manual')} className="w-full text-sm text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 transition py-1">
                 Atau isi manual →
               </button>
             </div>
@@ -236,18 +233,18 @@ export default function AddTransactionModal({ onClose, onSuccess }: AddTransacti
             <form onSubmit={handleSubmit} className="space-y-4">
               {/* Type */}
               <div className="flex gap-2">
-                {([
-                  { value: 'EXPENSE', label: '💸 Pengeluaran', color: 'rose' },
-                  { value: 'INCOME_BONUS', label: '🎁 Bonus/Rejeki', color: 'amber' },
-                ] as const).map((t) => (
+                {[
+                  { value: 'EXPENSE', label: 'Pengeluaran' },
+                  { value: 'INCOME_BONUS', label: 'Bonus' },
+                ].map((t) => (
                   <button
                     key={t.value}
                     type="button"
-                    onClick={() => setForm((f) => ({ ...f, type: t.value }))}
-                    className={`flex-1 py-2.5 rounded-xl text-xs font-semibold border transition-all ${
+                    onClick={() => setForm((f) => ({ ...f, type: t.value as any }))}
+                    className={`flex-1 py-2.5 rounded-lg text-sm font-medium border transition-all ${
                       form.type === t.value
-                        ? `bg-${t.color}-100 dark:bg-${t.color}-900/30 border-${t.color}-400 text-${t.color}-700 dark:text-${t.color}-300`
-                        : 'bg-surface-50 dark:bg-surface-700 border-surface-200 dark:border-surface-600 text-slate-500'
+                        ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400'
+                        : 'border-gray-200 dark:border-gray-700 text-gray-500'
                     }`}
                   >
                     {t.label}
@@ -257,36 +254,38 @@ export default function AddTransactionModal({ onClose, onSuccess }: AddTransacti
 
               {/* Amount */}
               <div>
-                <label className="form-label">Nominal (Rp)</label>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+                  Nominal
+                </label>
                 <input
-                  id="trx-amount"
                   type="number"
                   value={form.amount}
                   onChange={(e) => setForm((f) => ({ ...f, amount: e.target.value }))}
                   placeholder="0"
                   min={1}
                   required
-                  className="form-input font-mono text-lg"
+                  className="w-full px-4 py-2.5 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/50 font-mono"
                 />
               </div>
 
-              {/* Category - Only for EXPENSE */}
+              {/* Category */}
               {form.type === 'EXPENSE' && (
                 <div>
-                  <label className="form-label">Kategori</label>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+                    Kategori
+                  </label>
                   <select
-                    id="trx-category"
                     value={form.categoryId}
                     onChange={(e) => setForm((f) => ({ ...f, categoryId: e.target.value }))}
-                    className="form-select"
+                    className="w-full px-4 py-2.5 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
                   >
                     <option value="">Pilih kategori (opsional)</option>
-                    <optgroup label="Kebutuhan (Need)">
+                    <optgroup label="Kebutuhan">
                       {categories.filter((c) => c.type === 'NEED').map((c) => (
                         <option key={c.id} value={c.id}>{c.name}</option>
                       ))}
                     </optgroup>
-                    <optgroup label="Keinginan (Want)">
+                    <optgroup label="Keinginan">
                       {categories.filter((c) => c.type === 'WANT').map((c) => (
                         <option key={c.id} value={c.id}>{c.name}</option>
                       ))}
@@ -297,15 +296,14 @@ export default function AddTransactionModal({ onClose, onSuccess }: AddTransacti
 
               {/* Pocket */}
               <div>
-                <label className="form-label">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
                   {form.type === 'EXPENSE' ? 'Dari Kantong' : 'Masuk ke Kantong'}
                 </label>
                 <select
-                  id="trx-pocket"
                   value={form.pocketId}
                   onChange={(e) => setForm((f) => ({ ...f, pocketId: e.target.value }))}
                   required
-                  className="form-select"
+                  className="w-full px-4 py-2.5 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
                 >
                   <option value="">Pilih kantong</option>
                   {pockets.map((p) => (
@@ -314,109 +312,75 @@ export default function AddTransactionModal({ onClose, onSuccess }: AddTransacti
                 </select>
               </div>
 
-              {/* Allocation Preview for INCOME_BONUS */}
-              {form.type === 'INCOME_BONUS' && form.amount && (
-                <div className="p-4 rounded-xl bg-gradient-to-br from-amber-50 to-orange-50 dark:from-amber-900/20 dark:to-orange-900/20 border border-amber-200 dark:border-amber-700/30">
-                  <p className="text-xs font-semibold text-amber-700 dark:text-amber-300 mb-3">
-                    Alokasi Otomatis untuk Rp {parseFloat(form.amount || '0').toLocaleString('id-ID')}
+              {/* Allocation Preview for Bonus */}
+              {form.type === 'INCOME_BONUS' && hasAllocation && form.amount && (
+                <div className="p-3 rounded-lg bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
+                  <p className="text-xs font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Alokasi: Rp {amountNum.toLocaleString('id-ID')}
                   </p>
-                  <div className="space-y-2">
-                    {(() => {
-                      const amount = parseFloat(form.amount || '0');
-                      const emergency = Math.max(0, allocation.allocationEmergency || 0);
-                      const savings = Math.max(0, allocation.allocationSavings || 0);
-                      const wishlist = Math.max(0, allocation.allocationWishlist || 0);
-                      const main = Math.max(0, 100 - emergency - savings - wishlist);
-
-                      const emergencyAmount = (amount * emergency) / 100;
-                      const savingsAmount = (amount * savings) / 100;
-                      const wishlistAmount = (amount * wishlist) / 100;
-                      const mainAmount = (amount * main) / 100;
-
-                      return (
-                        <>
-                          {mainAmount > 0 && (
-                            <div className="flex items-center justify-between text-xs">
-                              <span className="text-slate-600 dark:text-slate-400">MAIN</span>
-                              <span className="font-mono font-bold text-primary-600 dark:text-primary-300">
-                                {mainAmount.toLocaleString('id-ID', { minimumFractionDigits: 0, maximumFractionDigits: 0 })} ({String(main)}%)
-                              </span>
-                            </div>
-                          )}
-                          {emergencyAmount > 0 && (
-                            <div className="flex items-center justify-between text-xs">
-                              <span className="text-slate-600 dark:text-slate-400">🚨 Darurat</span>
-                              <span className="font-mono font-bold text-rose-600 dark:text-rose-300">
-                                {emergencyAmount.toLocaleString('id-ID', { minimumFractionDigits: 0, maximumFractionDigits: 0 })} ({String(emergency)}%)
-                              </span>
-                            </div>
-                          )}
-                          {savingsAmount > 0 && (
-                            <div className="flex items-center justify-between text-xs">
-                              <span className="text-slate-600 dark:text-slate-400">🏦 Tabungan</span>
-                              <span className="font-mono font-bold text-emerald-600 dark:text-emerald-300">
-                                {savingsAmount.toLocaleString('id-ID', { minimumFractionDigits: 0, maximumFractionDigits: 0 })} ({String(savings)}%)
-                              </span>
-                            </div>
-                          )}
-                          {wishlistAmount > 0 && (
-                            <div className="flex items-center justify-between text-xs">
-                              <span className="text-slate-600 dark:text-slate-400">💝 Wishlist</span>
-                              <span className="font-mono font-bold text-blue-600 dark:text-blue-300">
-                                {wishlistAmount.toLocaleString('id-ID', { minimumFractionDigits: 0, maximumFractionDigits: 0 })} ({String(wishlist)}%)
-                              </span>
-                            </div>
-                          )}
-                          {emergency + savings + wishlist === 0 && (
-                            <p className="text-xs text-slate-500 dark:text-slate-400 italic">
-                              Belum ada alokasi. Atur di halaman Profil.
-                            </p>
-                          )}
-                        </>
-                      );
-                    })()}
+                  <div className="space-y-1.5 text-xs">
+                    {main > 0 && (
+                      <div className="flex justify-between">
+                        <span className="text-gray-500">Dompet Utama</span>
+                        <span className="font-medium">{(amountNum * main / 100).toLocaleString('id-ID')} ({main}%)</span>
+                      </div>
+                    )}
+                    {emergency > 0 && (
+                      <div className="flex justify-between">
+                        <span className="text-gray-500">Dana Darurat</span>
+                        <span className="font-medium text-rose-600">{(amountNum * emergency / 100).toLocaleString('id-ID')} ({emergency}%)</span>
+                      </div>
+                    )}
+                    {savings > 0 && (
+                      <div className="flex justify-between">
+                        <span className="text-gray-500">Tabungan</span>
+                        <span className="font-medium text-emerald-600">{(amountNum * savings / 100).toLocaleString('id-ID')} ({savings}%)</span>
+                      </div>
+                    )}
+                    {wishlist > 0 && (
+                      <div className="flex justify-between">
+                        <span className="text-gray-500">Wishlist</span>
+                        <span className="font-medium text-indigo-600">{(amountNum * wishlist / 100).toLocaleString('id-ID')} ({wishlist}%)</span>
+                      </div>
+                    )}
                   </div>
                 </div>
               )}
 
               {/* Date */}
               <div>
-                <label className="form-label">Tanggal</label>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+                  Tanggal
+                </label>
                 <input
-                  id="trx-date"
                   type="date"
                   value={form.date}
                   onChange={(e) => setForm((f) => ({ ...f, date: e.target.value }))}
                   required
-                  className="form-input"
+                  className="w-full px-4 py-2.5 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
                 />
               </div>
 
               {/* Notes */}
               <div>
-                <label className="form-label">Catatan (opsional)</label>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+                  Catatan (opsional)
+                </label>
                 <input
-                  id="trx-notes"
                   type="text"
                   value={form.notes}
                   onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))}
                   placeholder="Tambahkan catatan..."
-                  className="form-input"
+                  className="w-full px-4 py-2.5 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
                 />
               </div>
 
               <button
-                id="trx-submit"
                 type="submit"
                 disabled={isSubmitting}
-                className="w-full py-3.5 bg-gradient-to-r from-primary-600 to-primary-500 text-white rounded-xl font-bold text-sm shadow-lg disabled:opacity-50 transition-all active:scale-95"
+                className="w-full py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-medium text-sm transition-all disabled:opacity-50"
               >
-                {isSubmitting ? (
-                  <span className="flex items-center justify-center gap-2">
-                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                    Menyimpan...
-                  </span>
-                ) : '✅ Simpan Transaksi'}
+                {isSubmitting ? 'Menyimpan...' : 'Simpan Transaksi'}
               </button>
             </form>
           )}

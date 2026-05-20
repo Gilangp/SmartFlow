@@ -1,3 +1,4 @@
+// app/transactions/page.tsx
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
@@ -8,14 +9,10 @@ import AddIncomeRoutineModal from '@/components/AddIncomeRoutineModal';
 import { TransactionRecord } from '@/types';
 
 function formatCurrency(amount: number): string {
+  if (amount >= 1000000) return `Rp ${(amount / 1000000).toFixed(1)}jt`;
+  if (amount >= 1000) return `Rp ${(amount / 1000).toFixed(0)}rb`;
   return `Rp ${amount.toLocaleString('id-ID')}`;
 }
-
-const TYPE_LABELS: Record<string, { label: string; emoji: string; color: string }> = {
-  EXPENSE: { label: 'Pengeluaran', emoji: '💸', color: 'text-rose-500' },
-  INCOME_ROUTINE: { label: 'Pemasukan Rutin', emoji: '💰', color: 'text-emerald-500' },
-  INCOME_BONUS: { label: 'Pemasukan Bonus', emoji: '🎁', color: 'text-amber-500' },
-};
 
 export default function TransactionsPage() {
   const router = useRouter();
@@ -30,7 +27,6 @@ export default function TransactionsPage() {
 
   const getToken = useCallback(() => localStorage.getItem('sf-token'), []);
 
-  // Fetch user profile to get paydayDate and pending income
   useEffect(() => {
     const fetchProfile = async () => {
       const token = getToken();
@@ -40,19 +36,11 @@ export default function TransactionsPage() {
           fetch('/api/auth/me', { headers: { Authorization: `Bearer ${token}` } }),
           fetch('/api/income/pending', { headers: { Authorization: `Bearer ${token}` } }),
         ]);
-
         const profileData = await profileRes.json();
-        if (profileData.success && profileData.data.paydayDate) {
-          setPaydayDate(profileData.data.paydayDate);
-        }
-
+        if (profileData.success && profileData.data.paydayDate) setPaydayDate(profileData.data.paydayDate);
         const pendingData = await pendingRes.json();
-        if (pendingData.success && pendingData.data) {
-          setPendingIncomeCount(pendingData.data.length);
-        }
-      } catch {
-        // Silent fail
-      }
+        if (pendingData.success && pendingData.data) setPendingIncomeCount(pendingData.data.length);
+      } catch {}
     };
     fetchProfile();
   }, [getToken]);
@@ -66,11 +54,8 @@ export default function TransactionsPage() {
       const data = await res.json();
       if (data.success) setTransactions(data.data);
       else router.push('/auth/login');
-    } catch {
-      router.push('/auth/login');
-    } finally {
-      setIsLoading(false);
-    }
+    } catch { router.push('/auth/login'); }
+    finally { setIsLoading(false); }
   }, [getToken, router, filter]);
 
   useEffect(() => { fetchTransactions(); }, [fetchTransactions]);
@@ -78,14 +63,9 @@ export default function TransactionsPage() {
   const filtered = transactions.filter((tx) => {
     if (!searchQuery) return true;
     const q = searchQuery.toLowerCase();
-    return (
-      tx.category?.toLowerCase().includes(q) ||
-      tx.pocket.toLowerCase().includes(q) ||
-      tx.notes?.toLowerCase().includes(q)
-    );
+    return (tx.category?.toLowerCase().includes(q) || tx.pocket.toLowerCase().includes(q) || tx.notes?.toLowerCase().includes(q));
   });
 
-  // Group by date
   const grouped = filtered.reduce((acc, tx) => {
     const date = tx.date;
     if (!acc[date]) acc[date] = [];
@@ -99,77 +79,66 @@ export default function TransactionsPage() {
   const totalExpense = filtered.filter((t) => t.type === 'EXPENSE').reduce((s, t) => s + t.amount, 0);
 
   return (
-    <div className="page-shell">
-      <header className="page-header">
-        <div className="max-w-2xl mx-auto px-4 py-4">
-          <h1 className="text-xl font-bold text-surface-900 dark:text-white mb-3">Riwayat Transaksi</h1>
-          {/* Search */}
+    <div className="min-h-screen bg-white dark:bg-gray-950 pb-20">
+      {/* Header */}
+      <header className="sticky top-0 z-40 bg-white/80 dark:bg-gray-950/80 backdrop-blur-xl border-b border-gray-100 dark:border-gray-800">
+        <div className="max-w-2xl mx-auto px-5 py-4">
+          <h1 className="text-xl font-semibold text-gray-900 dark:text-white mb-3">Transaksi</h1>
           <div className="relative">
-            <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-            </svg>
             <input
               type="text"
               placeholder="Cari transaksi..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-9 pr-4 py-2.5 rounded-xl border border-surface-200 dark:border-surface-600 bg-surface-50 dark:bg-surface-800 text-sm text-surface-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-primary-500/50"
+              className="w-full px-4 py-2.5 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 text-sm"
             />
           </div>
         </div>
       </header>
 
-      <main className="page-content space-y-5">
+      <main className="max-w-2xl mx-auto px-5 py-6 space-y-5">
         {/* Pending Income Alert */}
         {pendingIncomeCount > 0 && (
-          <div className="p-4 rounded-xl bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700/30 flex items-center justify-between">
-            <div className="flex items-center gap-3 flex-1">
-              <div className="text-2xl">📋</div>
-              <div className="flex-1">
-                <p className="font-semibold text-blue-900 dark:text-blue-100 text-sm">
-                  Ada {pendingIncomeCount} gajian yang belum dikonfirmasi
-                </p>
-                <p className="text-xs text-blue-700 dark:text-blue-300">
-                  Klik tombol gajian untuk mengkonfirmasi
-                </p>
-              </div>
+          <div className="p-3 rounded-lg bg-indigo-50 dark:bg-indigo-500/10 border border-indigo-100 dark:border-indigo-500/20 flex items-center justify-between">
+            <div>
+              <p className="font-medium text-indigo-700 dark:text-indigo-300 text-sm">
+                {pendingIncomeCount} gajian belum dikonfirmasi
+              </p>
+              <p className="text-xs text-indigo-600 dark:text-indigo-400">Klik tombol gajian untuk konfirmasi</p>
             </div>
-            <button
-              onClick={() => setShowIncomeRoutineModal(true)}
-              className="py-2 px-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-semibold transition-all flex-shrink-0"
-            >
+            <button onClick={() => setShowIncomeRoutineModal(true)} className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-sm font-medium transition">
               Konfirmasi
             </button>
           </div>
         )}
 
-        {/* Summary cards */}
+        {/* Summary Cards */}
         <div className="grid grid-cols-2 gap-3">
-          <div className="card p-4">
-            <p className="text-xs text-slate-400 mb-1">Total Pemasukan</p>
-            <p className="text-lg font-black text-emerald-500 tabular-nums">{formatCurrency(totalIncome)}</p>
+          <div className="bg-gray-50 dark:bg-gray-900 rounded-xl p-4 border border-gray-100 dark:border-gray-800">
+            <p className="text-xs text-gray-500 mb-1">Pemasukan</p>
+            <p className="text-lg font-bold text-emerald-600 dark:text-emerald-400">{formatCurrency(totalIncome)}</p>
           </div>
-          <div className="card p-4">
-            <p className="text-xs text-slate-400 mb-1">Total Pengeluaran</p>
-            <p className="text-lg font-black text-rose-500 tabular-nums">{formatCurrency(totalExpense)}</p>
+          <div className="bg-gray-50 dark:bg-gray-900 rounded-xl p-4 border border-gray-100 dark:border-gray-800">
+            <p className="text-xs text-gray-500 mb-1">Pengeluaran</p>
+            <p className="text-lg font-bold text-rose-600 dark:text-rose-400">{formatCurrency(totalExpense)}</p>
           </div>
         </div>
 
-        {/* Filter tabs */}
-        <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
-          {([
+        {/* Filter Tabs */}
+        <div className="flex gap-2 overflow-x-auto pb-1">
+          {[
             { value: 'ALL', label: 'Semua' },
-            { value: 'EXPENSE', label: '💸 Pengeluaran' },
-            { value: 'INCOME_ROUTINE', label: '💰 Rutin' },
-            { value: 'INCOME_BONUS', label: '🎁 Bonus' },
-          ] as const).map((f) => (
+            { value: 'EXPENSE', label: 'Pengeluaran' },
+            { value: 'INCOME_ROUTINE', label: 'Gajian' },
+            { value: 'INCOME_BONUS', label: 'Bonus' },
+          ].map((f) => (
             <button
               key={f.value}
-              onClick={() => setFilter(f.value)}
-              className={`px-4 py-2 rounded-xl text-sm font-semibold flex-shrink-0 transition-all ${
+              onClick={() => setFilter(f.value as any)}
+              className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-all flex-shrink-0 ${
                 filter === f.value
-                  ? 'bg-primary-600 text-white shadow-md'
-                  : 'bg-surface-100 dark:bg-surface-800 text-slate-500 dark:text-slate-400'
+                  ? 'bg-indigo-600 text-white'
+                  : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400'
               }`}
             >
               {f.label}
@@ -177,97 +146,59 @@ export default function TransactionsPage() {
           ))}
         </div>
 
-        {/* Add Transaction Buttons - 2 options */}
+        {/* Action Buttons */}
         <div className="grid grid-cols-2 gap-3">
-          <button
-            onClick={() => setShowAddModal(true)}
-            className="py-3 px-3 bg-rose-100 dark:bg-rose-900/30 hover:bg-rose-200 dark:hover:bg-rose-800/30 text-rose-600 dark:text-rose-400 border border-rose-200 dark:border-rose-700/50 rounded-xl font-semibold text-sm transition-all flex items-center justify-center gap-2"
-          >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-            </svg>
-            💸 Pengeluaran / 🎁 Bonus
+          <button onClick={() => setShowAddModal(true)} className="py-2.5 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg font-medium text-sm transition border border-gray-200 dark:border-gray-700">
+            + Pengeluaran / Bonus
           </button>
-          <button
-            onClick={() => setShowIncomeRoutineModal(true)}
-            className="py-3 px-3 bg-emerald-100 dark:bg-emerald-900/30 hover:bg-emerald-200 dark:hover:bg-emerald-800/30 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-700/50 rounded-xl font-semibold text-sm transition-all flex items-center justify-center gap-2"
-          >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-            </svg>
-            💰 Terima Gajian
+          <button onClick={() => setShowIncomeRoutineModal(true)} className="py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-medium text-sm transition">
+            + Gajian
           </button>
         </div>
 
-        {/* Transaction list */}
+        {/* Transaction List */}
         {isLoading ? (
           <div className="space-y-3">
-            {[1, 2, 3, 4].map((i) => (
-              <div key={i} className="card p-4 flex gap-3">
-                <div className="skeleton w-10 h-10 rounded-xl" />
-                <div className="flex-1 space-y-2">
-                  <div className="skeleton h-4 w-3/4 rounded" />
-                  <div className="skeleton h-3 w-1/2 rounded" />
-                </div>
-                <div className="skeleton h-5 w-16 rounded" />
-              </div>
+            {[1, 2, 3].map((i) => (
+              <div key={i} className="h-16 bg-gray-100 dark:bg-gray-800 rounded-xl animate-pulse" />
             ))}
           </div>
         ) : sortedDates.length === 0 ? (
-          <div className="card p-10 text-center">
-            <div className="text-4xl mb-3">📭</div>
-            <p className="font-semibold text-surface-900 dark:text-white">Belum ada transaksi</p>
-            <p className="text-sm text-slate-400 mt-1">Mulai catat sekarang!</p>
+          <div className="bg-gray-50 dark:bg-gray-900 rounded-xl p-10 text-center border border-gray-100 dark:border-gray-800">
+            <p className="text-gray-500">Belum ada transaksi</p>
+            <p className="text-xs text-gray-400 mt-1">Mulai catat sekarang</p>
           </div>
         ) : (
           sortedDates.map((date) => (
             <div key={date}>
-              <div className="flex items-center justify-between mb-2">
-                <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">
+              <div className="flex justify-between mb-2">
+                <p className="text-xs font-medium text-gray-500">
                   {new Date(date + 'T00:00:00').toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long' })}
                 </p>
-                <p className="text-xs text-slate-400 tabular-nums">
-                  {formatCurrency(
-                    grouped[date].filter((t) => t.type === 'EXPENSE').reduce((s, t) => s + t.amount, 0)
-                  )} keluar
+                <p className="text-xs text-gray-400">
+                  {formatCurrency(grouped[date].filter((t) => t.type === 'EXPENSE').reduce((s, t) => s + t.amount, 0))}
                 </p>
               </div>
-              <div className="card divide-y divide-surface-100 dark:divide-surface-700/50 overflow-hidden">
+              <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-100 dark:border-gray-800 overflow-hidden">
                 {grouped[date].map((tx) => {
-                  const typeInfo = TYPE_LABELS[tx.type];
+                  const isIncome = tx.type.startsWith('INCOME');
                   return (
-                    <div key={tx.id} className="flex items-center gap-3 p-4 hover:bg-surface-50 dark:hover:bg-surface-700/30 transition-colors">
-                      <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-lg flex-shrink-0 ${
-                        tx.type === 'EXPENSE' ? 'bg-rose-100 dark:bg-rose-900/30' :
-                        tx.type === 'INCOME_BONUS' ? 'bg-amber-100 dark:bg-amber-900/30' :
-                        'bg-emerald-100 dark:bg-emerald-900/30'
+                    <div key={tx.id} className="flex items-center gap-3 p-3 border-b border-gray-100 dark:border-gray-800 last:border-0 hover:bg-gray-50 dark:hover:bg-gray-800 transition">
+                      <div className={`w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 ${
+                        tx.type === 'EXPENSE' ? 'bg-rose-50 dark:bg-rose-500/10 text-rose-500' :
+                        tx.type === 'INCOME_BONUS' ? 'bg-amber-50 dark:bg-amber-500/10 text-amber-500' :
+                        'bg-emerald-50 dark:bg-emerald-500/10 text-emerald-500'
                       }`}>
-                        {typeInfo.emoji}
+                        {tx.type === 'EXPENSE' ? '↓' : '↑'}
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className="font-semibold text-sm text-surface-900 dark:text-white truncate">
-                          {tx.category || typeInfo.label}
+                        <p className="font-medium text-sm text-gray-900 dark:text-white truncate">
+                          {tx.category || (tx.type === 'EXPENSE' ? 'Pengeluaran' : tx.type === 'INCOME_BONUS' ? 'Bonus' : 'Gajian')}
                         </p>
-                        <div className="flex items-center gap-1.5 mt-0.5">
-                          <span className="text-xs text-slate-400">{tx.pocket}</span>
-                          {tx.categoryType && (
-                            <>
-                              <span className="text-slate-300">·</span>
-                              <span className={`text-xs font-medium ${tx.categoryType === 'NEED' ? 'text-primary-500' : 'text-accent-400'}`}>
-                                {tx.categoryType}
-                              </span>
-                            </>
-                          )}
-                          {tx.notes && (
-                            <>
-                              <span className="text-slate-300">·</span>
-                              <span className="text-xs text-slate-400 truncate">{tx.notes}</span>
-                            </>
-                          )}
-                        </div>
+                        <p className="text-xs text-gray-500">{tx.pocket}</p>
                       </div>
-                      <p className={`font-bold text-sm tabular-nums flex-shrink-0 ${typeInfo.color}`}>
-                        {tx.type.startsWith('INCOME') ? '+' : '-'}{formatCurrency(tx.amount)}
+                      <p className={`font-medium text-sm flex-shrink-0 ${isIncome ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}`}>
+                        {isIncome ? '+' : '-'}{formatCurrency(tx.amount)}
                       </p>
                     </div>
                   );
@@ -279,40 +210,18 @@ export default function TransactionsPage() {
       </main>
 
       <BottomNav />
+
       {showAddModal && (
         <AddTransactionModal
           onClose={() => setShowAddModal(false)}
-          onSuccess={() => { 
-            setShowAddModal(false); 
-            fetchTransactions();
-            // Refetch pending income count
-            const token = getToken();
-            if (token) {
-              fetch('/api/income/pending', { headers: { Authorization: `Bearer ${token}` } })
-                .then((r) => r.json())
-                .then((data) => {
-                  if (data.success) setPendingIncomeCount(data.data.length);
-                });
-            }
-          }}
+          onSuccess={() => { setShowAddModal(false); fetchTransactions(); }}
         />
       )}
+
       {showIncomeRoutineModal && (
         <AddIncomeRoutineModal
           onClose={() => setShowIncomeRoutineModal(false)}
-          onSuccess={() => { 
-            setShowIncomeRoutineModal(false); 
-            fetchTransactions();
-            // Refetch pending income count
-            const token = getToken();
-            if (token) {
-              fetch('/api/income/pending', { headers: { Authorization: `Bearer ${token}` } })
-                .then((r) => r.json())
-                .then((data) => {
-                  if (data.success) setPendingIncomeCount(data.data.length);
-                });
-            }
-          }}
+          onSuccess={() => { setShowIncomeRoutineModal(false); fetchTransactions(); }}
           paydayDate={paydayDate}
         />
       )}

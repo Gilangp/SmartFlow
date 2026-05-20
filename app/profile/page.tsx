@@ -98,18 +98,11 @@ export default function ProfilePage() {
       if (data.success) {
         setMessage({ text: 'Profil berhasil diperbarui', type: 'success' });
         setProfile(prev => prev ? { ...prev, ...data.data } : null);
-        
-        // Update user cache if needed
-        const cachedUser = localStorage.getItem('sf-user');
-        if (cachedUser) {
-          const user = JSON.parse(cachedUser);
-          localStorage.setItem('sf-user', JSON.stringify({ ...user, ...data.data }));
-        }
       } else {
         setMessage({ text: data.message || 'Gagal menyimpan', type: 'error' });
       }
     } catch {
-      setMessage({ text: 'Terjadi kesalahan jaringan', type: 'error' });
+      setMessage({ text: 'Terjadi kesalahan', type: 'error' });
     } finally {
       setIsSaving(false);
       setTimeout(() => setMessage({ text: '', type: '' }), 3000);
@@ -118,239 +111,218 @@ export default function ProfilePage() {
 
   const handleLogout = () => {
     setIsLoggingOut(true);
-    // Add small delay for animation/UX
     setTimeout(() => {
       localStorage.removeItem('sf-token');
       localStorage.removeItem('sf-user');
       router.push('/');
-    }, 800);
+    }, 500);
   };
 
+  const totalAllocation = (form.allocationEmergency || 0) + (form.allocationSavings || 0) + (form.allocationWishlist || 0);
+  const mainAllocation = Math.max(0, 100 - totalAllocation);
+  const isOverAllocation = totalAllocation > 100;
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-white dark:bg-gray-950 flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-8 h-8 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin mx-auto mb-3" />
+          <p className="text-gray-500 text-sm">Memuat profil...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!profile) return null;
+
   return (
-    <div className="page-shell">
-      <header className="page-header">
-        <div className="max-w-2xl mx-auto px-4 py-4">
-          <h1 className="text-xl font-bold text-surface-900 dark:text-white">Profil</h1>
+    <div className="min-h-screen bg-white dark:bg-gray-950 pb-20">
+      {/* Header */}
+      <header className="sticky top-0 z-40 bg-white/80 dark:bg-gray-950/80 backdrop-blur-xl border-b border-gray-100 dark:border-gray-800">
+        <div className="max-w-2xl mx-auto px-5 py-4">
+          <h1 className="text-xl font-semibold text-gray-900 dark:text-white">Profil</h1>
         </div>
       </header>
 
-      <main className="page-content space-y-5">
-        {isLoading ? (
-          <div className="space-y-4">
-            <div className="card p-6 flex flex-col items-center">
-              <div className="skeleton w-24 h-24 rounded-full mb-4" />
-              <div className="skeleton h-6 w-48 rounded mb-2" />
-              <div className="skeleton h-4 w-32 rounded" />
-            </div>
-            <div className="skeleton h-64 rounded-2xl" />
+      <main className="max-w-2xl mx-auto px-5 py-6 space-y-5">
+        {/* Profile Avatar Card */}
+        <div className="bg-gray-50 dark:bg-gray-900 rounded-2xl p-6 text-center border border-gray-100 dark:border-gray-800">
+          <div className="w-20 h-20 rounded-full bg-indigo-100 dark:bg-indigo-500/20 flex items-center justify-center mx-auto mb-3">
+            <span className="text-2xl font-semibold text-indigo-600 dark:text-indigo-400">
+              {profile.name.charAt(0).toUpperCase()}
+            </span>
           </div>
-        ) : profile ? (
-          <>
-            {/* Profile Avatar Card */}
-            <div className="card p-6 flex flex-col items-center relative overflow-hidden">
-              <div className="absolute top-0 w-full h-24 bg-gradient-to-r from-primary-600 to-accent-600 opacity-20" />
-              
-              <div className="relative z-10">
-                <div className="w-24 h-24 rounded-full bg-gradient-to-br from-primary-500 to-accent-500 p-1 mb-4 mx-auto shadow-glow-primary">
-                  <div className="w-full h-full bg-surface-900 rounded-full flex items-center justify-center text-3xl font-bold text-white border-4 border-surface-900">
-                    {profile.name.charAt(0).toUpperCase()}
-                  </div>
-                </div>
-                <h2 className="text-xl font-bold text-surface-900 dark:text-white text-center">{profile.name}</h2>
-                <p className="text-slate-400 text-sm text-center mt-1">{profile.email}</p>
-                <div className="flex justify-center mt-3">
-                  <span className="badge-need">SmartFlow Member</span>
-                </div>
-              </div>
+          <h2 className="text-lg font-semibold text-gray-900 dark:text-white">{profile.name}</h2>
+          <p className="text-xs text-gray-500 dark:text-gray-500 mt-0.5">{profile.email}</p>
+        </div>
+
+        {/* Settings Form */}
+        <form onSubmit={handleSave} className="bg-white dark:bg-gray-900 rounded-2xl p-5 border border-gray-100 dark:border-gray-800">
+          <h3 className="font-semibold text-gray-900 dark:text-white mb-4">Pengaturan</h3>
+          
+          {message.text && (
+            <div className={`mb-4 p-3 rounded-lg text-sm ${
+              message.type === 'success' 
+                ? 'bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-100 dark:border-emerald-500/20' 
+                : 'bg-rose-50 dark:bg-rose-500/10 text-rose-700 dark:text-rose-400 border border-rose-100 dark:border-rose-500/20'
+            }`}>
+              {message.text}
+            </div>
+          )}
+
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+                Nama Lengkap
+              </label>
+              <input
+                type="text"
+                value={form.name}
+                onChange={(e) => setForm({ ...form, name: e.target.value })}
+                className="w-full px-4 py-2.5 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500 transition-all"
+                required
+              />
             </div>
 
-            {/* Settings Form */}
-            <form onSubmit={handleSave} className="card p-5">
-              <h3 className="font-bold text-base text-surface-900 dark:text-white mb-4">Pengaturan Akun</h3>
-              
-              {message.text && (
-                <div className={`mb-4 p-3 rounded-xl text-sm ${
-                  message.type === 'success' 
-                    ? 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800' 
-                    : 'bg-rose-100 dark:bg-rose-900/30 text-rose-600 dark:text-rose-400 border border-rose-200 dark:border-rose-800'
-                }`}>
-                  {message.text}
-                </div>
-              )}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+                Tanggal Gajian
+              </label>
+              <select
+                value={form.paydayDate}
+                onChange={(e) => setForm({ ...form, paydayDate: e.target.value })}
+                className="w-full px-4 py-2.5 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500 transition-all"
+              >
+                <option value="">Tidak diset</option>
+                {Array.from({ length: 28 }, (_, i) => i + 1).map((d) => (
+                  <option key={d} value={d}>Tanggal {d}</option>
+                ))}
+              </select>
+              <p className="text-xs text-gray-500 mt-1">
+                Membantu reset jatah harian otomatis
+              </p>
+            </div>
 
-              <div className="space-y-4">
+            {/* Income Allocation */}
+            <div className="pt-4 border-t border-gray-100 dark:border-gray-800">
+              <h4 className="font-medium text-sm text-gray-900 dark:text-white mb-3">
+                Alokasi Pemasukan
+              </h4>
+              
+              <div className="grid grid-cols-3 gap-3 mb-4">
                 <div>
-                  <label className="form-label">Nama Lengkap</label>
+                  <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
+                    Darurat
+                  </label>
                   <input
-                    type="text"
-                    value={form.name}
-                    onChange={(e) => setForm({ ...form, name: e.target.value })}
-                    className="form-input"
-                    required
+                    type="number"
+                    min="0"
+                    max="100"
+                    value={form.allocationEmergency}
+                    onChange={(e) => {
+                      const val = parseInt(e.target.value) || 0;
+                      setForm({ ...form, allocationEmergency: Math.min(100, val) });
+                    }}
+                    className="w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-center focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
                   />
+                  <p className="text-xs text-gray-500 text-center mt-1">%</p>
                 </div>
 
                 <div>
-                  <label className="form-label">Tanggal Kiriman / Gajian</label>
-                  <select
-                    value={form.paydayDate}
-                    onChange={(e) => setForm({ ...form, paydayDate: e.target.value })}
-                    className="form-select"
-                  >
-                    <option value="">Tidak di set (Opsional)</option>
-                    {Array.from({ length: 28 }, (_, i) => i + 1).map((d) => (
-                      <option key={d} value={d}>Tanggal {d} setiap bulan</option>
-                    ))}
-                  </select>
-                  <p className="text-xs text-slate-400 mt-1.5">
-                    Membantu reset siklus jatah harian kamu secara otomatis.
-                  </p>
+                  <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
+                    Tabungan
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    max="100"
+                    value={form.allocationSavings}
+                    onChange={(e) => {
+                      const val = parseInt(e.target.value) || 0;
+                      setForm({ ...form, allocationSavings: Math.min(100, val) });
+                    }}
+                    className="w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-center focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
+                  />
+                  <p className="text-xs text-gray-500 text-center mt-1">%</p>
                 </div>
 
-                {/* Income Allocation Section */}
-                <div className="pt-4 border-t border-surface-200 dark:border-surface-700">
-                  <h4 className="font-semibold text-sm text-surface-900 dark:text-white mb-4">Alokasi Gajian / Bonus</h4>
-                  <p className="text-xs text-slate-400 mb-4">
-                    Atur persentase pembagian otomatis uang masuk ke kantong yang berbeda. Sisanya masuk ke kantong MAIN.
-                  </p>
-
-                  <div className="grid grid-cols-3 gap-3 mb-4">
-                    <div>
-                      <label className="form-label text-xs">Darurat</label>
-                      <input
-                        type="number"
-                        min="0"
-                        max="100"
-                        value={String(form.allocationEmergency)}
-                        onChange={(e) => {
-                          const val = parseInt(e.target.value) || 0;
-                          setForm({ ...form, allocationEmergency: Math.min(100, val) });
-                        }}
-                        className="form-input text-center"
-                        placeholder="0"
-                      />
-                      <p className="text-xs text-slate-400 mt-1">%</p>
-                    </div>
-
-                    <div>
-                      <label className="form-label text-xs">Tabungan</label>
-                      <input
-                        type="number"
-                        min="0"
-                        max="100"
-                        value={String(form.allocationSavings)}
-                        onChange={(e) => {
-                          const val = parseInt(e.target.value) || 0;
-                          setForm({ ...form, allocationSavings: Math.min(100, val) });
-                        }}
-                        className="form-input text-center"
-                        placeholder="0"
-                      />
-                      <p className="text-xs text-slate-400 mt-1">%</p>
-                    </div>
-
-                    <div>
-                      <label className="form-label text-xs">Wishlist</label>
-                      <input
-                        type="number"
-                        min="0"
-                        max="100"
-                        value={String(form.allocationWishlist)}
-                        onChange={(e) => {
-                          const val = parseInt(e.target.value) || 0;
-                          setForm({ ...form, allocationWishlist: Math.min(100, val) });
-                        }}
-                        className="form-input text-center"
-                        placeholder="0"
-                      />
-                      <p className="text-xs text-slate-400 mt-1">%</p>
-                    </div>
-                  </div>
-
-                  {/* Allocation Breakdown */}
-                  <div className="bg-surface-50 dark:bg-surface-800 rounded-lg p-3 space-y-2">
-                    {(() => {
-                      const emergency = form.allocationEmergency || 0;
-                      const savings = form.allocationSavings || 0;
-                      const wishlist = form.allocationWishlist || 0;
-                      const main = 100 - emergency - savings - wishlist;
-                      
-                      return (
-                        <>
-                          {emergency > 0 && (
-                            <div className="flex items-center justify-between text-xs">
-                              <span className="text-slate-600 dark:text-slate-400">Darurat</span>
-                              <span className="font-semibold text-rose-600 dark:text-rose-400">{emergency}%</span>
-                            </div>
-                          )}
-                          {savings > 0 && (
-                            <div className="flex items-center justify-between text-xs">
-                              <span className="text-slate-600 dark:text-slate-400">Tabungan</span>
-                              <span className="font-semibold text-emerald-600 dark:text-emerald-400">{savings}%</span>
-                            </div>
-                          )}
-                          {wishlist > 0 && (
-                            <div className="flex items-center justify-between text-xs">
-                              <span className="text-slate-600 dark:text-slate-400">Wishlist</span>
-                              <span className="font-semibold text-blue-600 dark:text-blue-400">{wishlist}%</span>
-                            </div>
-                          )}
-                          {main > 0 && (
-                            <div className="flex items-center justify-between text-xs">
-                              <span className="text-slate-600 dark:text-slate-400">MAIN</span>
-                              <span className="font-semibold text-primary-600 dark:text-primary-400">{main}%</span>
-                            </div>
-                          )}
-                          {main < 0 && (
-                            <div className="text-xs text-rose-600 dark:text-rose-400 font-semibold">
-                              ⚠️ Total exceeds 100%
-                            </div>
-                          )}
-                        </>
-                      );
-                    })()}
-                  </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
+                    Wishlist
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    max="100"
+                    value={form.allocationWishlist}
+                    onChange={(e) => {
+                      const val = parseInt(e.target.value) || 0;
+                      setForm({ ...form, allocationWishlist: Math.min(100, val) });
+                    }}
+                    className="w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-center focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
+                  />
+                  <p className="text-xs text-gray-500 text-center mt-1">%</p>
                 </div>
               </div>
 
-              <button
-                type="submit"
-                disabled={isSaving}
-                className="w-full mt-6 py-3 bg-primary-600 hover:bg-primary-500 text-white rounded-xl font-bold text-sm transition-all disabled:opacity-50"
-              >
-                {isSaving ? 'Menyimpan...' : 'Simpan Perubahan'}
-              </button>
-            </form>
-
-            {/* App Info & Danger Zone */}
-            <div className="space-y-3">
-              <button
-                onClick={handleLogout}
-                disabled={isLoggingOut}
-                className="w-full card p-4 flex items-center justify-center gap-2 text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-900/10 transition-colors cursor-pointer disabled:opacity-50 font-semibold"
-              >
-                {isLoggingOut ? (
-                  <span className="flex items-center gap-2">
-                    <div className="w-4 h-4 border-2 border-rose-500 border-t-transparent rounded-full animate-spin" />
-                    Keluar...
-                  </span>
-                ) : (
-                  <>
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-                    </svg>
-                    Keluar Akun
-                  </>
+              {/* Allocation Breakdown */}
+              <div className="bg-gray-50 dark:bg-gray-800/50 rounded-lg p-3 space-y-2">
+                {form.allocationEmergency > 0 && (
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-gray-600 dark:text-gray-400">Dana Darurat</span>
+                    <span className="font-medium text-rose-600 dark:text-rose-400">{form.allocationEmergency}%</span>
+                  </div>
                 )}
-              </button>
-              
-              <div className="text-center py-4">
-                <p className="text-xs text-slate-500 font-medium">SmartFlow v1.0.0</p>
-                <p className="text-xs text-slate-400 mt-1">Dibuat dengan ❤️ untuk mahasiswa</p>
+                {form.allocationSavings > 0 && (
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-gray-600 dark:text-gray-400">Tabungan</span>
+                    <span className="font-medium text-emerald-600 dark:text-emerald-400">{form.allocationSavings}%</span>
+                  </div>
+                )}
+                {form.allocationWishlist > 0 && (
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-gray-600 dark:text-gray-400">Wishlist</span>
+                    <span className="font-medium text-indigo-600 dark:text-indigo-400">{form.allocationWishlist}%</span>
+                  </div>
+                )}
+                <div className="flex items-center justify-between text-xs pt-1 border-t border-gray-200 dark:border-gray-700">
+                  <span className="text-gray-600 dark:text-gray-400">Dompet Utama</span>
+                  <span className={`font-medium ${isOverAllocation ? 'text-rose-600' : 'text-gray-900 dark:text-white'}`}>
+                    {isOverAllocation ? 'Melebihi 100%' : `${mainAllocation}%`}
+                  </span>
+                </div>
               </div>
+              
+              {isOverAllocation && (
+                <p className="text-xs text-rose-600 dark:text-rose-400 mt-2">
+                  Total alokasi tidak boleh melebihi 100%
+                </p>
+              )}
             </div>
-          </>
-        ) : null}
+          </div>
+
+          <button
+            type="submit"
+            disabled={isSaving || isOverAllocation}
+            className="w-full mt-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-medium text-sm transition-all disabled:opacity-50"
+          >
+            {isSaving ? 'Menyimpan...' : 'Simpan Perubahan'}
+          </button>
+        </form>
+
+        {/* Logout Button */}
+        <button
+          onClick={handleLogout}
+          disabled={isLoggingOut}
+          className="w-full py-3 rounded-lg border border-rose-200 dark:border-rose-800 text-rose-600 dark:text-rose-400 font-medium text-sm hover:bg-rose-50 dark:hover:bg-rose-500/10 transition-all disabled:opacity-50"
+        >
+          {isLoggingOut ? 'Keluar...' : 'Keluar Akun'}
+        </button>
+
+        {/* Version Info */}
+        <p className="text-center text-xs text-gray-400 py-4">
+          SmartFlow v1.0 — Untuk mahasiswa Indonesia
+        </p>
       </main>
 
       <BottomNav />
