@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import BottomNav from '@/components/BottomNav';
 import { CategoryRecord } from '@/types';
 
 export default function CategoriesPage() {
@@ -100,28 +99,26 @@ export default function CategoriesPage() {
   const wants = categories.filter((c) => c.type === 'WANT');
 
   return (
-    <div className="min-h-screen bg-white dark:bg-gray-950 pb-20">
+    <div className="min-h-screen bg-gray-50/50 dark:bg-gray-950">
       {/* Header */}
-      <header className="sticky top-0 z-40 bg-white/80 dark:bg-gray-950/80 backdrop-blur-xl border-b border-gray-100 dark:border-gray-800">
-        <div className="max-w-2xl mx-auto px-5 py-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-xl font-semibold text-gray-900 dark:text-white">Kategori</h1>
-              <p className="text-xs text-gray-500 dark:text-gray-500 mt-0.5">
-                {categories.length} kategori aktif
-              </p>
-            </div>
-            <button
-              onClick={handleOpenAdd}
-              className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-sm font-medium transition-all"
-            >
-              + Tambah
-            </button>
+      <header className="sticky top-0 z-40 bg-white/80 dark:bg-gray-950/80 backdrop-blur-xl border-b border-gray-200 dark:border-gray-800">
+        <div className="max-w-7xl mx-auto px-5 py-4 flex items-center justify-between">
+          <div>
+            <h1 className="text-xl font-semibold text-gray-900 dark:text-white">Kategori</h1>
+            <p className="text-xs text-gray-500 dark:text-gray-500 mt-0.5">
+              {categories.length} kategori aktif
+            </p>
           </div>
+          <button
+            onClick={handleOpenAdd}
+            className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-sm font-medium transition-all"
+          >
+            + Tambah
+          </button>
         </div>
       </header>
 
-      <main className="max-w-2xl mx-auto px-5 py-6 space-y-6">
+      <main className="max-w-7xl mx-auto px-5 py-6 space-y-6">
         {/* Info Card */}
         <div className="bg-indigo-50 dark:bg-indigo-500/5 rounded-xl p-4 border-l-4 border-indigo-500">
           <p className="text-sm font-medium text-gray-900 dark:text-white mb-1">
@@ -354,8 +351,6 @@ export default function CategoriesPage() {
           </div>
         </div>
       )}
-
-      <BottomNav />
     </div>
   );
 }

@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import BottomNav from '@/components/BottomNav';
 
 interface UserProfile {
   id: string;
@@ -136,17 +135,17 @@ export default function ProfilePage() {
   if (!profile) return null;
 
   return (
-    <div className="min-h-screen bg-white dark:bg-gray-950 pb-20">
+    <div className="min-h-screen bg-gray-50/50 dark:bg-gray-950">
       {/* Header */}
-      <header className="sticky top-0 z-40 bg-white/80 dark:bg-gray-950/80 backdrop-blur-xl border-b border-gray-100 dark:border-gray-800">
-        <div className="max-w-2xl mx-auto px-5 py-4">
+      <header className="sticky top-0 z-40 bg-white/80 dark:bg-gray-950/80 backdrop-blur-xl border-b border-gray-200 dark:border-gray-800">
+        <div className="max-w-7xl mx-auto px-5 py-4">
           <h1 className="text-xl font-semibold text-gray-900 dark:text-white">Profil</h1>
         </div>
       </header>
 
-      <main className="max-w-2xl mx-auto px-5 py-6 space-y-5">
+      <main className="max-w-7xl mx-auto px-5 py-6 space-y-6">
         {/* Profile Avatar Card */}
-        <div className="bg-gray-50 dark:bg-gray-900 rounded-2xl p-6 text-center border border-gray-100 dark:border-gray-800">
+        <div className="bg-white dark:bg-gray-900 rounded-2xl p-6 text-center border border-gray-200 dark:border-gray-800">
           <div className="w-20 h-20 rounded-full bg-indigo-100 dark:bg-indigo-500/20 flex items-center justify-center mx-auto mb-3">
             <span className="text-2xl font-semibold text-indigo-600 dark:text-indigo-400">
               {profile.name.charAt(0).toUpperCase()}
@@ -157,7 +156,7 @@ export default function ProfilePage() {
         </div>
 
         {/* Settings Form */}
-        <form onSubmit={handleSave} className="bg-white dark:bg-gray-900 rounded-2xl p-5 border border-gray-100 dark:border-gray-800">
+        <form onSubmit={handleSave} className="bg-white dark:bg-gray-900 rounded-2xl p-5 border border-gray-200 dark:border-gray-800">
           <h3 className="font-semibold text-gray-900 dark:text-white mb-4">Pengaturan</h3>
           
           {message.text && (
@@ -324,8 +323,6 @@ export default function ProfilePage() {
           SmartFlow v1.0 — Untuk mahasiswa Indonesia
         </p>
       </main>
-
-      <BottomNav />
     </div>
   );
 }

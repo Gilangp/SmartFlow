@@ -3,7 +3,6 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import BottomNav from '@/components/BottomNav';
 import AddTransactionModal from '@/components/AddTransactionModal';
 import AddIncomeRoutineModal from '@/components/AddIncomeRoutineModal';
 import { TransactionRecord } from '@/types';
@@ -79,10 +78,10 @@ export default function TransactionsPage() {
   const totalExpense = filtered.filter((t) => t.type === 'EXPENSE').reduce((s, t) => s + t.amount, 0);
 
   return (
-    <div className="min-h-screen bg-white dark:bg-gray-950 pb-20">
+    <div className="min-h-screen bg-gray-50/50 dark:bg-gray-950">
       {/* Header */}
-      <header className="sticky top-0 z-40 bg-white/80 dark:bg-gray-950/80 backdrop-blur-xl border-b border-gray-100 dark:border-gray-800">
-        <div className="max-w-2xl mx-auto px-5 py-4">
+      <header className="sticky top-0 z-40 bg-white/80 dark:bg-gray-950/80 backdrop-blur-xl border-b border-gray-200 dark:border-gray-800">
+        <div className="max-w-7xl mx-auto px-5 py-4">
           <h1 className="text-xl font-semibold text-gray-900 dark:text-white mb-3">Transaksi</h1>
           <div className="relative">
             <input
@@ -96,10 +95,10 @@ export default function TransactionsPage() {
         </div>
       </header>
 
-      <main className="max-w-2xl mx-auto px-5 py-6 space-y-5">
+      <main className="max-w-7xl mx-auto px-5 py-6">
         {/* Pending Income Alert */}
         {pendingIncomeCount > 0 && (
-          <div className="p-3 rounded-lg bg-indigo-50 dark:bg-indigo-500/10 border border-indigo-100 dark:border-indigo-500/20 flex items-center justify-between">
+          <div className="mb-5 p-3 rounded-lg bg-indigo-50 dark:bg-indigo-500/10 border border-indigo-100 dark:border-indigo-500/20 flex items-center justify-between">
             <div>
               <p className="font-medium text-indigo-700 dark:text-indigo-300 text-sm">
                 {pendingIncomeCount} gajian belum dikonfirmasi
@@ -113,19 +112,19 @@ export default function TransactionsPage() {
         )}
 
         {/* Summary Cards */}
-        <div className="grid grid-cols-2 gap-3">
-          <div className="bg-gray-50 dark:bg-gray-900 rounded-xl p-4 border border-gray-100 dark:border-gray-800">
+        <div className="grid grid-cols-2 gap-3 mb-5">
+          <div className="bg-white dark:bg-gray-900 rounded-xl p-4 border border-gray-200 dark:border-gray-800">
             <p className="text-xs text-gray-500 mb-1">Pemasukan</p>
             <p className="text-lg font-bold text-emerald-600 dark:text-emerald-400">{formatCurrency(totalIncome)}</p>
           </div>
-          <div className="bg-gray-50 dark:bg-gray-900 rounded-xl p-4 border border-gray-100 dark:border-gray-800">
+          <div className="bg-white dark:bg-gray-900 rounded-xl p-4 border border-gray-200 dark:border-gray-800">
             <p className="text-xs text-gray-500 mb-1">Pengeluaran</p>
             <p className="text-lg font-bold text-rose-600 dark:text-rose-400">{formatCurrency(totalExpense)}</p>
           </div>
         </div>
 
         {/* Filter Tabs */}
-        <div className="flex gap-2 overflow-x-auto pb-1">
+        <div className="flex gap-2 overflow-x-auto pb-5 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
           {[
             { value: 'ALL', label: 'Semua' },
             { value: 'EXPENSE', label: 'Pengeluaran' },
@@ -138,7 +137,7 @@ export default function TransactionsPage() {
               className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-all flex-shrink-0 ${
                 filter === f.value
                   ? 'bg-indigo-600 text-white'
-                  : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400'
+                  : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-400 border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700'
               }`}
             >
               {f.label}
@@ -147,11 +146,11 @@ export default function TransactionsPage() {
         </div>
 
         {/* Action Buttons */}
-        <div className="grid grid-cols-2 gap-3">
-          <button onClick={() => setShowAddModal(true)} className="py-2.5 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg font-medium text-sm transition border border-gray-200 dark:border-gray-700">
+        <div className="grid grid-cols-2 gap-3 mb-6">
+          <button onClick={() => setShowAddModal(true)} className="py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-medium text-sm transition shadow-sm shadow-indigo-600/20 active:scale-[0.98]">
             + Pengeluaran / Bonus
           </button>
-          <button onClick={() => setShowIncomeRoutineModal(true)} className="py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-medium text-sm transition">
+          <button onClick={() => setShowIncomeRoutineModal(true)} className="py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-medium text-sm transition shadow-sm shadow-indigo-600/20 active:scale-[0.98]">
             + Gajian
           </button>
         </div>
@@ -160,17 +159,17 @@ export default function TransactionsPage() {
         {isLoading ? (
           <div className="space-y-3">
             {[1, 2, 3].map((i) => (
-              <div key={i} className="h-16 bg-gray-100 dark:bg-gray-800 rounded-xl animate-pulse" />
+              <div key={i} className="h-16 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 animate-pulse" />
             ))}
           </div>
         ) : sortedDates.length === 0 ? (
-          <div className="bg-gray-50 dark:bg-gray-900 rounded-xl p-10 text-center border border-gray-100 dark:border-gray-800">
+          <div className="bg-white dark:bg-gray-900 rounded-xl p-10 text-center border border-gray-200 dark:border-gray-800">
             <p className="text-gray-500">Belum ada transaksi</p>
             <p className="text-xs text-gray-400 mt-1">Mulai catat sekarang</p>
           </div>
         ) : (
           sortedDates.map((date) => (
-            <div key={date}>
+            <div key={date} className="mb-6">
               <div className="flex justify-between mb-2">
                 <p className="text-xs font-medium text-gray-500">
                   {new Date(date + 'T00:00:00').toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long' })}
@@ -179,7 +178,7 @@ export default function TransactionsPage() {
                   {formatCurrency(grouped[date].filter((t) => t.type === 'EXPENSE').reduce((s, t) => s + t.amount, 0))}
                 </p>
               </div>
-              <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-100 dark:border-gray-800 overflow-hidden">
+              <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 overflow-hidden">
                 {grouped[date].map((tx) => {
                   const isIncome = tx.type.startsWith('INCOME');
                   return (
@@ -208,8 +207,6 @@ export default function TransactionsPage() {
           ))
         )}
       </main>
-
-      <BottomNav />
 
       {showAddModal && (
         <AddTransactionModal

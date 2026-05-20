@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import BottomNav from '@/components/BottomNav';
 
 interface Pocket {
   id: string;
@@ -137,10 +136,10 @@ export default function PocketsPage() {
   const totalWealth = pockets.reduce((s, p) => s + p.balance, 0);
 
   return (
-    <div className="min-h-screen bg-white dark:bg-gray-950 pb-20">
+    <div className="min-h-screen bg-gray-50/50 dark:bg-gray-950">
       {/* Header */}
-      <header className="sticky top-0 z-40 bg-white/80 dark:bg-gray-950/80 backdrop-blur-xl border-b border-gray-100 dark:border-gray-800">
-        <div className="max-w-2xl mx-auto px-5 py-4">
+      <header className="sticky top-0 z-40 bg-white/80 dark:bg-gray-950/80 backdrop-blur-xl border-b border-gray-200 dark:border-gray-800">
+        <div className="max-w-7xl mx-auto px-5 py-4">
           <div className="flex items-center justify-between">
             <div>
               <h1 className="text-xl font-semibold text-gray-900 dark:text-white">Kantong</h1>
@@ -152,94 +151,98 @@ export default function PocketsPage() {
         </div>
       </header>
 
-      <main className="max-w-2xl mx-auto px-5 py-6 space-y-4">
+      <main className="max-w-7xl mx-auto px-5 py-6 space-y-6">
         {isLoading ? (
-          Array.from({ length: 4 }).map((_, i) => (
-            <div key={i} className="h-44 bg-gray-100 dark:bg-gray-800 rounded-2xl animate-pulse" />
-          ))
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <div key={i} className="h-44 bg-gray-100 dark:bg-gray-800 rounded-2xl animate-pulse" />
+            ))}
+          </div>
         ) : (
-          sortedPockets.map((pocket) => {
-            const meta = POCKET_META[pocket.type];
-            const hasTarget = pocket.targetAmount && meta.canSetTarget;
-            const isCompleted = pocket.status === 'completed';
-            const progress = Math.min(pocket.progressPercentage || 0, 100);
-            const canWithdraw = meta.canWithdraw && pocket.balance > 0;
-            
-            return (
-              <div
-                key={pocket.id}
-                className={`relative overflow-hidden rounded-2xl bg-gradient-to-r ${meta.gradient} p-5 text-white shadow-lg`}
-              >
-                {/* Decorative elements */}
-                <div className="absolute top-0 right-0 w-32 h-32 bg-white/5 rounded-full blur-2xl transform translate-x-16 -translate-y-16" />
-                <div className="absolute bottom-0 left-0 w-24 h-24 bg-white/5 rounded-full blur-2xl transform -translate-x-12 translate-y-12" />
-                
-                <div className="relative z-10">
-                  {/* Header */}
-                  <div className="flex items-start justify-between mb-3">
-                    <div>
-                      <h2 className="font-semibold text-base">{meta.label}</h2>
-                      <p className="text-white/70 text-xs">{meta.description}</p>
-                    </div>
-                    {isCompleted && (
-                      <span className="px-2 py-0.5 bg-white/20 rounded-lg text-xs font-medium">
-                        Tercapai
-                      </span>
-                    )}
-                  </div>
-
-                  {/* Balance */}
-                  <p className="text-3xl font-bold mb-3">
-                    {formatCurrency(pocket.balance)}
-                  </p>
-
-                  {/* Progress Bar for EMERGENCY and WISHLIST */}
-                  {hasTarget && pocket.targetAmount && (
-                    <div className="mb-3">
-                      <div className="flex justify-between text-xs text-white/70 mb-1">
-                        <span>Target: {formatCurrencyFull(pocket.targetAmount)}</span>
-                        <span className="font-medium">{Math.round(progress)}%</span>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            {sortedPockets.map((pocket) => {
+              const meta = POCKET_META[pocket.type];
+              const hasTarget = pocket.targetAmount && meta.canSetTarget;
+              const isCompleted = pocket.status === 'completed';
+              const progress = Math.min(pocket.progressPercentage || 0, 100);
+              const canWithdraw = meta.canWithdraw && pocket.balance > 0;
+              
+              return (
+                <div
+                  key={pocket.id}
+                  className={`relative overflow-hidden rounded-2xl bg-gradient-to-r ${meta.gradient} p-5 text-white shadow-lg`}
+                >
+                  {/* Decorative elements */}
+                  <div className="absolute top-0 right-0 w-32 h-32 bg-white/5 rounded-full blur-2xl transform translate-x-16 -translate-y-16" />
+                  <div className="absolute bottom-0 left-0 w-24 h-24 bg-white/5 rounded-full blur-2xl transform -translate-x-12 translate-y-12" />
+                  
+                  <div className="relative z-10">
+                    {/* Header */}
+                    <div className="flex items-start justify-between mb-3">
+                      <div>
+                        <h2 className="font-semibold text-base">{meta.label}</h2>
+                        <p className="text-white/70 text-xs">{meta.description}</p>
                       </div>
-                      <div className="h-1.5 bg-white/20 rounded-full overflow-hidden">
-                        <div
-                          className="h-full bg-white/80 rounded-full transition-all duration-500"
-                          style={{ width: `${progress}%` }}
-                        />
-                      </div>
+                      {isCompleted && (
+                        <span className="px-2 py-0.5 bg-white/20 rounded-lg text-xs font-medium">
+                          Tercapai
+                        </span>
+                      )}
                     </div>
-                  )}
 
-                  {/* Tip */}
-                  <p className="text-white/60 text-xs italic mb-3">
-                    {meta.tip}
-                  </p>
+                    {/* Balance */}
+                    <p className="text-3xl font-bold mb-3">
+                      {formatCurrency(pocket.balance)}
+                    </p>
 
-                  {/* Actions */}
-                  <div className="flex gap-2">
-                    {meta.canSetTarget && (
-                      <button
-                        onClick={() => setEditTarget({ pocket, value: String(pocket.targetAmount || '') })}
-                        className="px-3 py-1.5 bg-white/15 hover:bg-white/25 rounded-lg text-xs font-medium transition-all"
-                      >
-                        Set Target
-                      </button>
+                    {/* Progress Bar for EMERGENCY and WISHLIST */}
+                    {hasTarget && pocket.targetAmount && (
+                      <div className="mb-3">
+                        <div className="flex justify-between text-xs text-white/70 mb-1">
+                          <span>Target: {formatCurrencyFull(pocket.targetAmount)}</span>
+                          <span className="font-medium">{Math.round(progress)}%</span>
+                        </div>
+                        <div className="h-1.5 bg-white/20 rounded-full overflow-hidden">
+                          <div
+                            className="h-full bg-white/80 rounded-full transition-all duration-500"
+                            style={{ width: `${progress}%` }}
+                          />
+                        </div>
+                      </div>
                     )}
-                    {canWithdraw && (
-                      <button
-                        onClick={() => {
-                          setWithdrawData({ pocket, amount: '' });
-                          setShowConfirmModal(true);
-                        }}
-                        className="px-3 py-1.5 bg-white/15 hover:bg-white/25 rounded-lg text-xs font-medium transition-all"
-                      >
-                        Tarik Dana
-                      </button>
-                    )}
+
+                    {/* Tip */}
+                    <p className="text-white/60 text-xs italic mb-3">
+                      {meta.tip}
+                    </p>
+
+                    {/* Actions */}
+                    <div className="flex gap-2">
+                      {meta.canSetTarget && (
+                        <button
+                          onClick={() => setEditTarget({ pocket, value: String(pocket.targetAmount || '') })}
+                          className="px-3 py-1.5 bg-white/15 hover:bg-white/25 rounded-lg text-xs font-medium transition-all"
+                        >
+                          Set Target
+                        </button>
+                      )}
+                      {canWithdraw && (
+                        <button
+                          onClick={() => {
+                            setWithdrawData({ pocket, amount: '' });
+                            setShowConfirmModal(true);
+                          }}
+                          className="px-3 py-1.5 bg-white/15 hover:bg-white/25 rounded-lg text-xs font-medium transition-all"
+                        >
+                          Tarik Dana
+                        </button>
+                      )}
+                    </div>
                   </div>
                 </div>
-              </div>
-            );
-          })
+              );
+            })}
+          </div>
         )}
 
         {/* Info Card */}
@@ -254,7 +257,7 @@ export default function PocketsPage() {
         </div>
       </main>
 
-      {/* Set Target Modal */}
+      {/* Modals */}
       {editTarget && (
         <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-end sm:items-center justify-center p-4" onClick={() => setEditTarget(null)}>
           <div className="bg-white dark:bg-gray-900 rounded-2xl w-full max-w-md shadow-xl" onClick={(e) => e.stopPropagation()}>
@@ -294,7 +297,6 @@ export default function PocketsPage() {
         </div>
       )}
 
-      {/* Withdraw Modal */}
       {showConfirmModal && withdrawData && (
         <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-end sm:items-center justify-center p-4" onClick={() => { setShowConfirmModal(false); setWithdrawData(null); }}>
           <div className="bg-white dark:bg-gray-900 rounded-2xl w-full max-w-md shadow-xl" onClick={(e) => e.stopPropagation()}>
@@ -308,7 +310,6 @@ export default function PocketsPage() {
             </div>
             
             <div className="p-5 space-y-4">
-              {/* Warning Message */}
               <div className="p-3 rounded-lg bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/20">
                 <p className="text-xs text-amber-700 dark:text-amber-400 leading-relaxed">
                   {POCKET_META[withdrawData.pocket.type].withdrawWarning}
@@ -352,8 +353,6 @@ export default function PocketsPage() {
           </div>
         </div>
       )}
-
-      <BottomNav />
     </div>
   );
 }
