@@ -338,7 +338,7 @@ export default function CategoriesPage() {
               Hapus Kategori?
             </h2>
             <p className="text-sm text-gray-500 dark:text-gray-400 mb-5">
-              Kategori <span className="font-medium text-gray-900 dark:text-white">"{deleteItem.name}"</span> akan dihapus secara permanen.
+              Kategori <span className="font-medium text-gray-900 dark:text-white">&ldquo;{deleteItem.name}&rdquo;</span> akan dihapus secara permanen.
             </p>
             <div className="flex gap-3">
               <button onClick={() => setDeleteItem(null)} className="flex-1 py-2.5 rounded-lg bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 font-medium text-sm transition-all">

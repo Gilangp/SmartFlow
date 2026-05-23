@@ -192,22 +192,28 @@ export default function AddIncomeRoutineModal({ onClose, onSuccess, paydayDate }
               />
             </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
-                Masuk ke Kantong
-              </label>
-              <select
-                value={form.pocketId}
-                onChange={(e) => setForm((f) => ({ ...f, pocketId: e.target.value }))}
-                required
-                className="w-full px-4 py-2.5 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
-              >
-                <option value="">Pilih kantong</option>
-                {pockets.map((p) => (
-                  <option key={p.id} value={p.id}>{p.name}</option>
-                ))}
-              </select>
-            </div>
+            {!hasAllocation ? (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+                  Masuk ke Kantong
+                </label>
+                <select
+                  value={form.pocketId}
+                  onChange={(e) => setForm((f) => ({ ...f, pocketId: e.target.value }))}
+                  required
+                  className="w-full px-4 py-2.5 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
+                >
+                  <option value="">Pilih kantong</option>
+                  {pockets.map((p) => (
+                    <option key={p.id} value={p.id}>{p.name}</option>
+                  ))}
+                </select>
+              </div>
+            ) : (
+              <div className="p-3.5 rounded-xl bg-indigo-50/50 dark:bg-indigo-500/5 border border-indigo-100/50 dark:border-indigo-500/10 text-indigo-600 dark:text-indigo-400 text-xs leading-relaxed">
+                ✨ Pemasukan rutin akan dibagikan otomatis ke kantong Anda sesuai target alokasi di bawah.
+              </div>
+            )}
 
             {/* Allocation Preview */}
             {hasAllocation && form.amount && (

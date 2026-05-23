@@ -8,6 +8,8 @@ import {
   getDaysLeftInMonth,
 } from '@/lib/financial-calculations';
 
+export const dynamic = 'force-dynamic';
+
 export async function GET(request: NextRequest) {
   try {
     const token = extractTokenFromHeader(request.headers.get('Authorization') || '');
@@ -45,18 +47,14 @@ export async function GET(request: NextRequest) {
     const mainWallet = user.pockets.find((p) => p.type === 'MAIN');
     const mainBalance = mainWallet?.balance.toNumber() || 0;
 
-    // Calculate daily allowance (FR-DASH-01)
-    const daysLeft = getDaysLeftInMonth();
-    const dailyAllowance = calculateDailyAllowance(mainBalance, 0, daysLeft);
-
-    // Get today's spending
+    // Get today's date boundary
     const todayStr = new Date().toISOString().split('T')[0];
     const today = new Date(todayStr + 'T00:00:00.000Z');
     
+    // Get all of today's transactions for the user
     const todayTransactions = await prisma.transaction.findMany({
       where: {
         userId: decoded.userId,
-        type: 'EXPENSE',
         date: {
           gte: today,
           lt: new Date(today.getTime() + 24 * 60 * 60 * 1000),
@@ -64,7 +62,23 @@ export async function GET(request: NextRequest) {
       },
     });
 
-    const totalSpent = todayTransactions.reduce((sum, t) => sum + t.amount.toNumber(), 0);
+    // Calculate total spent today (expenses)
+    const totalSpent = todayTransactions
+      .filter((t) => t.type === 'EXPENSE')
+      .reduce((sum, t) => sum + t.amount.toNumber(), 0);
+
+    // Calculate today's spending specifically for the MAIN pocket to find the starting balance of the day
+    const totalMainSpentToday = todayTransactions
+      .filter((t) => t.type === 'EXPENSE' && t.pocketId === mainWallet?.id)
+      .reduce((sum, t) => sum + t.amount.toNumber(), 0);
+
+    // Saldo Dompet Utama di awal hari sebelum dipotong pengeluaran hari ini (namun tetap bertambah jika ada pemasukan baru)
+    const startOfDayMainBalance = mainBalance + totalMainSpentToday;
+
+    // Calculate daily allowance using start of day balance (FR-DASH-01)
+    const daysLeft = getDaysLeftInMonth();
+    const dailyAllowance = calculateDailyAllowance(startOfDayMainBalance, 0, daysLeft);
+
     const percentageUsed = calculateSpendingPercentage(totalSpent, dailyAllowance);
     const status = determineSpendingStatus(percentageUsed);
 

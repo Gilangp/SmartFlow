@@ -3,6 +3,8 @@ import { verifyToken, extractTokenFromHeader } from '@/lib/auth';
 import { prisma } from '@/lib/db';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 
+export const dynamic = 'force-dynamic';
+
 // Init AI
 const genAI = new GoogleGenerativeAI(
   process.env.GEMINI_API_KEY || process.env.GOOGLE_AI_API_KEY || ''
@@ -107,14 +109,24 @@ export async function GET(request: NextRequest) {
     }
 
     // =====================
-    // TRANSACTIONS (7 DAYS)
+    // MAIN POCKET & TRANSACTIONS (7 DAYS)
     // =====================
+    const mainWallet = user.pockets.find((p) => p.type === 'MAIN');
+    if (!mainWallet) {
+      return NextResponse.json(
+        { success: false, message: 'Main pocket not found' },
+        { status: 404 }
+      );
+    }
+    const balance = Number(mainWallet.balance || 0);
+
     const sevenDaysAgo = new Date();
     sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
 
     const transactions = await prisma.transaction.findMany({
       where: {
         userId: user.id,
+        pocketId: mainWallet.id,
         date: { gte: sevenDaysAgo },
       },
       include: { category: true },
@@ -126,7 +138,7 @@ export async function GET(request: NextRequest) {
         success: true,
         data: {
           message:
-            '7 hari terakhir kosong. Antara disiplin... atau denial finansial 😌',
+            '7 hari terakhir jatah harian kosong. Antara disiplin... atau denial finansial 😌',
         },
       });
     }
@@ -154,9 +166,6 @@ export async function GET(request: NextRequest) {
         totalIncome += amount;
       }
     }
-
-    const mainWallet = user.pockets.find((p) => p.type === 'MAIN');
-    const balance = Number(mainWallet?.balance || 0);
 
     // =====================
     // PROMPT

@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { verifyToken, extractTokenFromHeader } from '@/lib/auth';
 import { prisma } from '@/lib/db';
 
+export const dynamic = 'force-dynamic';
+
 // 🔹 Helper: error response
 function errorResponse(message: string, status: number) {
   return NextResponse.json({ success: false, message }, { status });

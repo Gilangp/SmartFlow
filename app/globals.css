@@ -25,19 +25,15 @@
     font-feature-settings: 'cv11', 'ss01';
   }
 
-  /* Custom scrollbar */
+  /* Hide scrollbars globally */
+  * {
+    scrollbar-width: none; /* Firefox */
+    -ms-overflow-style: none; /* IE/Edge */
+  }
   ::-webkit-scrollbar {
-    width: 4px;
-    height: 4px;
-  }
-  ::-webkit-scrollbar-track {
-    @apply bg-transparent;
-  }
-  ::-webkit-scrollbar-thumb {
-    @apply bg-surface-200 dark:bg-surface-700 rounded-full;
-  }
-  ::-webkit-scrollbar-thumb:hover {
-    @apply bg-surface-300 dark:bg-surface-600;
+    display: none; /* Safari and Chrome */
+    width: 0;
+    height: 0;
   }
 }
 

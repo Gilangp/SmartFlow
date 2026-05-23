@@ -313,7 +313,7 @@ export default function ProfilePage() {
         <button
           onClick={handleLogout}
           disabled={isLoggingOut}
-          className="w-full py-3 rounded-lg border border-rose-200 dark:border-rose-800 text-rose-600 dark:text-rose-400 font-medium text-sm hover:bg-rose-50 dark:hover:bg-rose-500/10 transition-all disabled:opacity-50"
+          className="md:hidden w-full py-3 rounded-lg border border-rose-200 dark:border-rose-800 text-rose-600 dark:text-rose-400 font-medium text-sm hover:bg-rose-50 dark:hover:bg-rose-500/10 transition-all disabled:opacity-50"
         >
           {isLoggingOut ? 'Keluar...' : 'Keluar Akun'}
         </button>

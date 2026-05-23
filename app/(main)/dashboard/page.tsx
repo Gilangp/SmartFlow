@@ -191,6 +191,23 @@ export default function DashboardPage() {
       </header>
 
       <main className="max-w-7xl mx-auto px-5 py-6">
+        {/* AI Roast Card */}
+        {aiRoast && (
+          <div className="mb-6 bg-indigo-50 dark:bg-indigo-500/5 rounded-2xl p-5 border-l-4 border-indigo-500">
+            <div className="flex items-start gap-3">
+              <div className="w-8 h-8 rounded-full bg-indigo-100 dark:bg-indigo-500/20 flex items-center justify-center flex-shrink-0 mt-0.5">
+                <span className="text-indigo-600 dark:text-indigo-400 text-sm font-bold">AI</span>
+              </div>
+              <div>
+                <p className="text-xs text-indigo-500 dark:text-indigo-400 font-medium mb-1">AI Financial Roaster</p>
+                <p className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed">
+                  &ldquo;{aiRoast}&rdquo;
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
           
           {/* Left Column: Metrics & Pockets */}
@@ -244,6 +261,14 @@ export default function DashboardPage() {
               </div>
             </div>
 
+            {/* Add Transaction Button */}
+            <button
+              onClick={() => setShowAddModal(true)}
+              className="w-full py-3.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-medium text-sm shadow-lg shadow-indigo-600/20 transition-all active:scale-[0.98]"
+            >
+              + Catat Transaksi
+            </button>
+
             {/* Pocket Cards */}
             <section>
               <div className="flex items-baseline justify-between mb-4">
@@ -290,35 +315,10 @@ export default function DashboardPage() {
                 ))}
               </div>
             </section>
-
-            {/* Add Transaction Button */}
-            <button
-              onClick={() => setShowAddModal(true)}
-              className="w-full py-3.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-medium text-sm shadow-lg shadow-indigo-600/20 transition-all active:scale-[0.98]"
-            >
-              + Catat Transaksi
-            </button>
           </div>
 
-          {/* Right Column: Roast AI & Transactions */}
+          {/* Right Column: Transactions */}
           <div className="lg:col-span-5 space-y-6">
-            {/* AI Roast Card */}
-            {aiRoast && (
-              <div className="bg-indigo-50 dark:bg-indigo-500/5 rounded-2xl p-5 border-l-4 border-indigo-500">
-                <div className="flex items-start gap-3">
-                  <div className="w-8 h-8 rounded-full bg-indigo-100 dark:bg-indigo-500/20 flex items-center justify-center flex-shrink-0 mt-0.5">
-                    <span className="text-indigo-600 dark:text-indigo-400 text-sm font-bold">AI</span>
-                  </div>
-                  <div>
-                    <p className="text-xs text-indigo-500 dark:text-indigo-400 font-medium mb-1">AI Financial Roaster</p>
-                    <p className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed">
-                      "{aiRoast}"
-                    </p>
-                  </div>
-                </div>
-              </div>
-            )}
-
             <section>
               <div className="flex items-baseline justify-between mb-4">
                 <h2 className="text-base font-semibold text-gray-900 dark:text-white">

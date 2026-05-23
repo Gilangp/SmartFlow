@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 
 const navItems = [
   {
@@ -53,6 +53,13 @@ const navItems = [
 
 export default function Navigation() {
   const pathname = usePathname();
+  const router = useRouter();
+
+  const handleLogout = () => {
+    localStorage.removeItem('sf-token');
+    localStorage.removeItem('sf-user');
+    router.push('/');
+  };
 
   return (
     <>
@@ -126,6 +133,21 @@ export default function Navigation() {
               </Link>
             );
           })}
+        </div>
+
+        {/* Desktop Logout Button */}
+        <div className="p-4 border-t border-gray-100 dark:border-gray-800">
+          <button
+            onClick={handleLogout}
+            className="w-full flex items-center gap-4 px-4 py-3 rounded-2xl text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-500/10 transition-all duration-300 group font-medium text-sm"
+          >
+            <div className="group-hover:scale-110 transition-transform duration-300">
+              <svg className="w-6 h-6 text-rose-600 dark:text-rose-400" fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+              </svg>
+            </div>
+            <span>Keluar</span>
+          </button>
         </div>
       </aside>
     </>

@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { verifyToken, extractTokenFromHeader } from '@/lib/auth';
 import { prisma } from '@/lib/db';
 
+export const dynamic = 'force-dynamic';
+
 interface CreateTransactionRequest {
   type: 'INCOME_ROUTINE' | 'INCOME_BONUS' | 'EXPENSE';
   amount: number;

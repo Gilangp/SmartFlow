@@ -73,21 +73,21 @@ export async function PATCH(request: NextRequest) {
       if (typeof allocationEmergency !== 'number') {
         return errorResponse('Invalid allocationEmergency', 400);
       }
-      dataToUpdate.allocationEmergency = clampPercent(allocationEmergency).toString();
+      dataToUpdate.allocationEmergency = clampPercent(allocationEmergency);
     }
 
     if (allocationSavings !== undefined) {
       if (typeof allocationSavings !== 'number') {
         return errorResponse('Invalid allocationSavings', 400);
       }
-      dataToUpdate.allocationSavings = clampPercent(allocationSavings).toString();
+      dataToUpdate.allocationSavings = clampPercent(allocationSavings);
     }
 
     if (allocationWishlist !== undefined) {
       if (typeof allocationWishlist !== 'number') {
         return errorResponse('Invalid allocationWishlist', 400);
       }
-      dataToUpdate.allocationWishlist = clampPercent(allocationWishlist).toString();
+      dataToUpdate.allocationWishlist = clampPercent(allocationWishlist);
     }
 
     // 🔥 VALIDASI TOTAL ALOKASI (INI PENTING BANGET)

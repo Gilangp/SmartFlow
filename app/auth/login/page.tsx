@@ -41,28 +41,28 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen bg-surface-950 flex items-center justify-center px-4 relative overflow-hidden">
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex items-center justify-center px-4 relative overflow-hidden transition-colors duration-300">
       {/* Background blobs */}
-      <div className="absolute -top-40 -right-40 w-80 h-80 bg-primary-700/20 rounded-full blur-3xl" />
-      <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-accent-700/20 rounded-full blur-3xl" />
+      <div className="absolute -top-40 -right-40 w-80 h-80 bg-indigo-500/10 dark:bg-primary-700/20 rounded-full blur-3xl" />
+      <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-purple-500/10 dark:bg-accent-700/20 rounded-full blur-3xl" />
 
       <div className="relative z-10 w-full max-w-sm">
         {/* Logo */}
         <div className="text-center mb-8">
           <Link href="/" className="inline-flex items-center gap-2 mb-4">
-            <div className="w-10 h-10 bg-gradient-to-br from-primary-500 to-accent-500 rounded-xl flex items-center justify-center shadow-glow-primary">
+            <div className="w-10 h-10 bg-gradient-to-br from-indigo-500 to-purple-500 rounded-xl flex items-center justify-center shadow-glow-primary">
               <span className="text-white font-bold text-lg">SF</span>
             </div>
-            <span className="text-white font-black text-2xl">SmartFlow</span>
+            <span className="text-slate-900 dark:text-white font-black text-2xl">SmartFlow</span>
           </Link>
-          <h1 className="text-2xl font-bold text-white">Selamat Datang Kembali</h1>
-          <p className="text-slate-400 text-sm mt-1">Masuk untuk lihat jatah harian kamu</p>
+          <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Selamat Datang Kembali</h1>
+          <p className="text-slate-500 dark:text-slate-400 text-sm mt-1">Masuk untuk lihat jatah harian kamu</p>
         </div>
 
         {/* Card */}
-        <div className="bg-surface-900 border border-surface-700/50 rounded-3xl p-8 shadow-2xl">
+        <div className="bg-white dark:bg-slate-900 border border-slate-200/60 dark:border-slate-800/50 rounded-3xl p-8 shadow-xl dark:shadow-2xl">
           {error && (
-            <div className="mb-4 p-3 rounded-xl bg-rose-900/30 border border-rose-700/50 text-rose-300 text-sm flex items-center gap-2">
+            <div className="mb-4 p-3 rounded-xl bg-rose-50 dark:bg-rose-900/30 border border-rose-100 dark:border-rose-700/50 text-rose-600 dark:text-rose-300 text-sm flex items-center gap-2">
               <svg className="w-4 h-4 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
                 <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
               </svg>
@@ -72,21 +72,21 @@ export default function LoginPage() {
 
           <form onSubmit={handleSubmit} className="space-y-5">
             <div>
-              <label className="form-label text-slate-300">Email</label>
+              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Email</label>
               <input
                 id="login-email"
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
-                className="w-full px-4 py-3 rounded-xl border border-surface-700 bg-surface-800 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-primary-500/50 focus:border-primary-500 transition-all duration-200 text-sm"
+                className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500 transition-all duration-200 text-sm"
                 placeholder="mahasiswa@email.com"
                 autoComplete="email"
               />
             </div>
 
             <div>
-              <label className="form-label text-slate-300">Password</label>
+              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Password</label>
               <div className="relative">
                 <input
                   id="login-password"
@@ -94,14 +94,14 @@ export default function LoginPage() {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
-                  className="w-full px-4 py-3 pr-12 rounded-xl border border-surface-700 bg-surface-800 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-primary-500/50 focus:border-primary-500 transition-all duration-200 text-sm"
+                  className="w-full px-4 py-3 pr-12 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500 transition-all duration-200 text-sm"
                   placeholder="••••••••"
                   autoComplete="current-password"
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-200 transition-colors p-1"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors p-1"
                 >
                   {showPassword ? (
                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -121,7 +121,7 @@ export default function LoginPage() {
               id="login-submit"
               type="submit"
               disabled={isLoading}
-              className="w-full py-3.5 bg-gradient-to-r from-primary-600 to-primary-500 hover:from-primary-500 hover:to-primary-400 text-white rounded-xl font-bold text-sm transition-all duration-200 disabled:opacity-60 disabled:cursor-not-allowed shadow-lg hover:shadow-glow-primary active:scale-95"
+              className="w-full py-3.5 bg-gradient-to-r from-indigo-600 to-indigo-500 hover:from-indigo-500 hover:to-indigo-450 text-white rounded-xl font-bold text-sm transition-all duration-200 disabled:opacity-60 disabled:cursor-not-allowed shadow-lg hover:shadow-glow-primary active:scale-95"
             >
               {isLoading ? (
                 <span className="flex items-center justify-center gap-2">
@@ -135,18 +135,13 @@ export default function LoginPage() {
             </button>
           </form>
 
-          <p className="text-center text-slate-400 text-sm mt-6">
+          <p className="text-center text-slate-500 dark:text-slate-400 text-sm mt-6">
             Belum punya akun?{' '}
-            <Link href="/auth/register" className="text-primary-400 hover:text-primary-300 font-semibold transition-colors">
+            <Link href="/auth/register" className="text-indigo-600 dark:text-indigo-400 hover:text-indigo-500 dark:hover:text-indigo-300 font-semibold transition-colors">
               Daftar gratis
             </Link>
           </p>
         </div>
-
-        {/* Demo hint */}
-        <p className="text-center text-slate-600 text-xs mt-4">
-          Demo: demo@smartflow.id / demo123
-        </p>
       </div>
     </div>
   );
