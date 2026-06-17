@@ -214,7 +214,7 @@ export default function RegisterPage() {
                   >
                     <option value="">Pilih tanggal (opsional)</option>
                     {Array.from({ length: 28 }, (_, i) => i + 1).map((d) => (
-                      <option key={d} value={d}>Tanggal {d} setiap bulan</option>
+                      <option key={d} value={d}>Tanggal {d}</option>
                     ))}
                   </select>
                   <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-slate-500">
