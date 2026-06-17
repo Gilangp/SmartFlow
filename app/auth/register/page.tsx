@@ -80,9 +80,9 @@ export default function RegisterPage() {
         <div className="text-center mb-8">
           <Link href="/" className="inline-flex items-center gap-2 mb-4">
             <div className="w-10 h-10 bg-gradient-to-br from-indigo-500 to-purple-500 rounded-xl flex items-center justify-center shadow-glow-primary">
-              <span className="text-white font-bold text-lg">SF</span>
+              <span className="text-white font-bold text-lg">FT</span>
             </div>
-            <span className="text-slate-900 dark:text-white font-black text-2xl">SmartFlow</span>
+            <span className="text-slate-900 dark:text-white font-black text-2xl">Finto</span>
           </Link>
           <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Buat Akun Baru</h1>
           <p className="text-slate-500 dark:text-slate-400 text-sm mt-1">Mulai perjalanan finansial cerdas kamu</p>

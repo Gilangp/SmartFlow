@@ -3,18 +3,18 @@ import AdMobProvider from '@/components/AdMobProvider';
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: 'SmartFlow - Student Financial Companion',
+  title: 'Finto - Student Financial Companion',
   description: 'Kelola keuangan mahasiswa dengan Jatah Harian cerdas dan AI Roaster. Stop boros, mulai nabung!',
   manifest: '/manifest.json',
   keywords: ['keuangan mahasiswa', 'manajemen keuangan', 'jatah harian', 'tabungan', 'budgeting'],
-  authors: [{ name: 'SmartFlow Team' }],
+  authors: [{ name: 'Finto Team' }],
   appleWebApp: {
     capable: true,
     statusBarStyle: 'black-translucent',
-    title: 'SmartFlow',
+    title: 'Finto',
   },
   openGraph: {
-    title: 'SmartFlow - Student Financial Companion',
+    title: 'Finto - Student Financial Companion',
     description: 'Kelola keuangan mahasiswa dengan Jatah Harian cerdas',
     type: 'website',
   },

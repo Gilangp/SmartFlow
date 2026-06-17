@@ -1,6 +1,6 @@
 {
-  "name": "SmartFlow - Student Financial Companion",
-  "short_name": "SmartFlow",
+  "name": "Finto - Student Financial Companion",
+  "short_name": "Finto",
   "description": "Kelola keuangan mahasiswa Anda dengan pendekatan inovatif: Fokus pada Jatah Harian, bukan Total Saldo",
   "start_url": "/",
   "scope": "/",
@@ -41,14 +41,14 @@
       "sizes": "540x720",
       "type": "image/png",
       "form_factor": "narrow",
-      "label": "SmartFlow Dashboard"
+      "label": "Finto Dashboard"
     },
     {
       "src": "/screenshot-2.png",
       "sizes": "1280x720",
       "type": "image/png",
       "form_factor": "wide",
-      "label": "SmartFlow Dashboard Wide"
+      "label": "Finto Dashboard Wide"
     }
   ],
   "shortcuts": [

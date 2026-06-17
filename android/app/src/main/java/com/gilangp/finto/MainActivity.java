@@ -1,4 +1,4 @@
-package com.gilangp.smartflow;
+package com.gilangp.finto;
 
 import com.getcapacitor.BridgeActivity;
 

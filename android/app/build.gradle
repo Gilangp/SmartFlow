@@ -1,10 +1,10 @@
 apply plugin: 'com.android.application'
 
 android {
-    namespace "com.gilangp.smartflow"
+    namespace "com.gilangp.finto"
     compileSdk rootProject.ext.compileSdkVersion
     defaultConfig {
-        applicationId "com.gilangp.smartflow"
+        applicationId "com.gilangp.finto"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode 1

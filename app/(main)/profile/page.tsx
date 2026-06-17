@@ -320,7 +320,7 @@ export default function ProfilePage() {
 
         {/* Version Info */}
         <p className="text-center text-xs text-gray-400 py-4">
-          SmartFlow v1.0 — Untuk mahasiswa Indonesia
+          Finto v1.0 — Untuk mahasiswa Indonesia
         </p>
       </main>
     </div>

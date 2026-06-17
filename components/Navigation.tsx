@@ -98,10 +98,10 @@ export default function Navigation() {
         <div className="p-6 pb-2">
           <div className="flex items-center gap-3">
             <div className="w-8 h-8 rounded-xl bg-indigo-600 flex items-center justify-center shadow-lg shadow-indigo-500/30">
-              <span className="text-white font-bold text-sm">SF</span>
+              <span className="text-white font-bold text-sm">FT</span>
             </div>
             <h1 className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-indigo-600 to-indigo-400">
-              SmartFlow
+              Finto
             </h1>
           </div>
         </div>

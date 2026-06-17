@@ -1,7 +1,7 @@
 <?xml version='1.0' encoding='utf-8'?>
 <resources>
-    <string name="app_name">SmartFlow</string>
-    <string name="title_activity_main">SmartFlow</string>
-    <string name="package_name">com.gilangp.smartflow</string>
-    <string name="custom_url_scheme">com.gilangp.smartflow</string>
+    <string name="app_name">Finto</string>
+    <string name="title_activity_main">Finto</string>
+    <string name="package_name">com.gilangp.finto</string>
+    <string name="custom_url_scheme">com.gilangp.finto</string>
 </resources>

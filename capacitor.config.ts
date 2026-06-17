@@ -1,8 +1,8 @@
 import type { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
-  appId: 'com.gilangp.smartflow',
-  appName: 'SmartFlow',
+  appId: 'com.gilangp.finto',
+  appName: 'Finto',
   webDir: 'out',
   server: {
     // Jalankan Next.js dengan "npm run dev" lalu gunakan IP komputer Anda di sini untuk pengetesan di HP fisik.

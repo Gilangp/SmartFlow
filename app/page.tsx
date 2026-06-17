@@ -100,7 +100,7 @@ export default function Home() {
     {
       name: 'Andi Wijaya',
       role: 'Teknik Informatika, UGM',
-      quote: 'Dulu selalu boncos akhir bulan. Sekarang pakai SmartFlow, 3 bulan nabung 40% lebih banyak.',
+      quote: 'Dulu selalu boncos akhir bulan. Sekarang pakai Finto, 3 bulan nabung 40% lebih banyak.',
       rating: 5
     },
     {
@@ -206,9 +206,9 @@ export default function Home() {
               className="flex items-center gap-2"
             >
               <div className="w-7 h-7 sm:w-8 sm:h-8 bg-indigo-600 rounded-lg flex items-center justify-center">
-                <span className="text-white font-bold text-xs sm:text-sm">SF</span>
+                <span className="text-white font-bold text-xs sm:text-sm">FT</span>
               </div>
-              <span className="font-bold text-lg sm:text-xl text-gray-900 dark:text-white">SmartFlow</span>
+              <span className="font-bold text-lg sm:text-xl text-gray-900 dark:text-white">Finto</span>
             </button>
 
             {/* Desktop Navigation */}
@@ -328,7 +328,7 @@ export default function Home() {
  
             {/* Description */}
             <p className="text-base sm:text-lg text-gray-600 dark:text-gray-400 max-w-2xl mx-auto mb-6 sm:mb-8 leading-relaxed px-2">
-              SmartFlow mengubah cara mahasiswa kelola uang. Dari sekadar lihat saldo 
+              Finto mengubah cara mahasiswa kelola uang. Dari sekadar lihat saldo 
               jadi strategi harian yang cerdas. Biar AI yang hitung, kamu fokus ke tujuan kuliahmu.
             </p>
  
@@ -605,9 +605,9 @@ export default function Home() {
             <div>
               <div className="flex items-center gap-2 mb-3">
                 <div className="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center">
-                  <span className="text-white font-bold text-sm">SF</span>
+                  <span className="text-white font-bold text-sm">FT</span>
                 </div>
-                <span className="font-bold text-lg">SmartFlow</span>
+                <span className="font-bold text-lg">Finto</span>
               </div>
               <p className="text-gray-400 text-sm leading-relaxed">
                 Student Financial Companion — membantu mahasiswa Indonesia mengelola keuangan secara cerdas.
@@ -681,7 +681,7 @@ export default function Home() {
                 </a>
               </div>
               <p className="text-gray-500 text-xs mt-3">
-                hello@smartflow.id
+                hello@finto.id
               </p>
             </div>
           </div>
@@ -689,7 +689,7 @@ export default function Home() {
           {/* Copyright */}
           <div className="border-t border-gray-900 pt-6 text-center">
             <p className="text-gray-500 text-xs">
-              © 2024 SmartFlow — Student Financial Companion. Untuk mahasiswa Indonesia.
+              © 2024 Finto — Student Financial Companion. Untuk mahasiswa Indonesia.
             </p>
           </div>
         </div>

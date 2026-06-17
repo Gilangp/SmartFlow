@@ -1,4 +1,4 @@
-# SmartFlow - Student Financial Companion
+# Finto - Student Financial Companion
 
 Aplikasi manajemen keuangan berbasis web yang dirancang khusus untuk mahasiswa. Fokus pada pengelolaan pengeluaran harian daripada total saldo.
 
@@ -94,7 +94,7 @@ Aplikasi akan berjalan di `http://localhost:3000`
 ## Struktur Folder
 
 ```
-smartflowV2/
+finto/
 ├── app/
 │   ├── api/              # API routes
 │   ├── auth/             # Auth pages (login, register)
