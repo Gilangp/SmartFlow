@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from 'next';
+import AdMobProvider from '@/components/AdMobProvider';
 import './globals.css';
 
 export const metadata: Metadata = {
@@ -56,9 +57,39 @@ export default function RootLayout({
             `,
           }}
         />
+        <style
+          dangerouslySetInnerHTML={{
+            __html: `
+              :root {
+                --banner-height: 0px;
+              }
+
+              /* === GLOBAL: Semua halaman mendapat padding bawah otomatis sesuai tinggi iklan === */
+              /* Ini memastikan TIDAK ADA konten/tombol apapun yang tertutup iklan di halaman manapun */
+              body {
+                padding-bottom: var(--banner-height, 0px) !important;
+                transition: padding-bottom 0.2s ease;
+              }
+
+              /* === NAVIGASI BAWAH (Mobile): Terdorong ke atas iklan otomatis === */
+              @media (max-width: 767px) {
+                .mobile-bottom-nav {
+                  bottom: var(--banner-height, 0px) !important;
+                  transition: bottom 0.2s ease;
+                }
+                /* Konten utama: padding tambahan untuk menu bawah + iklan */
+                .mobile-content-container {
+                  padding-bottom: calc(var(--banner-height, 0px) + 80px) !important;
+                }
+              }
+            `,
+          }}
+        />
       </head>
       <body>
-        {children}
+        <AdMobProvider>
+          {children}
+        </AdMobProvider>
       </body>
     </html>
   );

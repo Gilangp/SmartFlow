@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import AddTransactionModal from '@/components/AddTransactionModal';
 import RolloverModal from '@/components/RolloverModal';
+import { showInterstitial } from '@/lib/admob';
 import { DashboardData } from '@/types';
 
 function formatCurrency(amount: number): string {
@@ -393,6 +394,7 @@ export default function DashboardPage() {
             setShowAddModal(false);
             fetchDashboard();
             fetchAiRoast();
+            showInterstitial();
           }}
         />
       )}

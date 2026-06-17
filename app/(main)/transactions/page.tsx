@@ -5,6 +5,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import AddTransactionModal from '@/components/AddTransactionModal';
 import AddIncomeRoutineModal from '@/components/AddIncomeRoutineModal';
+import { showInterstitial } from '@/lib/admob';
 import { TransactionRecord } from '@/types';
 
 function formatCurrency(amount: number): string {
@@ -211,14 +212,22 @@ export default function TransactionsPage() {
       {showAddModal && (
         <AddTransactionModal
           onClose={() => setShowAddModal(false)}
-          onSuccess={() => { setShowAddModal(false); fetchTransactions(); }}
+          onSuccess={() => {
+            setShowAddModal(false);
+            fetchTransactions();
+            showInterstitial();
+          }}
         />
       )}
 
       {showIncomeRoutineModal && (
         <AddIncomeRoutineModal
           onClose={() => setShowIncomeRoutineModal(false)}
-          onSuccess={() => { setShowIncomeRoutineModal(false); fetchTransactions(); }}
+          onSuccess={() => {
+            setShowIncomeRoutineModal(false);
+            fetchTransactions();
+            showInterstitial();
+          }}
           paydayDate={paydayDate}
         />
       )}
