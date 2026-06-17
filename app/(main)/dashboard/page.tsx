@@ -6,6 +6,8 @@ import AddTransactionModal from '@/components/AddTransactionModal';
 import RolloverModal from '@/components/RolloverModal';
 import { showInterstitial } from '@/lib/admob';
 import { DashboardData } from '@/types';
+import { driver } from 'driver.js';
+import 'driver.js/dist/driver.css';
 
 function formatCurrency(amount: number): string {
   if (amount >= 1000000) return `Rp ${(amount / 1000000).toFixed(1)}jt`;
@@ -33,6 +35,75 @@ export default function DashboardPage() {
   const [aiRoast, setAiRoast] = useState<string | null>(null);
   const [aiLoading, setAiLoading] = useState(false);
   const [theme, setTheme] = useState<'light' | 'dark'>('dark');
+
+  const runGuidedTour = useCallback(() => {
+    const driverObj = driver({
+      showProgress: true,
+      nextBtnText: 'Lanjut →',
+      prevBtnText: '← Kembali',
+      doneBtnText: 'Selesai 🎉',
+      steps: [
+        {
+          popover: {
+            title: 'Selamat Datang di Finto! 🚀',
+            description: 'Mari kita berkeliling sebentar untuk mengetahui cara mengelola keuangan mahasiswa secara cerdas.',
+            side: 'bottom' as const,
+            align: 'start' as const
+          }
+        },
+        {
+          element: '#tour-daily-allowance',
+          popover: {
+            title: 'Jatah Harian Pintar 💰',
+            description: 'Ini adalah jatah harian kamu hari ini. Sistem menghitungnya otomatis agar pengeluaran kamu tetap terjaga sampai akhir siklus gajian.',
+            side: 'bottom' as const,
+            align: 'start' as const
+          }
+        },
+        ...(document.querySelector('#tour-ai-roast') ? [{
+          element: '#tour-ai-roast',
+          popover: {
+            title: 'AI Financial Roaster 🤖',
+            description: 'Saran finansial julid tapi jujur dari AI! Dia akan menganalisis pengeluaran kamu selama 7 hari terakhir dan memberikan roasting pedas.',
+            side: 'bottom' as const,
+            align: 'start' as const
+          }
+        }] : []),
+        {
+          element: '#tour-add-transaction',
+          popover: {
+            title: 'Catat Transaksi Cepat 📝',
+            description: 'Catat pengeluaran atau pemasukan baru kamu di sini secara cepat.',
+            side: 'bottom' as const,
+            align: 'start' as const
+          }
+        },
+        {
+          element: '#tour-pockets',
+          popover: {
+            title: 'Sistem 4 Kantong 🗂️',
+            description: 'Keuangan kamu dibagi ke dalam 4 kantong: Utama, Darurat, Tabungan, dan Wishlist. Ini membantu alokasi keuangan yang lebih disiplin.',
+            side: 'top' as const,
+            align: 'start' as const
+          }
+        },
+        {
+          element: '#tour-transactions',
+          popover: {
+            title: 'Transaksi Terbaru 🕒',
+            description: 'Semua daftar transaksi pengeluaran dan pemasukan terbaru kamu akan muncul di sini.',
+            side: 'top' as const,
+            align: 'start' as const
+          }
+        }
+      ],
+      onDestroyed: () => {
+        localStorage.setItem('sf-tour-completed', 'true');
+      }
+    });
+
+    driverObj.drive();
+  }, []);
 
   const getToken = useCallback(() => {
     if (typeof window === 'undefined') return null;
@@ -101,6 +172,18 @@ export default function DashboardPage() {
     };
     fetchAutoRoast();
   }, [fetchDashboard, getToken]);
+
+  useEffect(() => {
+    if (dashboard) {
+      const tourCompleted = localStorage.getItem('sf-tour-completed');
+      if (!tourCompleted) {
+        const timer = setTimeout(() => {
+          runGuidedTour();
+        }, 1500);
+        return () => clearTimeout(timer);
+      }
+    }
+  }, [dashboard, runGuidedTour]);
 
   const fetchAiRoast = async () => {
     const token = getToken();
@@ -171,6 +254,18 @@ export default function DashboardPage() {
                   </svg>
                 )}
               </button>
+
+              {/* Help/Tour Button */}
+              <button
+                onClick={runGuidedTour}
+                className="w-9 h-9 rounded-xl bg-gray-100 dark:bg-gray-800 flex items-center justify-center text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700 transition-all"
+                aria-label="Tampilkan Panduan"
+                title="Panduan Pengguna"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              </button>
               
               <button
                 onClick={fetchAiRoast}
@@ -194,7 +289,7 @@ export default function DashboardPage() {
       <main className="max-w-7xl mx-auto px-5 py-6">
         {/* AI Roast Card */}
         {aiRoast && (
-          <div className="mb-6 bg-indigo-50 dark:bg-indigo-500/5 rounded-2xl p-5 border-l-4 border-indigo-500">
+          <div id="tour-ai-roast" className="mb-6 bg-indigo-50 dark:bg-indigo-500/5 rounded-2xl p-5 border-l-4 border-indigo-500">
             <div className="flex items-start gap-3">
               <div className="w-8 h-8 rounded-full bg-indigo-100 dark:bg-indigo-500/20 flex items-center justify-center flex-shrink-0 mt-0.5">
                 <span className="text-indigo-600 dark:text-indigo-400 text-sm font-bold">AI</span>
@@ -214,7 +309,7 @@ export default function DashboardPage() {
           {/* Left Column: Metrics & Pockets */}
           <div className="lg:col-span-7 space-y-6">
             {/* Daily Allowance Card */}
-            <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-indigo-600 via-indigo-700 to-indigo-800 p-6 shadow-xl">
+            <div id="tour-daily-allowance" className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-indigo-600 via-indigo-700 to-indigo-800 p-6 shadow-xl">
               <div className="absolute top-0 right-0 w-40 h-40 bg-white/5 rounded-full blur-3xl" />
               <div className="absolute bottom-0 left-0 w-40 h-40 bg-indigo-400/10 rounded-full blur-3xl" />
               
@@ -264,6 +359,7 @@ export default function DashboardPage() {
 
             {/* Add Transaction Button */}
             <button
+              id="tour-add-transaction"
               onClick={() => setShowAddModal(true)}
               className="w-full py-3.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-medium text-sm shadow-lg shadow-indigo-600/20 transition-all active:scale-[0.98]"
             >
@@ -271,7 +367,7 @@ export default function DashboardPage() {
             </button>
 
             {/* Pocket Cards */}
-            <section>
+            <section id="tour-pockets">
               <div className="flex items-baseline justify-between mb-4">
                 <h2 className="text-base font-semibold text-gray-900 dark:text-white">
                   Kantong
@@ -320,7 +416,7 @@ export default function DashboardPage() {
 
           {/* Right Column: Transactions */}
           <div className="lg:col-span-5 space-y-6">
-            <section>
+            <section id="tour-transactions">
               <div className="flex items-baseline justify-between mb-4">
                 <h2 className="text-base font-semibold text-gray-900 dark:text-white">
                   Transaksi Terbaru
