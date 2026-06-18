@@ -38,6 +38,8 @@ model User {
   categories        Category[]
   transactions      Transaction[]
   incomeRecords     IncomeRecord[]
+  subscription      Subscription?
+  ktmVerification   KtmVerification?
 
   @@map("users")
 }
@@ -175,4 +177,84 @@ model DailyPerformance {
 
   @@unique([userId, date])
   @@map("daily_performance")
+}
+
+// ============================================================================
+// Subscription Table — Sistem Paket (Trial / Student / Premium)
+// ============================================================================
+enum SubscriptionPlan {
+  TRIAL    // 14 hari gratis (default saat daftar)
+  STUDENT  // Gratis selamanya (verifikasi KTM/email .ac.id)
+  PREMIUM  // Rp 49.000/bulan (bayar via Duitku)
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  EXPIRED
+  CANCELLED
+  PENDING_PAYMENT
+}
+
+model Subscription {
+  id            String             @id @default(cuid())
+  userId        String             @unique
+  plan          SubscriptionPlan   @default(TRIAL)
+  status        SubscriptionStatus @default(ACTIVE)
+  startedAt     DateTime           @default(now())
+  expiresAt     DateTime?          // null = unlimited (Student & Premium belum expired)
+  cancelledAt   DateTime?
+
+  user          User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  payments      Payment[]
+
+  @@map("subscriptions")
+}
+
+// ============================================================================
+// Payment Table — Riwayat Pembayaran Duitku
+// ============================================================================
+model Payment {
+  id              String       @id @default(cuid())
+  subscriptionId  String
+  merchantOrderId String       @unique  // ID unik untuk Duitku
+  amount          Int          // dalam Rupiah
+  status          String       @default("PENDING") // PENDING | SUCCESS | FAILED | EXPIRED
+  paymentMethod   String?      // VA, QRIS, dll
+  paymentUrl      String?      // URL redirect ke Duitku
+  duitkuReference String?      // Referensi dari Duitku setelah sukses
+  paidAt          DateTime?
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+
+  subscription    Subscription @relation(fields: [subscriptionId], references: [id])
+
+  @@map("payments")
+}
+
+// ============================================================================
+// KTM Verification Table — Verifikasi Mahasiswa via Scan KTM
+// ============================================================================
+enum KtmVerificationStatus {
+  PENDING    // Baru diupload, menunggu proses
+  APPROVED   // KTM valid, user sudah jadi Student
+  REJECTED   // KTM tidak valid
+}
+
+model KtmVerification {
+  id            String                  @id @default(cuid())
+  userId        String                  @unique
+  imageUrl      String                  // URL foto KTM (base64 atau cloud storage)
+  extractedName String?                 // Nama yang dibaca AI dari KTM
+  extractedNim  String?                 // NIM
+  extractedUniv String?                 // Nama universitas
+  extractedYear String?                 // Tahun masuk / angkatan
+  status        KtmVerificationStatus   @default(PENDING)
+  rejectedReason String?
+  verifiedAt    DateTime?
+  createdAt     DateTime                @default(now())
+  updatedAt     DateTime                @updatedAt
+
+  user          User                    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("ktm_verifications")
 }

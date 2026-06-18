@@ -2,6 +2,20 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
+import { Crown, GraduationCap, Zap, ChevronRight } from 'lucide-react';
+import Link from 'next/link';
+
+interface SubscriptionData {
+  plan: 'TRIAL' | 'STUDENT' | 'PREMIUM';
+  isActive: boolean;
+  isExpired: boolean;
+  daysLeft: number | null;
+  limits: {
+    maxDaily: number;
+    maxMonthly: number;
+    canScanReceipt: boolean;
+  };
+}
 
 interface UserProfile {
   id: string;
@@ -17,6 +31,7 @@ interface UserProfile {
 export default function ProfilePage() {
   const router = useRouter();
   const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [sub, setSub] = useState<SubscriptionData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
@@ -38,22 +53,29 @@ export default function ProfilePage() {
       if (!token) { router.push('/login'); return; }
       
       try {
-        const res = await fetch('/api/auth/me', {
-          headers: { Authorization: `Bearer ${token}` }
-        });
-        const data = await res.json();
+        const [profileRes, subRes] = await Promise.all([
+          fetch('/api/auth/me', { headers: { Authorization: `Bearer ${token}` } }),
+          fetch('/api/subscription', { headers: { Authorization: `Bearer ${token}` } })
+        ]);
         
-        if (data.success) {
-          setProfile(data.data);
+        const profileData = await profileRes.json();
+        const subData = await subRes.json();
+        
+        if (profileData.success) {
+          setProfile(profileData.data);
           setForm({
-            name: data.data.name,
-            paydayDate: data.data.paydayDate ? String(data.data.paydayDate) : '',
-            allocationEmergency: data.data.allocationEmergency || 0,
-            allocationSavings: data.data.allocationSavings || 0,
-            allocationWishlist: data.data.allocationWishlist || 0,
+            name: profileData.data.name,
+            paydayDate: profileData.data.paydayDate ? String(profileData.data.paydayDate) : '',
+            allocationEmergency: profileData.data.allocationEmergency || 0,
+            allocationSavings: profileData.data.allocationSavings || 0,
+            allocationWishlist: profileData.data.allocationWishlist || 0,
           });
         } else {
           router.push('/login');
+        }
+
+        if (subData.success) {
+          setSub(subData.data);
         }
       } catch {
         router.push('/login');
@@ -145,14 +167,54 @@ export default function ProfilePage() {
 
       <main className="max-w-7xl mx-auto px-5 py-6 space-y-6">
         {/* Profile Avatar Card */}
-        <div className="bg-white dark:bg-gray-900 rounded-2xl p-6 text-center border border-gray-200 dark:border-gray-800">
+        <div className="bg-white dark:bg-gray-900 rounded-2xl p-6 text-center border border-gray-200 dark:border-gray-800 relative overflow-hidden">
+          {/* Subscription Banner inside Profile */}
           <div className="w-20 h-20 rounded-full bg-indigo-100 dark:bg-indigo-500/20 flex items-center justify-center mx-auto mb-3">
             <span className="text-2xl font-semibold text-indigo-600 dark:text-indigo-400">
               {profile.name.charAt(0).toUpperCase()}
             </span>
           </div>
-          <h2 className="text-lg font-semibold text-gray-900 dark:text-white">{profile.name}</h2>
-          <p className="text-xs text-gray-500 dark:text-gray-500 mt-0.5">{profile.email}</p>
+          <h2 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center justify-center gap-2">
+            {profile.name}
+          </h2>
+          <p className="text-xs text-gray-500 mt-0.5 mb-4">{profile.email}</p>
+
+          {/* Badge & Plan Info */}
+          {sub && (
+            <div className={`mx-auto max-w-xs p-3 rounded-xl border flex items-center justify-between text-left ${
+              sub.plan === 'PREMIUM' ? 'bg-indigo-50 border-indigo-200 dark:bg-indigo-900/20 dark:border-indigo-800' :
+              sub.plan === 'STUDENT' ? 'bg-emerald-50 border-emerald-200 dark:bg-emerald-900/20 dark:border-emerald-800' :
+              'bg-amber-50 border-amber-200 dark:bg-amber-900/20 dark:border-amber-800'
+            }`}>
+              <div className="flex items-center gap-3">
+                <div className={`p-2 rounded-full ${
+                  sub.plan === 'PREMIUM' ? 'bg-indigo-100 text-indigo-600 dark:bg-indigo-800/50 dark:text-indigo-400' :
+                  sub.plan === 'STUDENT' ? 'bg-emerald-100 text-emerald-600 dark:bg-emerald-800/50 dark:text-emerald-400' :
+                  'bg-amber-100 text-amber-600 dark:bg-amber-800/50 dark:text-amber-400'
+                }`}>
+                  {sub.plan === 'PREMIUM' && <Crown className="w-4 h-4" />}
+                  {sub.plan === 'STUDENT' && <GraduationCap className="w-4 h-4" />}
+                  {sub.plan === 'TRIAL' && <Zap className="w-4 h-4" />}
+                </div>
+                <div>
+                  <p className={`text-xs font-bold uppercase tracking-wide ${
+                    sub.plan === 'PREMIUM' ? 'text-indigo-700 dark:text-indigo-400' :
+                    sub.plan === 'STUDENT' ? 'text-emerald-700 dark:text-emerald-400' :
+                    'text-amber-700 dark:text-amber-400'
+                  }`}>
+                    {sub.plan} PLAN
+                  </p>
+                  <p className="text-[10px] text-gray-600 dark:text-gray-400">
+                    {sub.plan === 'TRIAL' ? `Sisa ${sub.daysLeft} hari` : 'Aktif selamanya'}
+                  </p>
+                </div>
+              </div>
+              
+              <Link href="/upgrade" className="flex items-center text-xs font-semibold px-3 py-1.5 rounded-lg bg-white dark:bg-gray-800 shadow-sm border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition">
+                Upgrade <ChevronRight className="w-3 h-3 ml-0.5" />
+              </Link>
+            </div>
+          )}
         </div>
 
         {/* Settings Form */}
@@ -308,6 +370,20 @@ export default function ProfilePage() {
             {isSaving ? 'Menyimpan...' : 'Simpan Perubahan'}
           </button>
         </form>
+
+        {/* Category Link (Mobile) */}
+        <Link
+          href="/categories"
+          className="md:hidden flex items-center justify-between w-full py-3 px-4 bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-800 text-gray-700 dark:text-gray-300 font-medium text-sm hover:bg-gray-50 dark:hover:bg-gray-800 transition-all"
+        >
+          <div className="flex items-center gap-3">
+            <svg className="w-5 h-5 text-indigo-500" fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
+            </svg>
+            Kelola Kategori
+          </div>
+          <ChevronRight className="w-4 h-4 text-gray-400" />
+        </Link>
 
         {/* Logout Button */}
         <button

@@ -103,11 +103,21 @@ export default function CategoriesPage() {
       {/* Header */}
       <header className="sticky top-0 z-40 bg-white/80 dark:bg-gray-950/80 backdrop-blur-xl border-b border-gray-200 dark:border-gray-800">
         <div className="max-w-7xl mx-auto px-5 py-4 flex items-center justify-between">
-          <div>
-            <h1 className="text-xl font-semibold text-gray-900 dark:text-white">Kategori</h1>
-            <p className="text-xs text-gray-500 dark:text-gray-500 mt-0.5">
-              {categories.length} kategori aktif
-            </p>
+          <div className="flex items-center gap-2">
+            <button 
+              onClick={() => router.back()} 
+              className="md:hidden p-1.5 -ml-1.5 text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800 rounded-lg transition-colors"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+              </svg>
+            </button>
+            <div>
+              <h1 className="text-xl font-semibold text-gray-900 dark:text-white">Kategori</h1>
+              <p className="text-xs text-gray-500 dark:text-gray-500 mt-0.5">
+                {categories.length} kategori aktif
+              </p>
+            </div>
           </div>
           <button
             onClick={handleOpenAdd}

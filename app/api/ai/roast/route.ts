@@ -62,11 +62,40 @@ Langsung roasting (tanpa tanda kutip, tanpa penjelasan)
 }
 
 // Helper: fallback roast
-function fallbackRoast(totalIncome: number, totalExpense: number) {
-  if (totalExpense > totalIncome) {
-    return 'Gaya hidup sultan, pemasukan rakyat jelata. Konsisten... bikin minus.';
+function fallbackRoast(totalIncome: number, totalExpense: number, balance: number) {
+  const overspending = [
+    'Gaya hidup sultan, pemasukan rakyat jelata. Konsisten... bikin minus.',
+    'Dompet menangis lihat mutasi rekeningmu. Udah miskin, maksa gaya.',
+    'Pengeluaranmu lebih cepat dari kecepatan cahaya. Sabar, bentar lagi ngutang temen.',
+    'Definisi "healing" yang kebablasan sampai bikin kantong butuh ICU.',
+    'Sisa saldo: Rp ' + balance + '. Mending puasa aja mulai besok, serius deh.'
+  ];
+
+  const goodButBoring = [
+    'Keuangan aman sih... tapi bukan karena hemat, kayaknya karena belum sempet keluar rumah aja.',
+    'Saldo masih sisa, tumben? Pasti lagi sakit atau emang lagi ga ada temen ngajak main.',
+    'Aman sih, tapi lihat tuh history-nya. Hemat atau pelit ke diri sendiri nih?',
+    'Pemasukan lebih besar dari pengeluaran. Tumben waras?',
+    'Sisa saldo Rp ' + balance + '. Lumayan lah buat modal numpang hidup sampai akhir bulan.'
+  ];
+
+  const broke = [
+    'Saldo Rp ' + balance + ' mau dipakai buat apa? Beli cilok aja kurang.',
+    'Mending cek lowongan kerja lagi. Saldo segitu nggak cukup buat pura-pura kaya.',
+    'Tarik nafas... hembuskan... karena cuma itu yang gratis sekarang.',
+    'Lihat saldo segitu mending langsung tidur aja. Nggak usah mikirin jajan.',
+    'Saldo Rp ' + balance + '. ATM-mu pasti ngetawain kamu pas masukin pin tadi.'
+  ];
+
+  if (balance <= 10000) {
+    return broke[Math.floor(Math.random() * broke.length)];
   }
-  return 'Keuangan aman sih... tapi bukan karena hemat, kayaknya karena belum sempet boros aja.';
+
+  if (totalExpense > totalIncome) {
+    return overspending[Math.floor(Math.random() * overspending.length)];
+  }
+  
+  return goodButBoring[Math.floor(Math.random() * goodButBoring.length)];
 }
 
 export async function GET(request: NextRequest) {
@@ -209,7 +238,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({
         success: true,
         data: {
-          message: fallbackRoast(totalIncome, totalExpense),
+          message: fallbackRoast(totalIncome, totalExpense, balance),
         },
       });
     }

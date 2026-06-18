@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { hashPassword, generateToken } from '@/lib/auth';
 import { RegisterRequest, AuthResponse } from '@/types';
+import { assignTrialSubscription, upgradeToStudent, isStudentEmail } from '@/lib/subscription';
+
 
 // 🔹 Helper
 function errorResponse(message: string, status: number) {
@@ -89,6 +91,16 @@ export async function POST(
 
       return user;
     });
+
+    // 🔹 AUTO-ASSIGN SUBSCRIPTION
+    // Jika email .ac.id → langsung Student (gratis selamanya)
+    // Selain itu → Trial 14 hari
+    if (isStudentEmail(normalizedEmail)) {
+      await upgradeToStudent(result.id);
+    } else {
+      await assignTrialSubscription(result.id);
+    }
+
 
     // 🔹 TOKEN
     const token = generateToken(result.id, result.email);

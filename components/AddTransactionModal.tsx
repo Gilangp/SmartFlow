@@ -3,6 +3,8 @@
 
 import { useState, useEffect } from 'react';
 import { CategoryRecord } from '@/types';
+import { Sparkles, Info } from 'lucide-react';
+
 
 interface Pocket {
   id: string;
@@ -19,6 +21,12 @@ interface UserAllocation {
 interface AddTransactionModalProps {
   onClose: () => void;
   onSuccess: () => void;
+  prefill?: {
+    amount?: number;
+    date?: string;
+    notes?: string;
+    category?: string;
+  };
 }
 
 const SMART_INPUT_EXAMPLES = [
@@ -28,8 +36,9 @@ const SMART_INPUT_EXAMPLES = [
   'Kopi sama teman 35.000',
 ];
 
-export default function AddTransactionModal({ onClose, onSuccess }: AddTransactionModalProps) {
-  const [mode, setMode] = useState<'smart' | 'manual'>('smart');
+export default function AddTransactionModal({ onClose, onSuccess, prefill }: AddTransactionModalProps) {
+  // If prefill is provided (from scan receipt), start directly in manual mode
+  const [mode, setMode] = useState<'smart' | 'manual'>(prefill ? 'manual' : 'smart');
   const [smartText, setSmartText] = useState('');
   const [aiProcessing, setAiProcessing] = useState(false);
   const [categories, setCategories] = useState<CategoryRecord[]>([]);
@@ -41,11 +50,11 @@ export default function AddTransactionModal({ onClose, onSuccess }: AddTransacti
   });
   const [form, setForm] = useState({
     type: 'EXPENSE' as 'INCOME_ROUTINE' | 'INCOME_BONUS' | 'EXPENSE',
-    amount: '',
+    amount: prefill?.amount ? String(prefill.amount) : '',
     categoryId: '',
     pocketId: '',
-    date: new Date().toISOString().split('T')[0],
-    notes: '',
+    date: prefill?.date || new Date().toISOString().split('T')[0],
+    notes: prefill?.notes || '',
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
@@ -62,7 +71,17 @@ export default function AddTransactionModal({ onClose, onSuccess }: AddTransacti
       fetch('/api/pockets', { headers }).then((r) => r.json()),
       fetch('/api/auth/me', { headers }).then((r) => r.json()),
     ]).then(([catData, pktData, userData]) => {
-      if (catData.success) setCategories(catData.data);
+      if (catData.success) {
+        setCategories(catData.data);
+        // If prefill has a category name, try to match it
+        if (prefill?.category && catData.data.length > 0) {
+          const matched = catData.data.find(
+            (c: CategoryRecord) => c.name.toLowerCase().includes(prefill.category!.toLowerCase()) ||
+              prefill.category!.toLowerCase().includes(c.name.toLowerCase())
+          );
+          if (matched) setForm((f) => ({ ...f, categoryId: matched.id }));
+        }
+      }
       if (pktData.success) {
         setPockets(pktData.data);
         const mainPocket = pktData.data.find((p: Pocket) => p.type === 'MAIN');
@@ -160,7 +179,16 @@ export default function AddTransactionModal({ onClose, onSuccess }: AddTransacti
     <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-end sm:items-center justify-center p-4" onClick={(e) => e.target === e.currentTarget && onClose()}>
       <div className="bg-white dark:bg-gray-900 rounded-2xl w-full max-w-md max-h-[90vh] overflow-y-auto shadow-xl">
         <div className="flex items-center justify-between p-5 border-b border-gray-100 dark:border-gray-800">
-          <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Tambah Transaksi</h2>
+          <div>
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Tambah Transaksi</h2>
+            {prefill && (
+              <p className="text-xs text-indigo-650 dark:text-indigo-400 mt-0.5 flex items-center gap-1">
+                <Sparkles className="w-3.5 h-3.5" />
+                <span>Data dari scan struk</span>
+              </p>
+            )}
+          </div>
+
           <button onClick={onClose} className="w-8 h-8 rounded-lg flex items-center justify-center text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800 transition">
             ✕
           </button>
@@ -313,10 +341,12 @@ export default function AddTransactionModal({ onClose, onSuccess }: AddTransacti
                   </select>
                 </div>
               ) : (
-                <div className="p-3.5 rounded-xl bg-indigo-50/50 dark:bg-indigo-500/5 border border-indigo-100/50 dark:border-indigo-500/10 text-indigo-600 dark:text-indigo-400 text-xs leading-relaxed">
-                  ✨ Pemasukan bonus akan dibagikan otomatis ke kantong Anda sesuai target alokasi di bawah.
+                <div className="p-3.5 rounded-xl bg-indigo-50/50 dark:bg-indigo-500/5 border border-indigo-100/50 dark:border-indigo-500/10 text-indigo-600 dark:text-indigo-400 text-xs flex items-start gap-2 leading-relaxed">
+                  <Info className="w-4 h-4 text-indigo-500 flex-shrink-0 mt-0.5" />
+                  <span>Pemasukan bonus akan dibagikan otomatis ke kantong Anda sesuai target alokasi di bawah.</span>
                 </div>
               )}
+
 
               {/* Allocation Preview for Bonus */}
               {form.type === 'INCOME_BONUS' && hasAllocation && form.amount && (
