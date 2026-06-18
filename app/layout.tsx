@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from 'next';
 import AdMobProvider from '@/components/AdMobProvider';
 import OfflineStatusDetector from '@/components/OfflineStatusDetector';
+import InstallPrompt from '@/components/InstallPrompt';
 import './globals.css';
 
 export const metadata: Metadata = {
@@ -67,7 +68,6 @@ export default function RootLayout({
               }
 
               /* === GLOBAL: Semua halaman mendapat padding bawah otomatis sesuai tinggi iklan === */
-              /* Ini memastikan TIDAK ADA konten/tombol apapun yang tertutup iklan di halaman manapun */
               body {
                 padding-bottom: var(--banner-height, 0px) !important;
                 transition: padding-bottom 0.2s ease;
@@ -79,10 +79,18 @@ export default function RootLayout({
                   bottom: var(--banner-height, 0px) !important;
                   transition: bottom 0.2s ease;
                 }
-                /* Konten utama: padding tambahan untuk menu bawah + iklan */
                 .mobile-content-container {
                   padding-bottom: calc(var(--banner-height, 0px) + 80px) !important;
                 }
+              }
+
+              /* Animasi PWA */
+              @keyframes slideUp {
+                from { opacity: 0; transform: translateY(20px); }
+                to { opacity: 1; transform: translateY(0); }
+              }
+              .animate-slide-up {
+                animation: slideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
               }
             `,
           }}
@@ -91,6 +99,7 @@ export default function RootLayout({
       <body>
         <AdMobProvider>
           <OfflineStatusDetector />
+          <InstallPrompt />
           {children}
         </AdMobProvider>
       </body>
