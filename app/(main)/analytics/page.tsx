@@ -129,7 +129,7 @@ export default function AnalyticsPage() {
                   <Tooltip 
                     cursor={{ fill: 'rgba(99, 102, 241, 0.05)' }}
                     contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)', backgroundColor: 'rgba(255, 255, 255, 0.95)', color: '#111827' }}
-                    formatter={(value: number) => formatRupiah(value)}
+                    formatter={(value: any) => formatRupiah(Number(value))}
                   />
                   <Legend iconType="circle" wrapperStyle={{ paddingTop: '20px', fontSize: '12px' }} />
                   <Bar dataKey="income" name="Pemasukan" fill="#10b981" radius={[4, 4, 0, 0]} maxBarSize={40} />
@@ -165,7 +165,7 @@ export default function AnalyticsPage() {
                         ))}
                       </Pie>
                       <Tooltip 
-                        formatter={(value: number) => formatRupiah(value)}
+                        formatter={(value: any) => formatRupiah(Number(value))}
                         contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)' }}
                       />
                     </RePieChart>
