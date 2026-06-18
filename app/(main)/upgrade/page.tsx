@@ -230,7 +230,7 @@ export default function UpgradePage() {
               </div>
 
               <ul className="space-y-2 mb-4">
-                {pkg.features.map((f, i) => (
+                {pkg.features.map((f: any, i) => (
                   <li key={i} className="flex items-center gap-2 text-sm">
                     <Check className={`w-4 h-4 flex-shrink-0 ${colors.check}`} />
                     <span className="text-gray-700 dark:text-gray-300">{f.text}</span>
