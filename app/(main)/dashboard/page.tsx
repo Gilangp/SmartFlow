@@ -438,7 +438,7 @@ export default function DashboardPage() {
                     <div
                       key={tx.id}
                       className="group flex items-center gap-3 p-3 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-900 transition-colors cursor-pointer"
-                      onClick={() => router.push(`/transactions/${tx.id}`)}
+                      onClick={() => router.push('/transactions')}
                     >
                       <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${
                         tx.type === 'EXPENSE' 
