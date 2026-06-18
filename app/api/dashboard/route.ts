@@ -50,7 +50,7 @@ export async function GET(request: NextRequest) {
     // Get today's date boundary
     const todayStr = new Date().toISOString().split('T')[0];
     const today = new Date(todayStr + 'T00:00:00.000Z');
-    
+
     // Get all of today's transactions for the user
     const todayTransactions = await prisma.transaction.findMany({
       where: {

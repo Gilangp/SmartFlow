@@ -8,6 +8,7 @@ import { showInterstitial } from '@/lib/admob';
 import { DashboardData } from '@/types';
 import { driver } from 'driver.js';
 import 'driver.js/dist/driver.css';
+import { Sun, Moon, HelpCircle, Loader2 } from 'lucide-react';
 
 function formatCurrency(amount: number): string {
   if (amount >= 1000000) return `Rp ${(amount / 1000000).toFixed(1)}jt`;
@@ -206,7 +207,7 @@ export default function DashboardPage() {
     return (
       <div className="min-h-screen bg-white dark:bg-gray-950 flex items-center justify-center">
         <div className="text-center">
-          <div className="w-8 h-8 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin mx-auto mb-3" />
+          <Loader2 className="w-8 h-8 animate-spin text-indigo-500 mx-auto mb-3" />
           <p className="text-gray-400 text-sm">Memuat dashboard...</p>
         </div>
       </div>
@@ -228,7 +229,7 @@ export default function DashboardPage() {
   return (
     <div className="min-h-screen bg-white dark:bg-gray-950">
       {/* Header */}
-      <header className="sticky top-0 z-40 bg-white/80 dark:bg-gray-950/80 backdrop-blur-xl border-b border-gray-100 dark:border-gray-800">
+      <header className="sticky top-0 z-40 bg-white/80 dark:bg-gray-950/80 backdrop-blur-xl border-b border-gray-100 dark:border-gray-800 pt-safe">
         <div className="max-w-7xl mx-auto px-5 py-4">
           <div className="flex items-center justify-between">
             <div>
@@ -245,13 +246,9 @@ export default function DashboardPage() {
                 aria-label="Toggle theme"
               >
                 {theme === 'dark' ? (
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
-                  </svg>
+                  <Sun className="w-4 h-4" />
                 ) : (
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
-                  </svg>
+                  <Moon className="w-4 h-4" />
                 )}
               </button>
 
@@ -262,9 +259,7 @@ export default function DashboardPage() {
                 aria-label="Tampilkan Panduan"
                 title="Panduan Pengguna"
               >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
+                <HelpCircle className="w-5 h-5" />
               </button>
               
               <button
@@ -274,7 +269,7 @@ export default function DashboardPage() {
               >
                 {aiLoading ? (
                   <span className="flex items-center gap-2">
-                    <span className="w-3 h-3 border border-indigo-600 border-t-transparent rounded-full animate-spin" />
+                    <Loader2 className="w-4 h-4 animate-spin text-indigo-600" />
                     Memuat
                   </span>
                 ) : (

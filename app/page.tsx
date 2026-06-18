@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useEffect, useState, useCallback } from 'react';
 import { 
   TrendingUp, 
@@ -13,7 +14,12 @@ import {
   Clock, 
   Check, 
   Star, 
-  ArrowUp
+  ArrowUp,
+  Zap,
+  Loader2,
+  Sun,
+  Moon,
+  MessageSquare
 } from 'lucide-react';
 
 export default function Home() {
@@ -189,7 +195,7 @@ export default function Home() {
   if (!mounted) {
     return (
       <div className="min-h-screen bg-white dark:bg-gray-950 flex items-center justify-center">
-        <div className="w-10 h-10 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
+        <Loader2 className="w-10 h-10 animate-spin text-indigo-600" />
       </div>
     );
   }
@@ -248,13 +254,9 @@ export default function Home() {
                 aria-label="Toggle theme"
               >
                 {theme === 'dark' ? (
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
-                  </svg>
+                  <Sun className="w-4 h-4" />
                 ) : (
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
-                  </svg>
+                  <Moon className="w-4 h-4" />
                 )}
               </button>
 
@@ -671,9 +673,7 @@ export default function Home() {
                   </svg>
                 </a>
                 <a href="#" aria-label="Message" className="w-9 h-9 bg-gray-900 hover:bg-indigo-650 hover:text-white rounded-lg flex items-center justify-center transition text-gray-400">
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24">
-                    <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z" />
-                  </svg>
+                  <MessageSquare className="w-4 h-4" />
                 </a>
               </div>
               <p className="text-gray-500 text-xs mt-3">

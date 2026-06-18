@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { Lock, Crown, BarChart3, PieChart, TrendingUp } from 'lucide-react';
+import { Lock, Crown, BarChart3, PieChart, TrendingUp, Loader2 } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart as RePieChart, Pie, Cell } from 'recharts';
 
 export default function AnalyticsPage() {
@@ -64,7 +64,7 @@ export default function AnalyticsPage() {
   if (isLoading) {
     return (
       <div className="min-h-screen bg-white dark:bg-gray-950 flex items-center justify-center">
-        <div className="w-8 h-8 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin" />
+        <Loader2 className="w-8 h-8 animate-spin text-indigo-600" />
       </div>
     );
   }
@@ -80,7 +80,7 @@ export default function AnalyticsPage() {
 
   return (
     <div className="min-h-screen bg-gray-50/50 dark:bg-gray-950 pb-20">
-      <header className="sticky top-0 z-40 bg-white/80 dark:bg-gray-950/80 backdrop-blur-xl border-b border-gray-200 dark:border-gray-800">
+      <header className="sticky top-0 z-40 bg-white/80 dark:bg-gray-950/80 backdrop-blur-xl border-b border-gray-200 dark:border-gray-800 pt-safe">
         <div className="max-w-7xl mx-auto px-5 py-4">
           <h1 className="text-xl font-semibold text-gray-900 dark:text-white flex items-center gap-2">
             <BarChart3 className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />

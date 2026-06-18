@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Check, GraduationCap, Zap, Crown, ArrowLeft, Shield, Loader, Sparkles } from 'lucide-react';
+import { Check, GraduationCap, Zap, Crown, ArrowLeft, Shield, Loader2, Sparkles } from 'lucide-react';
 import Link from 'next/link';
 import KtmVerifyModal from '@/components/KtmVerifyModal';
 import toast from 'react-hot-toast';
@@ -139,7 +139,7 @@ export default function UpgradePage() {
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <Loader className="w-8 h-8 animate-spin text-indigo-600" />
+        <Loader2 className="w-8 h-8 animate-spin text-indigo-600" />
       </div>
     );
   }
@@ -147,7 +147,7 @@ export default function UpgradePage() {
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-950 pb-16">
       {/* Header */}
-      <div className="bg-white dark:bg-gray-900 border-b border-gray-100 dark:border-gray-800 sticky top-0 z-10">
+      <div className="bg-white dark:bg-gray-900 border-b border-gray-100 dark:border-gray-800 sticky top-0 z-10 pt-safe">
         <div className="max-w-2xl mx-auto px-4 py-4 flex items-center gap-3">
           <Link href="/dashboard" className="w-9 h-9 rounded-xl bg-gray-100 dark:bg-gray-800 flex items-center justify-center hover:bg-gray-200 dark:hover:bg-gray-700 transition">
             <ArrowLeft className="w-4 h-4 text-gray-600 dark:text-gray-400" />

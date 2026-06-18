@@ -168,7 +168,7 @@ model DailyPerformance {
   date            DateTime      @db.Date
   dailyAllowance  Decimal       @db.Decimal(15, 2) // Calculated jatah harian
   totalSpent      Decimal       @default(0.00) @db.Decimal(15, 2)
-  percentageUsed  Decimal       @default(0.00) @db.Decimal(5, 2)
+  percentageUsed  Decimal       @default(0.00) @db.Decimal(8, 2)
   status          String        // "GREEN", "YELLOW", "RED" (FR-DASH-02)
   surplusTransferred Decimal?   @db.Decimal(15, 2) // For FR-EVAL-01
   

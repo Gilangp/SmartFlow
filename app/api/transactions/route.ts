@@ -167,6 +167,12 @@ export async function POST(request: NextRequest) {
       let newBalance = pocket.balance;
       
       if (type === 'EXPENSE') {
+        if (pocket.balance.toNumber() < amount) {
+          return NextResponse.json(
+            { success: false, message: 'Saldo kantong tidak mencukupi untuk pengeluaran ini' },
+            { status: 400 }
+          );
+        }
         newBalance = pocket.balance.minus(amount);
       } else if (type.startsWith('INCOME')) {
         newBalance = pocket.balance.plus(amount);

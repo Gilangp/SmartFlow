@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef, useCallback } from 'react';
-import { GraduationCap, Camera, Upload, X, CheckCircle, AlertCircle, Loader, Shield } from 'lucide-react';
+import { GraduationCap, Camera, Upload, X, CheckCircle, AlertCircle, Loader2, Shield } from 'lucide-react';
 
 interface KtmResult {
   name: string;
@@ -217,7 +217,7 @@ export default function KtmVerifyModal({ isOpen, onClose, onSuccess, token, user
                   >
                     {loading ? (
                       <>
-                        <Loader className="w-4 h-4 animate-spin" />
+                        <Loader2 className="w-4 h-4 animate-spin" />
                         AI sedang memverifikasi KTM...
                       </>
                     ) : (

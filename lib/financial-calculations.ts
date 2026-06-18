@@ -101,5 +101,5 @@ export function calculateSpendingPercentage(
     ? spent 
     : spent.toNumber();
 
-  return (spentAmount / dailyAllowance) * 100;
+  return Math.min((spentAmount / dailyAllowance) * 100, 999999.99);
 }

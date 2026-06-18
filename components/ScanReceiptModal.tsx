@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef, useCallback } from 'react';
-import { Camera, Upload, X, ScanLine, CheckCircle, AlertCircle, Loader } from 'lucide-react';
+import { Camera, Upload, X, ScanLine, CheckCircle, AlertCircle, Loader2 } from 'lucide-react';
 
 interface ScanResult {
   merchant: string;
@@ -188,7 +188,7 @@ export default function ScanReceiptModal({ isOpen, onClose, onResult, token }: S
                   >
                     {loading ? (
                       <>
-                        <Loader className="w-4 h-4 animate-spin" />
+                        <Loader2 className="w-4 h-4 animate-spin" />
                         AI sedang membaca struk...
                       </>
                     ) : (

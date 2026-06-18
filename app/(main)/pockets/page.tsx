@@ -138,7 +138,7 @@ export default function PocketsPage() {
   return (
     <div className="min-h-screen bg-gray-50/50 dark:bg-gray-950">
       {/* Header */}
-      <header className="sticky top-0 z-40 bg-white/80 dark:bg-gray-950/80 backdrop-blur-xl border-b border-gray-200 dark:border-gray-800">
+      <header className="sticky top-0 z-40 bg-white/80 dark:bg-gray-950/80 backdrop-blur-xl border-b border-gray-200 dark:border-gray-800 pt-safe">
         <div className="max-w-7xl mx-auto px-5 py-4">
           <div className="flex items-center justify-between">
             <div>

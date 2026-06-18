@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { Crown, GraduationCap, Zap, ChevronRight } from 'lucide-react';
+import { Crown, GraduationCap, Zap, ChevronRight, Tag, Loader2 } from 'lucide-react';
 import Link from 'next/link';
 
 interface SubscriptionData {
@@ -147,7 +147,7 @@ export default function ProfilePage() {
     return (
       <div className="min-h-screen bg-white dark:bg-gray-950 flex items-center justify-center">
         <div className="text-center">
-          <div className="w-8 h-8 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin mx-auto mb-3" />
+          <Loader2 className="w-8 h-8 animate-spin text-indigo-600 mx-auto mb-3" />
           <p className="text-gray-500 text-sm">Memuat profil...</p>
         </div>
       </div>
@@ -159,7 +159,7 @@ export default function ProfilePage() {
   return (
     <div className="min-h-screen bg-gray-50/50 dark:bg-gray-950">
       {/* Header */}
-      <header className="sticky top-0 z-40 bg-white/80 dark:bg-gray-950/80 backdrop-blur-xl border-b border-gray-200 dark:border-gray-800">
+      <header className="sticky top-0 z-40 bg-white/80 dark:bg-gray-950/80 backdrop-blur-xl border-b border-gray-200 dark:border-gray-800 pt-safe">
         <div className="max-w-7xl mx-auto px-5 py-4">
           <h1 className="text-xl font-semibold text-gray-900 dark:text-white">Profil</h1>
         </div>
@@ -377,9 +377,7 @@ export default function ProfilePage() {
           className="md:hidden flex items-center justify-between w-full py-3 px-4 bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-800 text-gray-700 dark:text-gray-300 font-medium text-sm hover:bg-gray-50 dark:hover:bg-gray-800 transition-all"
         >
           <div className="flex items-center gap-3">
-            <svg className="w-5 h-5 text-indigo-500" fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
-            </svg>
+            <Tag className="w-5 h-5 text-indigo-500" strokeWidth={1.8} />
             Kelola Kategori
           </div>
           <ChevronRight className="w-4 h-4 text-gray-400" />
