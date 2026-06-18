@@ -49,10 +49,8 @@ export default function LoginPage() {
       <div className="relative z-10 w-full max-w-sm">
         {/* Logo */}
         <div className="text-center mb-8">
-          <Link href="/" className="inline-flex items-center gap-2 mb-4">
-            <div className="w-10 h-10 bg-gradient-to-br from-indigo-500 to-purple-500 rounded-xl flex items-center justify-center shadow-glow-primary">
-              <span className="text-white font-bold text-lg">FT</span>
-            </div>
+          <Link href="/" className="inline-flex items-center gap-3 mb-4">
+            <img src="/icon-512x512.png" alt="Finto" className="w-14 h-14 rounded-2xl object-cover shadow-lg shadow-indigo-500/30" />
             <span className="text-slate-900 dark:text-white font-black text-2xl">Finto</span>
           </Link>
           <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Selamat Datang Kembali</h1>
@@ -137,7 +135,7 @@ export default function LoginPage() {
 
           <p className="text-center text-slate-500 dark:text-slate-400 text-sm mt-6">
             Belum punya akun?{' '}
-            <Link href="/auth/register" className="text-indigo-600 dark:text-indigo-400 hover:text-indigo-500 dark:hover:text-indigo-300 font-semibold transition-colors">
+            <Link href="/daftar" className="text-indigo-600 dark:text-indigo-400 hover:text-indigo-500 dark:hover:text-indigo-300 font-semibold transition-colors">
               Daftar gratis
             </Link>
           </p>

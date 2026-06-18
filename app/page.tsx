@@ -205,9 +205,7 @@ export default function Home() {
               onClick={() => scrollToSection('beranda')}
               className="flex items-center gap-2"
             >
-              <div className="w-7 h-7 sm:w-8 sm:h-8 bg-indigo-600 rounded-lg flex items-center justify-center">
-                <span className="text-white font-bold text-xs sm:text-sm">FT</span>
-              </div>
+              <img src="/icon-512x512.png" alt="Finto" className="w-11 h-11 sm:w-12 sm:h-12 rounded-xl object-cover shadow-md" />
               <span className="font-bold text-lg sm:text-xl text-gray-900 dark:text-white">Finto</span>
             </button>
 
@@ -235,10 +233,10 @@ export default function Home() {
             {/* Right Actions */}
             <div className="flex items-center gap-2">
               <div className="hidden sm:flex items-center gap-2">
-                <Link href="/auth/login" className="text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white px-3 py-1.5 transition">
+                <Link href="/login" className="text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white px-3 py-1.5 transition">
                   Masuk
                 </Link>
-                <Link href="/auth/register" className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-1.5 rounded-lg text-sm font-medium transition">
+                <Link href="/daftar" className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-1.5 rounded-lg text-sm font-medium transition">
                   Daftar
                 </Link>
               </div>
@@ -290,10 +288,10 @@ export default function Home() {
               </button>
             ))}
             <div className="border-t border-gray-100 dark:border-gray-800 mt-2 pt-3 px-4 space-y-2">
-              <Link href="/auth/login" className="block w-full text-center border border-indigo-600 text-indigo-600 dark:text-indigo-400 px-4 py-2 rounded-lg font-medium">
+              <Link href="/login" className="block w-full text-center border border-indigo-600 text-indigo-600 dark:text-indigo-400 px-4 py-2 rounded-lg font-medium">
                 Masuk
               </Link>
-              <Link href="/auth/register" className="block w-full text-center bg-indigo-600 text-white px-4 py-2 rounded-lg font-medium">
+              <Link href="/daftar" className="block w-full text-center bg-indigo-600 text-white px-4 py-2 rounded-lg font-medium">
                 Daftar Gratis
               </Link>
             </div>
@@ -334,7 +332,7 @@ export default function Home() {
  
             {/* CTA Buttons */}
             <div className="flex flex-col sm:flex-row gap-3.5 justify-center mb-10 sm:mb-12">
-              <Link href="/auth/register" className="inline-flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-3 rounded-xl font-semibold transition-all shadow-lg shadow-indigo-600/20 active:scale-95 hover:shadow-indigo-650/30">
+              <Link href="/daftar" className="inline-flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-3 rounded-xl font-semibold transition-all shadow-lg shadow-indigo-600/20 active:scale-95 hover:shadow-indigo-650/30">
                 <Rocket className="w-4 h-4" />
                 <span>Mulai Gratis</span>
               </Link>
@@ -521,7 +519,7 @@ export default function Home() {
                 </div>
 
                 <Link 
-                  href="/auth/register" 
+                  href="/daftar" 
                   className={`block w-full text-center py-2.5 rounded-lg font-medium transition ${
                     pkg.buttonVariant === 'primary'
                       ? 'bg-indigo-600 hover:bg-indigo-700 text-white shadow-md'
@@ -582,7 +580,7 @@ export default function Home() {
           <p className="text-indigo-100 dark:text-indigo-200 text-sm sm:text-base mb-6 max-w-md mx-auto">
             Bergabung dengan 10.000+ mahasiswa Indonesia yang sudah lebih hemat dan punya tabungan.
           </p>
-          <Link href="/auth/register" className="inline-flex items-center gap-2 bg-white hover:bg-gray-50 text-indigo-600 px-6 py-3 rounded-xl font-bold transition shadow-lg active:scale-95 text-sm sm:text-base">
+          <Link href="/daftar" className="inline-flex items-center gap-2 bg-white hover:bg-gray-50 text-indigo-600 px-6 py-3 rounded-xl font-bold transition shadow-lg active:scale-95 text-sm sm:text-base">
             <GraduationCap className="w-5 h-5 text-indigo-600" />
             Daftar Gratis — Verifikasi KTM
           </Link>
@@ -604,9 +602,7 @@ export default function Home() {
             {/* Brand Column */}
             <div>
               <div className="flex items-center gap-2 mb-3">
-                <div className="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center">
-                  <span className="text-white font-bold text-sm">FT</span>
-                </div>
+                <img src="/icon-512x512.png" alt="Finto" className="w-12 h-12 rounded-xl object-cover shadow-md" />
                 <span className="font-bold text-lg">Finto</span>
               </div>
               <p className="text-gray-400 text-sm leading-relaxed">

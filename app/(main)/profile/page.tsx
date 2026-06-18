@@ -35,7 +35,7 @@ export default function ProfilePage() {
   useEffect(() => {
     const fetchProfile = async () => {
       const token = getToken();
-      if (!token) { router.push('/auth/login'); return; }
+      if (!token) { router.push('/login'); return; }
       
       try {
         const res = await fetch('/api/auth/me', {
@@ -53,10 +53,10 @@ export default function ProfilePage() {
             allocationWishlist: data.data.allocationWishlist || 0,
           });
         } else {
-          router.push('/auth/login');
+          router.push('/login');
         }
       } catch {
-        router.push('/auth/login');
+        router.push('/login');
       } finally {
         setIsLoading(false);
       }

@@ -125,7 +125,7 @@ export default function DashboardPage() {
 
   const fetchDashboard = useCallback(async () => {
     const token = getToken();
-    if (!token) { router.push('/auth/login'); return; }
+    if (!token) { router.push('/login'); return; }
 
     try {
       const res = await fetch('/api/dashboard', {
@@ -142,10 +142,10 @@ export default function DashboardPage() {
           setShowRolloverModal(true);
         }
       } else {
-        router.push('/auth/login');
+        router.push('/login');
       }
     } catch {
-      router.push('/auth/login');
+      router.push('/login');
     } finally {
       setIsLoading(false);
     }
@@ -310,8 +310,6 @@ export default function DashboardPage() {
           <div className="lg:col-span-7 space-y-6">
             {/* Daily Allowance Card */}
             <div id="tour-daily-allowance" className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-indigo-600 via-indigo-700 to-indigo-800 p-6 shadow-xl">
-              <div className="absolute top-0 right-0 w-40 h-40 bg-white/5 rounded-full blur-3xl" />
-              <div className="absolute bottom-0 left-0 w-40 h-40 bg-indigo-400/10 rounded-full blur-3xl" />
               
               <div className="relative z-10">
                 <div className="flex justify-between items-start mb-6">

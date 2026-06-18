@@ -243,7 +243,17 @@
 }
 
 /* ============================================================
-   DRIVER.JS CUSTOM THEME (Light & Dark Mode)
+   DRIVER.JS — OVERLAY: Matikan semua blur dari overlay
+   ============================================================ */
+.driver-overlay,
+[class*="driver-overlay"] {
+  filter: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+/* ============================================================
+   DRIVER.JS — POPOVER: Isolasi GPU layer agar tidak terpengaruh blur halaman
    ============================================================ */
 .driver-popover {
   background-color: #ffffff !important;
@@ -254,6 +264,25 @@
   box-shadow: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1) !important;
   font-family: 'Inter', system-ui, sans-serif !important;
   max-width: 300px !important;
+
+  /* Kunci: isolasi dari stacking context blur halaman */
+  isolation: isolate !important;
+  contain: layout style !important;
+  transform: translateZ(0) !important;
+  -webkit-transform: translateZ(0) !important;
+  filter: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  will-change: auto !important;
+}
+
+/* Reset semua child popover dari blur */
+.driver-popover * {
+  filter: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  -webkit-font-smoothing: antialiased !important;
+  -moz-osx-font-smoothing: grayscale !important;
 }
 
 .dark .driver-popover {
@@ -310,14 +339,27 @@
   gap: 0.5rem !important;
 }
 
+/* Fix blur bleed — pastikan tombol tetap sharp */
+.driver-popover,
+.driver-popover * {
+  filter: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
 .driver-popover-next-btn, .driver-popover-prev-btn {
   font-size: 0.75rem !important;
   font-weight: 600 !important;
   padding: 0.375rem 0.75rem !important;
   border-radius: 0.75rem !important;
-  transition: all 0.2s !important;
+  transition: background-color 0.2s, color 0.2s !important;
   cursor: pointer !important;
   border: none !important;
+  position: relative !important;
+  z-index: 10000 !important;
+  opacity: 1 !important;
+  transform: none !important;
+  will-change: auto !important;
 }
 
 .driver-popover-prev-btn {

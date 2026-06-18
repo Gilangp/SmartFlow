@@ -9,6 +9,12 @@ const nextConfig = {
   images: {
     unoptimized: false,
   },
+  async rewrites() {
+    return [
+      { source: '/login',   destination: '/auth/login'    },
+      { source: '/daftar',  destination: '/auth/register' },
+    ];
+  },
 };
 
 module.exports = withPWA(nextConfig);

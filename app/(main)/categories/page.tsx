@@ -19,13 +19,13 @@ export default function CategoriesPage() {
 
   const fetchCategories = useCallback(async () => {
     const token = getToken();
-    if (!token) { router.push('/auth/login'); return; }
+    if (!token) { router.push('/login'); return; }
     try {
       const res = await fetch('/api/categories', { headers: { Authorization: `Bearer ${token}` } });
       const data = await res.json();
       if (data.success) setCategories(data.data);
-      else router.push('/auth/login');
-    } catch { router.push('/auth/login'); }
+      else router.push('/login');
+    } catch { router.push('/login'); }
     finally { setIsLoading(false); }
   }, [getToken, router]);
 

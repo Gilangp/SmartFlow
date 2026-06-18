@@ -47,14 +47,14 @@ export default function TransactionsPage() {
 
   const fetchTransactions = useCallback(async () => {
     const token = getToken();
-    if (!token) { router.push('/auth/login'); return; }
+    if (!token) { router.push('/login'); return; }
     try {
       const url = filter !== 'ALL' ? `/api/transactions?type=${filter}&limit=100` : '/api/transactions?limit=100';
       const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
       const data = await res.json();
       if (data.success) setTransactions(data.data);
-      else router.push('/auth/login');
-    } catch { router.push('/auth/login'); }
+      else router.push('/login');
+    } catch { router.push('/login'); }
     finally { setIsLoading(false); }
   }, [getToken, router, filter]);
 

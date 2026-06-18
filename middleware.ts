@@ -4,6 +4,8 @@ import { verifyToken, extractTokenFromHeader } from '@/lib/auth';
 // Paths that don't require authentication
 const publicPaths = [
   '/',
+  '/login',
+  '/daftar',
   '/auth/login',
   '/auth/register',
   '/api/auth/login',

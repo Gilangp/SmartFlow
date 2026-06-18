@@ -97,9 +97,7 @@ export default function Navigation() {
       <aside className="hidden md:flex flex-col fixed top-0 left-0 h-screen w-64 bg-white/80 dark:bg-gray-950/80 backdrop-blur-3xl border-r border-gray-100 dark:border-gray-800 z-50">
         <div className="p-6 pb-2">
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-xl bg-indigo-600 flex items-center justify-center shadow-lg shadow-indigo-500/30">
-              <span className="text-white font-bold text-sm">FT</span>
-            </div>
+            <img src="/icon-512x512.png" alt="Finto" className="w-12 h-12 rounded-xl object-cover shadow-lg shadow-indigo-500/30" />
             <h1 className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-indigo-600 to-indigo-400">
               Finto
             </h1>
