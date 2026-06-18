@@ -43,14 +43,14 @@ export async function GET(request: NextRequest) {
       }
 
       if (tx.type.startsWith('INCOME')) {
-        monthlyData[monthKey].income += tx.amount;
+        monthlyData[monthKey].income += tx.amount.toNumber();
       } else if (tx.type === 'EXPENSE') {
-        monthlyData[monthKey].expense += tx.amount;
+        monthlyData[monthKey].expense += tx.amount.toNumber();
         
         // Cek jika bulan ini
         if (tx.date >= startOfMonth(now)) {
           const catName = tx.category?.name || 'Lainnya';
-          currentMonthCategoryData[catName] = (currentMonthCategoryData[catName] || 0) + tx.amount;
+          currentMonthCategoryData[catName] = (currentMonthCategoryData[catName] || 0) + tx.amount.toNumber();
         }
       }
     });
