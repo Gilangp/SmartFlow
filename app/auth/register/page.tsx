@@ -18,6 +18,9 @@ import {
   ShieldCheck,
 } from 'lucide-react';
 
+// Set to true to require email OTP verification on register
+const ENABLE_OTP = false;
+
 // 3 steps: data akun → preferensi keuangan → verifikasi OTP
 type Step = 1 | 2 | 3;
 
@@ -68,11 +71,43 @@ export default function RegisterPage() {
     setStep(2);
   };
 
-  // ── Step 2: Send OTP & move to step 3 ───────────────────────────────────
+  // ── Step 2: Send OTP & move to step 3 (Or directly register if OTP is disabled) ─────────────────────────
   const handleStep2 = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
     setError('');
+
+    if (!ENABLE_OTP) {
+      try {
+        const res = await fetch('/api/auth/register', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            name: form.name,
+            email: form.email,
+            password: form.password,
+            paydayDate: form.paydayDate ? parseInt(form.paydayDate) : undefined,
+          }),
+        });
+        const data = await res.json();
+
+        if (data.success) {
+          localStorage.setItem('sf-token', data.token);
+          localStorage.setItem('sf-user', JSON.stringify(data.user));
+          router.push('/dashboard');
+        } else {
+          setError(data.message || 'Pendaftaran gagal');
+          if (data.message?.includes('registered')) {
+            setStep(1); // back to account info
+          }
+        }
+      } catch {
+        setError('Terjadi kesalahan. Coba lagi.');
+      } finally {
+        setIsLoading(false);
+      }
+      return;
+    }
 
     try {
       const res = await fetch('/api/auth/send-otp', {
@@ -213,7 +248,7 @@ export default function RegisterPage() {
 
         {/* Progress Bar */}
         <div className="flex gap-2 mb-6">
-          {[1, 2, 3].map((s) => (
+          {(ENABLE_OTP ? [1, 2, 3] : [1, 2]).map((s) => (
             <div
               key={s}
               className={`h-1 flex-1 rounded-full transition-all duration-300 ${
@@ -235,7 +270,7 @@ export default function RegisterPage() {
           {step === 1 && (
             <form onSubmit={handleStep1} className="space-y-5">
               <p className="text-xs text-slate-500 dark:text-slate-400 font-medium uppercase tracking-wider mb-2">
-                Langkah 1 dari 3 — Data Akun
+                Langkah 1 dari {ENABLE_OTP ? '3' : '2'} — Data Akun
               </p>
 
               <div>
@@ -321,7 +356,7 @@ export default function RegisterPage() {
           {step === 2 && (
             <form onSubmit={handleStep2} className="space-y-5">
               <p className="text-xs text-slate-500 dark:text-slate-400 font-medium uppercase tracking-wider mb-2">
-                Langkah 2 dari 3 — Preferensi Keuangan
+                Langkah 2 dari {ENABLE_OTP ? '3' : '2'} — Preferensi Keuangan
               </p>
 
               <div className="p-4 rounded-2xl bg-indigo-50 dark:bg-indigo-950/30 border border-indigo-100 dark:border-indigo-800/50">
@@ -362,12 +397,14 @@ export default function RegisterPage() {
                   {isLoading ? (
                     <span className="flex items-center justify-center gap-2">
                       <Loader2 className="animate-spin w-4 h-4" />
-                      Mengirim...
+                      Memproses...
                     </span>
-                  ) : (
+                  ) : ENABLE_OTP ? (
                     <span className="flex items-center justify-center gap-1.5">
                       <Mail className="w-4 h-4" /> Kirim OTP
                     </span>
+                  ) : (
+                    'Daftar Sekarang'
                   )}
                 </button>
               </div>

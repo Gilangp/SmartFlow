@@ -6,6 +6,9 @@ import { assignTrialSubscription, upgradeToStudent, isStudentEmail } from '@/lib
 import { verifyOtp } from '@/lib/otp';
 
 
+// Set to true to require email OTP verification on register
+const ENABLE_OTP = false;
+
 // 🔹 Helper
 function errorResponse(message: string, status: number) {
   return NextResponse.json({ success: false, message }, { status });
@@ -23,10 +26,6 @@ export async function POST(
       return errorResponse('Missing required fields', 400);
     }
 
-    if (!otpCode) {
-      return errorResponse('Kode OTP diperlukan', 400);
-    }
-
     if (typeof name !== 'string' || name.trim().length < 2) {
       return errorResponse('Name must be at least 2 characters', 400);
     }
@@ -37,10 +36,15 @@ export async function POST(
 
     const normalizedEmail = email.toLowerCase().trim();
 
-    // 🔹 VERIFY OTP BEFORE ANYTHING
-    const otpResult = await verifyOtp(normalizedEmail, String(otpCode).trim(), 'REGISTER');
-    if (!otpResult.valid) {
-      return errorResponse(otpResult.reason || 'Kode OTP tidak valid', 400);
+    // 🔹 VERIFY OTP BEFORE ANYTHING (If OTP is enabled)
+    if (ENABLE_OTP) {
+      if (!otpCode) {
+        return errorResponse('Kode OTP diperlukan', 400);
+      }
+      const otpResult = await verifyOtp(normalizedEmail, String(otpCode).trim(), 'REGISTER');
+      if (!otpResult.valid) {
+        return errorResponse(otpResult.reason || 'Kode OTP tidak valid', 400);
+      }
     }
 
     // 🔹 CHECK EXISTING USER
