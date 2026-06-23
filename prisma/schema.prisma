@@ -18,7 +18,7 @@ model User {
   id                String        @id @default(cuid())
   name              String
   email             String        @unique
-  password          String        // Hashed with Bcrypt (NFR-SEC-01)
+  password          String?       // Hashed with Bcrypt (NFR-SEC-01), null for OAuth users
   paydayDate        Int?          // 1-31, for routine income cycle
   themePreference   String        @default("light") // "light" or "dark" (FR-AUTH-03)
   
@@ -257,4 +257,20 @@ model KtmVerification {
   user          User                    @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("ktm_verifications")
+}
+
+// ============================================================================
+// OTP Codes Table — For email verification & password reset
+// ============================================================================
+model OtpCode {
+  id        String    @id @default(cuid())
+  email     String
+  code      String    // 6-digit OTP
+  purpose   String    // "REGISTER" | "RESET_PASSWORD"
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([email, purpose])
+  @@map("otp_codes")
 }

@@ -109,6 +109,16 @@ export default function LoginPage() {
               </div>
             </div>
 
+            {/* Lupa password link */}
+            <div className="flex justify-end -mt-2">
+              <Link
+                href="/auth/lupa-password"
+                className="text-xs text-indigo-600 dark:text-indigo-400 hover:text-indigo-500 dark:hover:text-indigo-300 transition-colors font-medium"
+              >
+                Lupa password?
+              </Link>
+            </div>
+
             <button
               id="login-submit"
               type="submit"

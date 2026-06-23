@@ -8,8 +8,13 @@ const publicPaths = [
   '/daftar',
   '/auth/login',
   '/auth/register',
+  '/auth/lupa-password',
   '/api/auth/login',
   '/api/auth/register',
+  '/api/auth/send-otp',
+  '/api/auth/forgot-password',
+  '/api/auth/reset-password',
+  '/maintenance',
 ];
 
 export function middleware(request: NextRequest) {

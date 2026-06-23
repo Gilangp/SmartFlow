@@ -20,6 +20,7 @@ export interface RegisterRequest {
   email: string;
   password: string;
   paydayDate?: number;
+  otpCode?: string;
 }
 
 export interface AuthResponse {

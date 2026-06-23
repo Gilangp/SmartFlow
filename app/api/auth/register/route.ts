@@ -3,6 +3,7 @@ import { prisma } from '@/lib/db';
 import { hashPassword, generateToken } from '@/lib/auth';
 import { RegisterRequest, AuthResponse } from '@/types';
 import { assignTrialSubscription, upgradeToStudent, isStudentEmail } from '@/lib/subscription';
+import { verifyOtp } from '@/lib/otp';
 
 
 // 🔹 Helper
@@ -15,11 +16,15 @@ export async function POST(
 ): Promise<NextResponse<AuthResponse>> {
   try {
     const body: RegisterRequest = await request.json();
-    const { name, email, password, paydayDate } = body;
+    const { name, email, password, paydayDate, otpCode } = body;
 
     // 🔹 VALIDATION
     if (!name || !email || !password) {
       return errorResponse('Missing required fields', 400);
+    }
+
+    if (!otpCode) {
+      return errorResponse('Kode OTP diperlukan', 400);
     }
 
     if (typeof name !== 'string' || name.trim().length < 2) {
@@ -31,6 +36,12 @@ export async function POST(
     }
 
     const normalizedEmail = email.toLowerCase().trim();
+
+    // 🔹 VERIFY OTP BEFORE ANYTHING
+    const otpResult = await verifyOtp(normalizedEmail, String(otpCode).trim(), 'REGISTER');
+    if (!otpResult.valid) {
+      return errorResponse(otpResult.reason || 'Kode OTP tidak valid', 400);
+    }
 
     // 🔹 CHECK EXISTING USER
     const existingUser = await prisma.user.findUnique({
