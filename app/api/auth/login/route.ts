@@ -33,7 +33,7 @@ export async function POST(
     });
 
     // 🔥 Jangan kasih tau mana yang salah (security)
-    if (!user) {
+    if (!user || !user.password) {
       return errorResponse('Invalid email or password', 401);
     }
 
