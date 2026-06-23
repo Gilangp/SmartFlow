@@ -20,10 +20,23 @@ function logOtpToConsole(purpose: string, email: string, code: string) {
 }
 
 // ============================================================================
+// Helper to detect Resend Sandbox restriction
+// ============================================================================
+function isSandboxError(error: any): boolean {
+  if (!error) return false;
+  const message = typeof error === 'string' ? error : error.message || '';
+  return (
+    message.includes('own email address') ||
+    message.includes('verify a domain') ||
+    message.includes('validation_error')
+  );
+}
+
+// ============================================================================
 // Send OTP for Register Verification
 // ============================================================================
 export async function sendRegisterOtp(email: string, code: string, name: string): Promise<void> {
-  // Selalu log ke console saat development
+  // Selalu log ke console
   logOtpToConsole('REGISTER', email, code);
 
   try {
@@ -44,11 +57,18 @@ export async function sendRegisterOtp(email: string, code: string, name: string)
 
     if (error) {
       console.error('[Resend] Gagal kirim email register OTP:', error);
-      // Di dev, tidak throw — kode OTP sudah ada di console
+      if (isSandboxError(error)) {
+        console.warn(`[SANDBOX BYPASS] OTP for ${email} is: ${code} (Check Vercel Logs)`);
+        return;
+      }
       if (!isDev) throw new Error(error.message);
     }
   } catch (err) {
     console.error('[Resend] Error:', err);
+    if (isSandboxError(err)) {
+      console.warn(`[SANDBOX BYPASS] OTP for ${email} is: ${code} (Check Vercel Logs)`);
+      return;
+    }
     if (!isDev) throw err;
   }
 }
@@ -57,7 +77,7 @@ export async function sendRegisterOtp(email: string, code: string, name: string)
 // Send OTP for Password Reset
 // ============================================================================
 export async function sendResetPasswordOtp(email: string, code: string): Promise<void> {
-  // Selalu log ke console saat development
+  // Selalu log ke console
   logOtpToConsole('RESET PASSWORD', email, code);
 
   try {
@@ -78,10 +98,18 @@ export async function sendResetPasswordOtp(email: string, code: string): Promise
 
     if (error) {
       console.error('[Resend] Gagal kirim email reset password OTP:', error);
+      if (isSandboxError(error)) {
+        console.warn(`[SANDBOX BYPASS] OTP for ${email} is: ${code} (Check Vercel Logs)`);
+        return;
+      }
       if (!isDev) throw new Error(error.message);
     }
   } catch (err) {
     console.error('[Resend] Error:', err);
+    if (isSandboxError(err)) {
+      console.warn(`[SANDBOX BYPASS] OTP for ${email} is: ${code} (Check Vercel Logs)`);
+      return;
+    }
     if (!isDev) throw err;
   }
 }
