@@ -185,9 +185,20 @@ export default function ScanReceiptModal({ isOpen, onClose, onResult, token }: S
 
                   {/* Error */}
                   {error && (
-                    <div className="flex items-start gap-2 p-3 bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-800 rounded-xl">
-                      <AlertCircle className="w-4 h-4 text-red-500 flex-shrink-0 mt-0.5" />
-                      <p className="text-xs text-red-600 dark:text-red-400">{error}</p>
+                    <div className="flex flex-col gap-3 p-4 bg-orange-50 dark:bg-orange-950/20 border border-orange-200 dark:border-orange-800/50 rounded-xl">
+                      <div className="flex items-start gap-2.5">
+                        <AlertCircle className="w-5 h-5 text-orange-500 flex-shrink-0 mt-0.5" />
+                        <div className="space-y-1">
+                          <p className="font-medium text-orange-800 dark:text-orange-300 text-sm">Gagal Memproses Gambar</p>
+                          <p className="text-xs text-orange-600 dark:text-orange-400 leading-relaxed">{error}</p>
+                        </div>
+                      </div>
+                      <button
+                        onClick={handleClose}
+                        className="w-full py-2 bg-white dark:bg-gray-800 text-orange-600 dark:text-orange-400 border border-orange-200 dark:border-orange-800 rounded-lg text-sm font-medium hover:bg-orange-100 dark:hover:bg-orange-900/30 transition shadow-sm"
+                      >
+                        Input Manual Saja
+                      </button>
                     </div>
                   )}
 

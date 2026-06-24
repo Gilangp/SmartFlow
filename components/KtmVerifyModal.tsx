@@ -216,9 +216,14 @@ export default function KtmVerifyModal({ isOpen, onClose, onSuccess, token, user
                   </div>
 
                   {error && (
-                    <div className="flex items-start gap-2 p-3 bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-800 rounded-xl">
-                      <AlertCircle className="w-4 h-4 text-red-500 flex-shrink-0 mt-0.5" />
-                      <p className="text-xs text-red-600 dark:text-red-400">{error}</p>
+                    <div className="flex flex-col gap-3 p-4 bg-orange-50 dark:bg-orange-950/20 border border-orange-200 dark:border-orange-800/50 rounded-xl">
+                      <div className="flex items-start gap-2.5">
+                        <AlertCircle className="w-5 h-5 text-orange-500 flex-shrink-0 mt-0.5" />
+                        <div className="space-y-1">
+                          <p className="font-medium text-orange-800 dark:text-orange-300 text-sm">Gagal Verifikasi</p>
+                          <p className="text-xs text-orange-600 dark:text-orange-400 leading-relaxed">{error}</p>
+                        </div>
+                      </div>
                     </div>
                   )}
 

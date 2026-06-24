@@ -307,10 +307,14 @@ export default function RegisterPage() {
         </div>
 
         <div className="bg-white dark:bg-slate-900 border border-slate-200/60 dark:border-slate-800/50 rounded-3xl p-8 shadow-xl dark:shadow-2xl">
+          {/* Error Message */}
           {error && (
-            <div className="mb-4 p-3 rounded-xl bg-rose-50 dark:bg-rose-900/30 border border-rose-100 dark:border-rose-700/50 text-rose-600 dark:text-rose-300 text-sm flex items-center gap-2">
-              <AlertCircle className="w-4 h-4 flex-shrink-0" />
-              {error}
+            <div className="flex items-start gap-2.5 p-3 rounded-xl bg-orange-50 dark:bg-orange-950/20 border border-orange-200 dark:border-orange-800/50 mb-6">
+              <AlertCircle className="w-5 h-5 text-orange-500 flex-shrink-0 mt-0.5" />
+              <div className="space-y-0.5">
+                <p className="font-medium text-orange-800 dark:text-orange-300 text-sm">Ada Masalah</p>
+                <p className="text-xs text-orange-600 dark:text-orange-400 leading-relaxed">{error}</p>
+              </div>
             </div>
           )}
 

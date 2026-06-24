@@ -3,7 +3,6 @@ import { verifyToken, extractTokenFromHeader } from '@/lib/auth';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import OpenAI from 'openai';
 import { getUserSubscription } from '@/lib/subscription';
-import Tesseract from 'tesseract.js';
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY || '' });
@@ -155,52 +154,11 @@ Rules:
       },
     });
   } catch (error: any) {
-    console.error('Scan receipt error (Gemini):', error);
-    
-    // ==========================================
-    // FALLBACK: LOKAL OCR (TESSERACT.JS)
-    // ==========================================
-    try {
-      if (!imageBase64) {
-        throw new Error('No image base64 available for fallback');
-      }
-      
-      // We must construct a valid data URI if it doesn't have one
-      const finalMime = mimeType || 'image/jpeg';
-      const dataURI = imageBase64.startsWith('data:') ? imageBase64 : `data:${finalMime};base64,${imageBase64}`;
-      
-      const { data: { text } } = await Tesseract.recognize(dataURI, 'ind+eng');
-      
-      // Simple regex parser
-      let totalAmount = 0;
-      const amounts = text.match(/\b\d{1,3}(?:\.\d{3})*(?:,\d+)?\b/g) || [];
-      if (amounts.length > 0) {
-        // Find the largest number
-        const numbers = amounts.map(a => parseInt(a.replace(/[^\d]/g, ''), 10)).filter(n => n > 0);
-        if (numbers.length > 0) {
-          totalAmount = Math.max(...numbers);
-        }
-      }
-      
-      return NextResponse.json({
-        success: true,
-        message: 'Struk dibaca dengan OCR Lokal (Fallback)',
-        data: {
-          merchant: 'Merchant (OCR Lokal)',
-          amount: totalAmount || 1000,
-          date: new Date().toISOString().split('T')[0],
-          items: [],
-          category: 'Lainnya',
-          confidence: 'LOW',
-        },
-      });
-    } catch (fallbackError) {
-      console.error('Fallback OCR Error:', fallbackError);
-      return NextResponse.json({
-        success: false,
-        message: 'Gagal memproses gambar baik dengan AI maupun OCR Lokal. Coba lagi.',
-      }, { status: 500 });
-    }
+    console.error('Scan receipt error (All AI failed):', error.message);
+    return NextResponse.json({
+      success: false,
+      message: 'Sistem sedang sibuk dan kuota AI cadangan tidak valid. Coba lagi nanti atau periksa API Key Anda.',
+    }, { status: 500 });
   }
 }
 
