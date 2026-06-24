@@ -127,13 +127,13 @@ export default function AnalyticsView({ transactions, canUseAnalytics, checkingS
           </div>
           <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-2">Analitik Eksklusif</h3>
           <p className="text-sm text-gray-500 dark:text-gray-400 mb-5 max-w-sm">
-            Lihat kemana saja uangmu pergi dengan grafik visual yang interaktif. Khusus untuk pengguna Student & Premium.
+            Lihat kemana saja uangmu pergi dengan grafik visual yang interaktif. Khusus untuk pengguna Premium.
           </p>
           <button 
             onClick={() => router.push('/upgrade')}
             className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-sm font-medium transition shadow-md shadow-indigo-600/20 active:scale-[0.98]"
           >
-            Upgrade / Verifikasi KTM
+            Upgrade ke Premium
           </button>
         </div>
       </div>

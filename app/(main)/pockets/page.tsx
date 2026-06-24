@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { Plus, ArrowRightLeft, Trash2, Percent } from 'lucide-react';
+import { Plus, ArrowRightLeft, Trash2, Percent, Wallet, ShieldAlert, PiggyBank, Target, Car, Plane, Home, GraduationCap, Laptop, Gift, Heart, ShoppingBag, Coffee, Coins } from 'lucide-react';
 import AddPocketModal from '@/components/AddPocketModal';
 import TransferPocketModal from '@/components/TransferPocketModal';
 import AllocationModal from '@/components/AllocationModal';
@@ -28,6 +28,26 @@ function formatCurrency(amount: number): string {
 
 function formatCurrencyFull(amount: number): string {
   return `Rp ${amount.toLocaleString('id-ID', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
+}
+
+function getPocketIcon(type: string, name: string) {
+  if (type === 'MAIN') return <Wallet className="w-5 h-5 text-white" strokeWidth={2.5} />;
+  if (type === 'EMERGENCY') return <ShieldAlert className="w-5 h-5 text-white" strokeWidth={2.5} />;
+  if (type === 'SAVINGS') return <PiggyBank className="w-5 h-5 text-white" strokeWidth={2.5} />;
+  if (type === 'WISHLIST') return <Target className="w-5 h-5 text-white" strokeWidth={2.5} />;
+  
+  const n = name.toLowerCase();
+  if (n.includes('liburan') || n.includes('jalan') || n.includes('trip') || n.includes('travel') || n.includes('tiket')) return <Plane className="w-5 h-5 text-white" strokeWidth={2.5} />;
+  if (n.includes('mobil') || n.includes('motor') || n.includes('kendaraan') || n.includes('bensin') || n.includes('servis')) return <Car className="w-5 h-5 text-white" strokeWidth={2.5} />;
+  if (n.includes('rumah') || n.includes('kpr') || n.includes('kos') || n.includes('kontrakan') || n.includes('listrik')) return <Home className="w-5 h-5 text-white" strokeWidth={2.5} />;
+  if (n.includes('sekolah') || n.includes('kuliah') || n.includes('pendidikan') || n.includes('spp') || n.includes('buku')) return <GraduationCap className="w-5 h-5 text-white" strokeWidth={2.5} />;
+  if (n.includes('laptop') || n.includes('pc') || n.includes('gadget') || n.includes('hp') || n.includes('pulsa')) return <Laptop className="w-5 h-5 text-white" strokeWidth={2.5} />;
+  if (n.includes('kado') || n.includes('hadiah') || n.includes('nikah') || n.includes('kawaian')) return <Gift className="w-5 h-5 text-white" strokeWidth={2.5} />;
+  if (n.includes('kesehatan') || n.includes('obat') || n.includes('asuransi') || n.includes('sehat') || n.includes('rs')) return <Heart className="w-5 h-5 text-white" strokeWidth={2.5} />;
+  if (n.includes('belanja') || n.includes('shopping') || n.includes('baju') || n.includes('skincare')) return <ShoppingBag className="w-5 h-5 text-white" strokeWidth={2.5} />;
+  if (n.includes('makan') || n.includes('jajan') || n.includes('kopi') || n.includes('resto') || n.includes('food')) return <Coffee className="w-5 h-5 text-white" strokeWidth={2.5} />;
+  
+  return <Coins className="w-5 h-5 text-white" strokeWidth={2.5} />;
 }
 
 const POCKET_META = {
@@ -218,88 +238,100 @@ export default function PocketsPage() {
               return (
                 <div
                   key={pocket.id}
-                  className={`relative overflow-hidden rounded-2xl p-5 text-white shadow-lg ${gradientClass ? `bg-gradient-to-r ${gradientClass}` : ''}`}
+                  className={`relative overflow-hidden rounded-2xl p-5 text-white shadow-xl shadow-indigo-900/10 dark:shadow-none transition-transform hover:-translate-y-1 duration-300 ${gradientClass ? `bg-gradient-to-br ${gradientClass}` : ''}`}
                   style={!gradientClass ? { backgroundColor: pocket.color || '#6366f1' } : undefined}
                 >
-                  {/* Decorative elements */}
-                  <div className="absolute top-0 right-0 w-32 h-32 bg-white/5 rounded-full blur-2xl transform translate-x-16 -translate-y-16" />
-                  <div className="absolute bottom-0 left-0 w-24 h-24 bg-white/5 rounded-full blur-2xl transform -translate-x-12 translate-y-12" />
+                  {/* Decorative Glassmorphism Elements */}
+                  <div className="absolute inset-0 opacity-10 mix-blend-overlay" style={{ backgroundImage: 'radial-gradient(circle at 2px 2px, white 1px, transparent 0)', backgroundSize: '16px 16px' }}></div>
+                  <div className="absolute top-0 right-0 w-32 h-32 bg-white/20 rounded-full blur-2xl transform translate-x-12 -translate-y-12" />
+                  <div className="absolute bottom-0 left-0 w-24 h-24 bg-black/10 rounded-full blur-2xl transform -translate-x-10 translate-y-10" />
                   
-                  <div className="relative z-10">
-                    {/* Header */}
-                    <div className="flex items-start justify-between mb-3">
-                      <div>
-                        <h2 className="font-semibold text-base">{meta.label}</h2>
-                        <p className="text-white/70 text-xs">{meta.description}</p>
+                  <div className="relative z-10 flex flex-col h-full">
+                    {/* Header with Icon */}
+                    <div className="flex items-start justify-between mb-4">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-xl bg-white/20 backdrop-blur-md border border-white/20 shadow-inner flex items-center justify-center">
+                          {getPocketIcon(pocket.type, pocket.name)}
+                        </div>
+                        <div>
+                          <h2 className="font-bold text-base tracking-wide drop-shadow-sm">{meta.label}</h2>
+                          <p className="text-white/80 text-xs font-medium drop-shadow-sm">{meta.description}</p>
+                        </div>
                       </div>
                       {isCompleted && (
-                        <span className="px-2 py-0.5 bg-white/20 rounded-lg text-xs font-medium">
-                          Tercapai
+                        <span className="px-2.5 py-1 bg-amber-400 text-amber-950 rounded-lg text-xs font-bold shadow-md">
+                          Tercapai!
                         </span>
                       )}
                     </div>
 
                     {/* Balance */}
-                    <p className="text-3xl font-bold mb-3">
-                      {formatCurrency(pocket.balance)}
-                    </p>
+                    <div className="mb-4">
+                      <p className="text-3xl font-extrabold tracking-tight drop-shadow-md">
+                        {formatCurrency(pocket.balance)}
+                      </p>
+                    </div>
 
-                    {/* Progress Bar for EMERGENCY and WISHLIST */}
+                    {/* Progress Bar */}
                     {hasTarget && pocket.targetAmount && (
-                      <div className="mb-3">
-                        <div className="flex justify-between text-xs text-white/70 mb-1">
+                      <div className="mb-4 bg-black/20 p-3 rounded-xl border border-white/10 backdrop-blur-sm">
+                        <div className="flex justify-between text-xs text-white/90 mb-1.5 font-medium">
                           <span>Target: {formatCurrencyFull(pocket.targetAmount)}</span>
-                          <span className="font-medium">{Math.round(progress)}%</span>
+                          <span className="font-bold text-amber-300">{Math.round(progress)}%</span>
                         </div>
-                        <div className="h-1.5 bg-white/20 rounded-full overflow-hidden">
+                        <div className="h-2 bg-black/40 rounded-full overflow-hidden shadow-inner relative">
                           <div
-                            className="h-full bg-white/80 rounded-full transition-all duration-500"
+                            className="absolute top-0 left-0 h-full bg-gradient-to-r from-amber-300 to-yellow-400 rounded-full transition-all duration-700 ease-out shadow-[0_0_10px_rgba(251,191,36,0.6)]"
                             style={{ width: `${progress}%` }}
-                          />
+                          >
+                            <div className="absolute top-0 right-0 bottom-0 w-8 bg-white/40 blur-[4px] -skew-x-12 translate-x-4"></div>
+                          </div>
                         </div>
                       </div>
                     )}
 
-                    {/* Tip */}
-                    <p className="text-white/60 text-xs italic mb-3">
-                      {meta.tip}
-                    </p>
+                    <div className="mt-auto">
+                      {/* Tip */}
+                      <p className="text-white/70 text-xs italic mb-4 font-medium drop-shadow-sm">
+                        💡 {meta.tip}
+                      </p>
 
-                    {/* Actions */}
-                    <div className="flex gap-2">
-                      {meta.canSetTarget && (
-                        <button
-                          onClick={() => setEditTarget({ pocket, value: String(pocket.targetAmount || '') })}
-                          className="px-3 py-1.5 bg-white/15 hover:bg-white/25 rounded-lg text-xs font-medium transition-all"
-                        >
-                          Set Target
-                        </button>
-                      )}
-                      {canWithdraw && (
-                        <button
-                          onClick={() => {
-                            setWithdrawData({ pocket, amount: '' });
-                            setShowConfirmModal(true);
-                          }}
-                          className="px-3 py-1.5 bg-white/15 hover:bg-white/25 rounded-lg text-xs font-medium transition-all"
-                        >
-                          Tarik Dana
-                        </button>
-                      )}
-                      {pocket.type === 'CUSTOM' && pocket.balance === 0 && (
-                        <button
-                          onClick={async () => {
-                            if (!confirm('Yakin ingin menghapus kantong ini?')) return;
-                            const t = getToken();
-                            if(!t) return;
-                            await fetch(`/api/pockets?id=${pocket.id}`, { method: 'DELETE', headers: { Authorization: `Bearer ${t}` } });
-                            fetchPockets();
-                          }}
-                          className="px-2 py-1.5 bg-red-500/30 hover:bg-red-500/50 rounded-lg text-xs font-medium transition-all flex items-center justify-center ml-auto"
-                        >
-                          <Trash2 className="w-4 h-4 text-red-100" />
-                        </button>
-                      )}
+                      {/* Actions */}
+                      <div className="flex gap-2">
+                        {meta.canSetTarget && (
+                          <button
+                            onClick={() => setEditTarget({ pocket, value: String(pocket.targetAmount || '') })}
+                            className="flex-1 py-2 bg-white/20 hover:bg-white/30 rounded-xl text-xs font-semibold backdrop-blur-sm border border-white/10 transition-colors shadow-sm"
+                          >
+                            Set Target
+                          </button>
+                        )}
+                        {canWithdraw && (
+                          <button
+                            onClick={() => {
+                              setWithdrawData({ pocket, amount: '' });
+                              setShowConfirmModal(true);
+                            }}
+                            className="flex-1 py-2 bg-white/20 hover:bg-white/30 rounded-xl text-xs font-semibold backdrop-blur-sm border border-white/10 transition-colors shadow-sm"
+                          >
+                            Tarik Dana
+                          </button>
+                        )}
+                        {pocket.type === 'CUSTOM' && pocket.balance === 0 && (
+                          <button
+                            onClick={async () => {
+                              if (!confirm('Yakin ingin menghapus kantong ini?')) return;
+                              const t = getToken();
+                              if(!t) return;
+                              await fetch(`/api/pockets?id=${pocket.id}`, { method: 'DELETE', headers: { Authorization: `Bearer ${t}` } });
+                              fetchPockets();
+                            }}
+                            className="w-10 h-8 bg-rose-500/80 hover:bg-rose-500 rounded-xl flex items-center justify-center transition-colors shadow-sm"
+                          >
+                            <Trash2 className="w-4 h-4 text-white" />
+                          </button>
+                        )}
+                      </div>
                     </div>
                   </div>
                 </div>
