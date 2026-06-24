@@ -34,6 +34,7 @@ export async function PATCH(request: NextRequest) {
 
     // 🔹 BODY
     const body = await request.json();
+    const {
       name,
       paydayDate,
       themePreference,
