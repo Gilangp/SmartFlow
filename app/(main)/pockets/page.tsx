@@ -375,7 +375,7 @@ export default function PocketsPage() {
             <div className="p-5 space-y-4">
               <div className="p-3 rounded-lg bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/20">
                 <p className="text-xs text-amber-700 dark:text-amber-400 leading-relaxed">
-                  {POCKET_META[withdrawData.pocket.type].withdrawWarning}
+                  {POCKET_META[withdrawData.pocket.type as keyof typeof POCKET_META]?.withdrawWarning || 'Pastikan penarikan sesuai dengan tujuan kantong ini.'}
                 </p>
               </div>
 
