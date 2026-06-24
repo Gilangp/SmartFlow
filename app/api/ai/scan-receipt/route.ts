@@ -1,16 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyToken, extractTokenFromHeader } from '@/lib/auth';
 import { GoogleGenerativeAI } from '@google/generative-ai';
+import OpenAI from 'openai';
 import { getUserSubscription } from '@/lib/subscription';
 import Tesseract from 'tesseract.js';
 
-
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
+const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY || '' });
 
 // POST /api/ai/scan-receipt
 // Body: { imageBase64: string, mimeType: string }
 // Gemini Vision membaca struk/kwitansi dan mengekstrak data transaksi
 export async function POST(request: NextRequest) {
+  let imageBase64 = '';
+  let mimeType = '';
+
   try {
     // 🔹 AUTH
     const token = extractTokenFromHeader(request.headers.get('Authorization') || '');
@@ -29,8 +33,13 @@ export async function POST(request: NextRequest) {
     }
 
     // 🔹 BODY
-    const body = await request.json();
-    const { imageBase64, mimeType } = body;
+    try {
+      const body = await request.json();
+      imageBase64 = body.imageBase64;
+      mimeType = body.mimeType;
+    } catch (e) {
+      return NextResponse.json({ success: false, message: 'Invalid JSON body' }, { status: 400 });
+    }
 
     if (!imageBase64) {
       return NextResponse.json({ success: false, message: 'Image is required' }, { status: 400 });
@@ -66,19 +75,44 @@ Rules:
 - confidence: HIGH jika struk jelas, MEDIUM jika agak buram, LOW jika tidak yakin
 `;
 
-    const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
-
-    const result = await model.generateContent([
-      {
-        inlineData: {
-          data: imageBase64,
-          mimeType: finalMimeType as 'image/jpeg' | 'image/png' | 'image/webp' | 'image/heic',
+    let responseText = '';
+    try {
+      const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
+      const result = await model.generateContent([
+        {
+          inlineData: {
+            data: imageBase64,
+            mimeType: finalMimeType as 'image/jpeg' | 'image/png' | 'image/webp' | 'image/heic',
+          },
         },
-      },
-      prompt,
-    ]);
-
-    const responseText = result.response.text();
+        prompt,
+      ]);
+      responseText = result.response.text();
+    } catch (geminiError: any) {
+      console.warn('Gemini error, falling back to OpenAI...', geminiError.message);
+      try {
+        const openaiResponse = await openai.chat.completions.create({
+          model: 'gpt-4o-mini',
+          messages: [
+            {
+              role: 'user',
+              content: [
+                { type: 'text', text: prompt },
+                {
+                  type: 'image_url',
+                  image_url: {
+                    url: `data:${finalMimeType};base64,${imageBase64}`,
+                  },
+                },
+              ],
+            },
+          ],
+        });
+        responseText = openaiResponse.choices[0]?.message?.content || '';
+      } catch (openaiError: any) {
+        throw new Error('Both AI providers failed');
+      }
+    }
 
     // 🔹 PARSE JSON dari response Gemini
     const cleaned = responseText.replace(/```json/g, '').replace(/```/g, '').trim();
@@ -127,12 +161,13 @@ Rules:
     // FALLBACK: LOKAL OCR (TESSERACT.JS)
     // ==========================================
     try {
-      const body = await request.clone().json().catch(() => ({}));
-      const imageBase64 = body.imageBase64;
+      if (!imageBase64) {
+        throw new Error('No image base64 available for fallback');
+      }
       
       // We must construct a valid data URI if it doesn't have one
-      const mimeType = body.mimeType || 'image/jpeg';
-      const dataURI = imageBase64.startsWith('data:') ? imageBase64 : `data:${mimeType};base64,${imageBase64}`;
+      const finalMime = mimeType || 'image/jpeg';
+      const dataURI = imageBase64.startsWith('data:') ? imageBase64 : `data:${finalMime};base64,${imageBase64}`;
       
       const { data: { text } } = await Tesseract.recognize(dataURI, 'ind+eng');
       

@@ -1,11 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyToken, extractTokenFromHeader } from '@/lib/auth';
 import { GoogleGenerativeAI } from '@google/generative-ai';
+import OpenAI from 'openai';
 import { prisma } from '@/lib/db';
 
 const genAI = new GoogleGenerativeAI(
   process.env.GEMINI_API_KEY || process.env.GOOGLE_AI_API_KEY || ''
 );
+const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY || '' });
 
 type AIResponse = {
   totalAmount: number;
@@ -123,13 +125,27 @@ Input:
 `;
 
     try {
-      const model = genAI.getGenerativeModel({
-        model: 'gemini-2.5-flash',
-      });
+      let rawText = '';
+      try {
+        const model = genAI.getGenerativeModel({
+          model: 'gemini-2.5-flash',
+        });
 
-      const result = await model.generateContent(prompt);
-      const response = await result.response;
-      let rawText = response.text();
+        const result = await model.generateContent(prompt);
+        const response = await result.response;
+        rawText = response.text();
+      } catch (geminiError: any) {
+        console.warn('Gemini error on smart input, falling back to OpenAI...', geminiError.message);
+        try {
+          const openaiResponse = await openai.chat.completions.create({
+            model: 'gpt-4o-mini',
+            messages: [{ role: 'user', content: prompt }],
+          });
+          rawText = openaiResponse.choices[0]?.message?.content || '';
+        } catch (openaiError: any) {
+          throw new Error('Both AI providers failed');
+        }
+      }
 
       const cleaned = cleanAIResponse(rawText);
       let parsed = safeParseJSON(cleaned);

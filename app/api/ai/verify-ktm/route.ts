@@ -1,8 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { GoogleGenerativeAI } from '@google/generative-ai';
+import OpenAI from 'openai';
 import { generateKtmToken } from '@/lib/auth';
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
+const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY || '' });
 
 export async function POST(request: NextRequest) {
   try {
@@ -28,19 +30,46 @@ export async function POST(request: NextRequest) {
       }
     `;
 
-    const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
-
-    const result = await model.generateContent([
-      {
-        inlineData: {
-          data: imageBase64,
-          mimeType: finalMimeType as 'image/jpeg' | 'image/png' | 'image/webp' | 'image/heic',
+    let responseText = '';
+    
+    try {
+      const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
+      const result = await model.generateContent([
+        {
+          inlineData: {
+            data: imageBase64,
+            mimeType: finalMimeType as 'image/jpeg' | 'image/png' | 'image/webp' | 'image/heic',
+          },
         },
-      },
-      prompt,
-    ]);
+        prompt,
+      ]);
+      responseText = result.response.text();
+    } catch (geminiError: any) {
+      console.warn('Gemini error, falling back to OpenAI...', geminiError.message);
+      try {
+        const openaiResponse = await openai.chat.completions.create({
+          model: 'gpt-4o-mini',
+          messages: [
+            {
+              role: 'user',
+              content: [
+                { type: 'text', text: prompt },
+                {
+                  type: 'image_url',
+                  image_url: {
+                    url: `data:${finalMimeType};base64,${imageBase64}`,
+                  },
+                },
+              ],
+            },
+          ],
+        });
+        responseText = openaiResponse.choices[0]?.message?.content || '';
+      } catch (openaiError: any) {
+        throw new Error('Both Gemini and OpenAI failed to process image');
+      }
+    }
 
-    const responseText = result.response.text();
     const cleaned = responseText.replace(/```json/g, '').replace(/```/g, '').trim();
     
     let parsed;
