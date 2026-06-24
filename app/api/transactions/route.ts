@@ -172,7 +172,7 @@ export async function POST(request: NextRequest) {
           );
         }
         newBalance = pocket.balance.minus(amount);
-      } else if (type.startsWith('INCOME')) {
+      } else if (type === 'INCOME_ROUTINE' || type === 'INCOME_BONUS') {
         newBalance = pocket.balance.plus(amount);
       }
 
