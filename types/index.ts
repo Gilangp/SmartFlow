@@ -73,6 +73,7 @@ export interface CategoryRecord {
   id: string;
   name: string;
   type: 'NEED' | 'WANT';
+  pocketId?: string | null;
 }
 
 export interface ApiResponse<T> {
