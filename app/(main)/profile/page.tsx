@@ -23,9 +23,6 @@ interface UserProfile {
   email: string;
   themePreference: 'light' | 'dark';
   paydayDate: number | null;
-  allocationEmergency: number;
-  allocationSavings: number;
-  allocationWishlist: number;
 }
 
 export default function ProfilePage() {
@@ -40,9 +37,6 @@ export default function ProfilePage() {
   const [form, setForm] = useState({
     name: '',
     paydayDate: '',
-    allocationEmergency: 0,
-    allocationSavings: 0,
-    allocationWishlist: 0,
   });
 
   const getToken = useCallback(() => localStorage.getItem('sf-token'), []);
@@ -66,9 +60,6 @@ export default function ProfilePage() {
           setForm({
             name: profileData.data.name,
             paydayDate: profileData.data.paydayDate ? String(profileData.data.paydayDate) : '',
-            allocationEmergency: profileData.data.allocationEmergency || 0,
-            allocationSavings: profileData.data.allocationSavings || 0,
-            allocationWishlist: profileData.data.allocationWishlist || 0,
           });
         } else {
           router.push('/login');
@@ -108,9 +99,6 @@ export default function ProfilePage() {
         body: JSON.stringify({
           name: form.name,
           paydayDate: form.paydayDate ? parseInt(form.paydayDate) : null,
-          allocationEmergency: parseInt(String(form.allocationEmergency)) || 0,
-          allocationSavings: parseInt(String(form.allocationSavings)) || 0,
-          allocationWishlist: parseInt(String(form.allocationWishlist)) || 0,
         })
       });
       
@@ -139,9 +127,7 @@ export default function ProfilePage() {
     }, 500);
   };
 
-  const totalAllocation = (form.allocationEmergency || 0) + (form.allocationSavings || 0) + (form.allocationWishlist || 0);
-  const mainAllocation = Math.max(0, 100 - totalAllocation);
-  const isOverAllocation = totalAllocation > 100;
+
 
   if (isLoading) {
     return (
@@ -264,107 +250,12 @@ export default function ProfilePage() {
               </p>
             </div>
 
-            {/* Income Allocation */}
-            <div className="pt-4 border-t border-gray-100 dark:border-gray-800">
-              <h4 className="font-medium text-sm text-gray-900 dark:text-white mb-3">
-                Alokasi Pemasukan
-              </h4>
-              
-              <div className="grid grid-cols-3 gap-3 mb-4">
-                <div>
-                  <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
-                    Darurat
-                  </label>
-                  <input
-                    type="number"
-                    min="0"
-                    max="100"
-                    value={form.allocationEmergency}
-                    onChange={(e) => {
-                      const val = parseInt(e.target.value) || 0;
-                      setForm({ ...form, allocationEmergency: Math.min(100, val) });
-                    }}
-                    className="w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-center focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
-                  />
-                  <p className="text-xs text-gray-500 text-center mt-1">%</p>
-                </div>
 
-                <div>
-                  <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
-                    Tabungan
-                  </label>
-                  <input
-                    type="number"
-                    min="0"
-                    max="100"
-                    value={form.allocationSavings}
-                    onChange={(e) => {
-                      const val = parseInt(e.target.value) || 0;
-                      setForm({ ...form, allocationSavings: Math.min(100, val) });
-                    }}
-                    className="w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-center focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
-                  />
-                  <p className="text-xs text-gray-500 text-center mt-1">%</p>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
-                    Wishlist
-                  </label>
-                  <input
-                    type="number"
-                    min="0"
-                    max="100"
-                    value={form.allocationWishlist}
-                    onChange={(e) => {
-                      const val = parseInt(e.target.value) || 0;
-                      setForm({ ...form, allocationWishlist: Math.min(100, val) });
-                    }}
-                    className="w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-center focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
-                  />
-                  <p className="text-xs text-gray-500 text-center mt-1">%</p>
-                </div>
-              </div>
-
-              {/* Allocation Breakdown */}
-              <div className="bg-gray-50 dark:bg-gray-800/50 rounded-lg p-3 space-y-2">
-                {form.allocationEmergency > 0 && (
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="text-gray-600 dark:text-gray-400">Dana Darurat</span>
-                    <span className="font-medium text-rose-600 dark:text-rose-400">{form.allocationEmergency}%</span>
-                  </div>
-                )}
-                {form.allocationSavings > 0 && (
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="text-gray-600 dark:text-gray-400">Tabungan</span>
-                    <span className="font-medium text-emerald-600 dark:text-emerald-400">{form.allocationSavings}%</span>
-                  </div>
-                )}
-                {form.allocationWishlist > 0 && (
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="text-gray-600 dark:text-gray-400">Wishlist</span>
-                    <span className="font-medium text-indigo-600 dark:text-indigo-400">{form.allocationWishlist}%</span>
-                  </div>
-                )}
-                <div className="flex items-center justify-between text-xs pt-1 border-t border-gray-200 dark:border-gray-700">
-                  <span className="text-gray-600 dark:text-gray-400">Dompet Utama</span>
-                  <span className={`font-medium ${isOverAllocation ? 'text-rose-600' : 'text-gray-900 dark:text-white'}`}>
-                    {isOverAllocation ? 'Melebihi 100%' : `${mainAllocation}%`}
-                  </span>
-                </div>
-              </div>
-              
-              {isOverAllocation && (
-                <p className="text-xs text-rose-600 dark:text-rose-400 mt-2">
-                  Total alokasi tidak boleh melebihi 100%
-                </p>
-              )}
-            </div>
           </div>
 
           <button
             type="submit"
-            disabled={isSaving || isOverAllocation}
+            disabled={isSaving}
             className="w-full mt-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-medium text-sm transition-all disabled:opacity-50"
           >
             {isSaving ? 'Menyimpan...' : 'Simpan Perubahan'}

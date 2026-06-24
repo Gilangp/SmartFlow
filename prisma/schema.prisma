@@ -22,11 +22,10 @@ model User {
   paydayDate        Int?          // 1-31, for routine income cycle
   themePreference   String        @default("light") // "light" or "dark" (FR-AUTH-03)
   
-  // Income allocation percentages (for auto-distribution)
-  allocationEmergency   Int       @default(0)  // Percentage (0-100)
-  allocationSavings     Int       @default(0)  // Percentage (0-100)
-  allocationWishlist    Int       @default(0)  // Percentage (0-100)
-  // Rest goes to MAIN pocket (100 - emergency - savings - wishlist)
+  // Legacy Income allocation percentages (removed in favor of Pocket-level allocation)
+  // allocationEmergency   Int       @default(0)  
+  // allocationSavings     Int       @default(0)  
+  // allocationWishlist    Int       @default(0)  
 
   lastLoginAt DateTime? @db.Timestamp(0)
   
@@ -53,6 +52,7 @@ enum PocketType {
   EMERGENCY // Emergency shield with target (FR-PKT-02)
   SAVINGS   // Growth asset savings (FR-PKT-03)
   WISHLIST  // Goal achievement with progress tracking (FR-PKT-04)
+  CUSTOM    // User created custom pocket
 }
 
 model Pocket {
@@ -63,13 +63,18 @@ model Pocket {
   balance       Decimal       @default(0.00) @db.Decimal(15, 2)
   targetAmount  Decimal?      @db.Decimal(15, 2) // For Emergency and Wishlist
   status        String        @default("active") // "active" or "completed" (for Wishlist)
+  
+  allocation    Int           @default(0)        // Percentage (0-100) of income allocated to this pocket
+  color         String        @default("#6366f1") // Theme color for the pocket
+  icon          String        @default("Wallet") // Icon name
+  
   createdAt     DateTime      @default(now())
   updatedAt     DateTime      @updatedAt
 
   user          User          @relation(fields: [userId], references: [id], onDelete: Cascade)
   transactions  Transaction[]
+  categories    Category[]    // Categories linked to this pocket
 
-  @@unique([userId, type]) // Each user has exactly 1 of each pocket type
   @@map("pockets")
 }
 
@@ -85,12 +90,14 @@ enum CategoryType {
 model Category {
   id          String        @id @default(cuid())
   userId      String
+  pocketId    String?       // Optional link to a specific pocket (Envelope Budgeting)
   name        String
   type        CategoryType  // "NEED" or "WANT" (BR-02)
   createdAt   DateTime      @default(now())
   updatedAt   DateTime      @updatedAt
 
   user        User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  pocket      Pocket?       @relation(fields: [pocketId], references: [id], onDelete: SetNull)
   transactions Transaction[]
 
   @@unique([userId, name]) // User cannot have duplicate category names

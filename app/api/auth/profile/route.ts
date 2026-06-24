@@ -34,13 +34,9 @@ export async function PATCH(request: NextRequest) {
 
     // 🔹 BODY
     const body = await request.json();
-    const {
       name,
       paydayDate,
       themePreference,
-      allocationEmergency,
-      allocationSavings,
-      allocationWishlist,
     } = body;
 
     const dataToUpdate: Record<string, any> = {};
@@ -69,49 +65,7 @@ export async function PATCH(request: NextRequest) {
       dataToUpdate.themePreference = themePreference;
     }
 
-    if (allocationEmergency !== undefined) {
-      if (typeof allocationEmergency !== 'number') {
-        return errorResponse('Invalid allocationEmergency', 400);
-      }
-      dataToUpdate.allocationEmergency = clampPercent(allocationEmergency);
-    }
 
-    if (allocationSavings !== undefined) {
-      if (typeof allocationSavings !== 'number') {
-        return errorResponse('Invalid allocationSavings', 400);
-      }
-      dataToUpdate.allocationSavings = clampPercent(allocationSavings);
-    }
-
-    if (allocationWishlist !== undefined) {
-      if (typeof allocationWishlist !== 'number') {
-        return errorResponse('Invalid allocationWishlist', 400);
-      }
-      dataToUpdate.allocationWishlist = clampPercent(allocationWishlist);
-    }
-
-    // 🔥 VALIDASI TOTAL ALOKASI (INI PENTING BANGET)
-    const currentUser = await prisma.user.findUnique({
-      where: { id: userId },
-      select: {
-        allocationEmergency: true,
-        allocationSavings: true,
-        allocationWishlist: true,
-      },
-    });
-
-    if (!currentUser) {
-      return errorResponse('User not found', 404);
-    }
-
-    const totalAllocation =
-      Number(dataToUpdate.allocationEmergency ?? currentUser.allocationEmergency ?? 0) +
-      Number(dataToUpdate.allocationSavings ?? currentUser.allocationSavings ?? 0) +
-      Number(dataToUpdate.allocationWishlist ?? currentUser.allocationWishlist ?? 0);
-
-    if (totalAllocation > 100) {
-      return errorResponse('Total allocation cannot exceed 100%', 400);
-    }
 
     // 🔹 UPDATE
     const updatedUser = await prisma.user.update({
@@ -123,9 +77,6 @@ export async function PATCH(request: NextRequest) {
         email: true,
         themePreference: true,
         paydayDate: true,
-        allocationEmergency: true,
-        allocationSavings: true,
-        allocationWishlist: true,
       },
     });
 

@@ -261,21 +261,6 @@ export default function DashboardPage() {
               >
                 <HelpCircle className="w-5 h-5" />
               </button>
-              
-              <button
-                onClick={fetchAiRoast}
-                disabled={aiLoading}
-                className="px-4 py-2 rounded-xl bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 text-sm font-medium transition-all hover:bg-indigo-100 dark:hover:bg-indigo-500/20 disabled:opacity-50"
-              >
-                {aiLoading ? (
-                  <span className="flex items-center gap-2">
-                    <Loader2 className="w-4 h-4 animate-spin text-indigo-600" />
-                    Memuat
-                  </span>
-                ) : (
-                  'Roast AI'
-                )}
-              </button>
             </div>
           </div>
         </div>
@@ -283,21 +268,41 @@ export default function DashboardPage() {
 
       <main className="max-w-7xl mx-auto px-5 py-6">
         {/* AI Roast Card */}
-        {aiRoast && (
-          <div id="tour-ai-roast" className="mb-6 bg-indigo-50 dark:bg-indigo-500/5 rounded-2xl p-5 border-l-4 border-indigo-500">
-            <div className="flex items-start gap-3">
-              <div className="w-8 h-8 rounded-full bg-indigo-100 dark:bg-indigo-500/20 flex items-center justify-center flex-shrink-0 mt-0.5">
-                <span className="text-indigo-600 dark:text-indigo-400 text-sm font-bold">AI</span>
+        <div id="tour-ai-roast" className="mb-6 bg-indigo-50 dark:bg-indigo-500/5 rounded-2xl p-5 border-l-4 border-indigo-500">
+          <div className="flex items-start gap-3">
+            <div className="w-8 h-8 rounded-full bg-indigo-100 dark:bg-indigo-500/20 flex items-center justify-center flex-shrink-0 mt-0.5">
+              <span className="text-indigo-600 dark:text-indigo-400 text-sm font-bold">AI</span>
+            </div>
+            <div className="flex-1">
+              <div className="flex flex-wrap items-center justify-between gap-2 mb-1">
+                <p className="text-xs text-indigo-500 dark:text-indigo-400 font-medium">AI Financial Roaster</p>
+                <button
+                  onClick={fetchAiRoast}
+                  disabled={aiLoading}
+                  className="px-3 py-1.5 rounded-lg bg-indigo-100 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 text-xs font-medium transition-all hover:bg-indigo-200 dark:hover:bg-indigo-500/20 disabled:opacity-50 flex items-center gap-2"
+                >
+                  {aiLoading ? (
+                    <>
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      Memuat
+                    </>
+                  ) : (
+                    aiRoast ? 'Roast Ulang' : 'Roast AI'
+                  )}
+                </button>
               </div>
-              <div>
-                <p className="text-xs text-indigo-500 dark:text-indigo-400 font-medium mb-1">AI Financial Roaster</p>
-                <p className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed">
-                  &ldquo;{aiRoast}&rdquo;
-                </p>
-              </div>
+              <p className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed mt-1">
+                {aiRoast ? (
+                  <>&ldquo;{aiRoast}&rdquo;</>
+                ) : aiLoading ? (
+                  <span className="text-gray-500 dark:text-gray-400 italic">Sedang menganalisis keuanganmu...</span>
+                ) : (
+                  <span className="text-gray-500 dark:text-gray-400 italic">Klik tombol untuk melihat analisis AI.</span>
+                )}
+              </p>
             </div>
           </div>
-        )}
+        </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
           
@@ -429,46 +434,68 @@ export default function DashboardPage() {
                     <p className="text-xs text-gray-400 mt-1">Mulai catat pengeluaran pertamamu</p>
                   </div>
                 ) : (
-                  recentTransactions.slice(0, 5).map((tx) => (
-                    <div
-                      key={tx.id}
-                      className="group flex items-center gap-3 p-3 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-900 transition-colors cursor-pointer"
-                      onClick={() => router.push('/transactions')}
-                    >
-                      <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${
-                        tx.type === 'EXPENSE' 
-                          ? 'bg-rose-50 dark:bg-rose-500/10' 
-                          : 'bg-emerald-50 dark:bg-emerald-500/10'
-                      }`}>
-                        <span className={`text-base ${
-                          tx.type === 'EXPENSE' 
-                            ? 'text-rose-500' 
-                            : 'text-emerald-500'
+                  recentTransactions.slice(0, 5).map((tx) => {
+                    const isTransferOut = tx.type === 'TRANSFER' && tx.notes?.toLowerCase().includes('transfer to');
+                    const isTransferIn = tx.type === 'TRANSFER' && tx.notes?.toLowerCase().includes('received from');
+                    
+                    const isExpenseStyle = tx.type === 'EXPENSE' || isTransferOut;
+                    const isIncomeStyle = tx.type.startsWith('INCOME') || isTransferIn;
+                    
+                    let title = tx.category || (tx.type === 'EXPENSE' ? 'Pengeluaran' : 'Pemasukan');
+                    if (tx.type === 'TRANSFER') {
+                      title = isTransferOut ? 'Transfer Keluar' : isTransferIn ? 'Transfer Masuk' : 'Transfer';
+                    }
+
+                    const icon = isExpenseStyle ? '↓' : isIncomeStyle ? '↑' : '⇄';
+                    const sign = isIncomeStyle ? '+' : isExpenseStyle ? '-' : '';
+
+                    return (
+                      <div
+                        key={tx.id}
+                        className="group flex items-center gap-3 p-3 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-900 transition-colors cursor-pointer"
+                        onClick={() => router.push('/transactions')}
+                      >
+                        <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${
+                          isExpenseStyle
+                            ? 'bg-rose-50 dark:bg-rose-500/10' 
+                            : tx.type === 'TRANSFER' && !isTransferIn && !isTransferOut
+                            ? 'bg-indigo-50 dark:bg-indigo-500/10'
+                            : 'bg-emerald-50 dark:bg-emerald-500/10'
                         }`}>
-                          {tx.type === 'EXPENSE' ? '↓' : '↑'}
-                        </span>
-                      </div>
-                      
-                      <div className="flex-1 min-w-0">
-                        <p className="font-medium text-sm text-gray-900 dark:text-white truncate">
-                          {tx.category || (tx.type === 'EXPENSE' ? 'Pengeluaran' : 'Pemasukan')}
-                        </p>
-                        <div className="flex items-center gap-1 text-xs text-gray-400">
-                          <span>{tx.pocket}</span>
-                          <span>•</span>
-                          <span>{new Date(tx.date).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' })}</span>
+                          <span className={`text-base ${
+                            isExpenseStyle
+                              ? 'text-rose-500' 
+                              : tx.type === 'TRANSFER' && !isTransferIn && !isTransferOut
+                              ? 'text-indigo-500'
+                              : 'text-emerald-500'
+                          }`}>
+                            {icon}
+                          </span>
                         </div>
+                        
+                        <div className="flex-1 min-w-0">
+                          <p className="font-medium text-sm text-gray-900 dark:text-white truncate">
+                            {title}
+                          </p>
+                          <div className="flex items-center gap-1 text-xs text-gray-400">
+                            <span>{tx.pocket}</span>
+                            <span>•</span>
+                            <span>{new Date(tx.date).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' })}</span>
+                          </div>
+                        </div>
+                        
+                        <p className={`font-medium text-sm flex-shrink-0 ${
+                          isIncomeStyle 
+                            ? 'text-emerald-600 dark:text-emerald-400' 
+                            : isExpenseStyle
+                            ? 'text-rose-600 dark:text-rose-400'
+                            : 'text-indigo-600 dark:text-indigo-400'
+                        }`}>
+                          {sign}{formatCurrency(tx.amount)}
+                        </p>
                       </div>
-                      
-                      <p className={`font-medium text-sm flex-shrink-0 ${
-                        tx.type.startsWith('INCOME') 
-                          ? 'text-emerald-600 dark:text-emerald-400' 
-                          : 'text-rose-600 dark:text-rose-400'
-                      }`}>
-                        {tx.type.startsWith('INCOME') ? '+' : '-'}{formatCurrency(tx.amount)}
-                      </p>
-                    </div>
-                  ))
+                    );
+                  })
                 )}
               </div>
             </section>

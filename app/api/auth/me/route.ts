@@ -42,9 +42,6 @@ export async function GET(request: NextRequest) {
         email: true,
         themePreference: true,
         paydayDate: true,
-        allocationEmergency: true,
-        allocationSavings: true,
-        allocationWishlist: true,
       },
     });
 

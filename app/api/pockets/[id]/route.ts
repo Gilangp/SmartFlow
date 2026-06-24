@@ -37,11 +37,11 @@ export async function PATCH(
     }
 
     const body = await request.json();
-    const { targetAmount } = body;
+    const { targetAmount, allocation } = body;
 
-    if (targetAmount === undefined) {
+    if (targetAmount === undefined && allocation === undefined) {
       return NextResponse.json(
-        { success: false, message: 'Target amount is required' },
+        { success: false, message: 'No data to update' },
         { status: 400 }
       );
     }
@@ -58,25 +58,29 @@ export async function PATCH(
       );
     }
 
-    if (pocket.type !== 'EMERGENCY' && pocket.type !== 'WISHLIST') {
+    if (targetAmount !== undefined && pocket.type !== 'EMERGENCY' && pocket.type !== 'WISHLIST' && pocket.type !== 'CUSTOM') {
       return NextResponse.json(
-        { success: false, message: 'Only EMERGENCY and WISHLIST pockets can have a target amount' },
+        { success: false, message: 'This pocket cannot have a target amount' },
         { status: 400 }
       );
     }
 
     const updatedPocket = await prisma.pocket.update({
       where: { id: pocketId },
-      data: { targetAmount },
+      data: { 
+        ...(targetAmount !== undefined && { targetAmount }),
+        ...(allocation !== undefined && { allocation })
+      },
     });
 
     return NextResponse.json({
       success: true,
-      message: 'Pocket target updated successfully',
+      message: 'Pocket updated successfully',
       data: {
         id: updatedPocket.id,
         name: updatedPocket.name,
         targetAmount: updatedPocket.targetAmount?.toNumber(),
+        allocation: updatedPocket.allocation,
       }
     });
 

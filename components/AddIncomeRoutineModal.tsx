@@ -17,12 +17,7 @@ interface PendingIncome {
   year: number;
   pocketId: string;
   notes?: string;
-}
-
-interface UserAllocation {
-  allocationEmergency: number;
-  allocationSavings: number;
-  allocationWishlist: number;
+  allocation: number;
 }
 
 interface AddIncomeRoutineModalProps {
@@ -35,11 +30,6 @@ export default function AddIncomeRoutineModal({ onClose, onSuccess, paydayDate }
   const [pockets, setPockets] = useState<Pocket[]>([]);
   const [pendingIncome, setPendingIncome] = useState<PendingIncome | null>(null);
   const [confirmingPending, setConfirmingPending] = useState(false);
-  const [allocation, setAllocation] = useState<UserAllocation>({
-    allocationEmergency: 0,
-    allocationSavings: 0,
-    allocationWishlist: 0,
-  });
   const [form, setForm] = useState({
     amount: '',
     pocketId: '',
@@ -58,20 +48,11 @@ export default function AddIncomeRoutineModal({ onClose, onSuccess, paydayDate }
     Promise.all([
       fetch('/api/pockets', { headers: { Authorization: `Bearer ${token}` } }).then((r) => r.json()),
       fetch('/api/income/pending', { headers: { Authorization: `Bearer ${token}` } }).then((r) => r.json()),
-      fetch('/api/auth/me', { headers: { Authorization: `Bearer ${token}` } }).then((r) => r.json()),
-    ]).then(([pocketData, pendingData, userData]) => {
+    ]).then(([pocketData, pendingData]) => {
       if (pocketData.success) {
         setPockets(pocketData.data);
         const mainPocket = pocketData.data.find((p: Pocket) => p.type === 'MAIN');
         if (mainPocket) setForm((f) => ({ ...f, pocketId: mainPocket.id }));
-      }
-
-      if (userData.success && userData.data) {
-        setAllocation({
-          allocationEmergency: userData.data.allocationEmergency || 0,
-          allocationSavings: userData.data.allocationSavings || 0,
-          allocationWishlist: userData.data.allocationWishlist || 0,
-        });
       }
 
       if (pendingData.success && pendingData.data.length > 0) {
@@ -135,18 +116,15 @@ export default function AddIncomeRoutineModal({ onClose, onSuccess, paydayDate }
     }
   };
 
-  const hasAllocation = allocation.allocationEmergency > 0 || allocation.allocationSavings > 0 || allocation.allocationWishlist > 0;
+  const totalAllocation = pockets.reduce((sum, p) => sum + (p.allocation || 0), 0);
+  const hasAllocation = totalAllocation > 0;
   const amountNum = parseFloat(form.amount) || 0;
-  const emergency = allocation.allocationEmergency || 0;
-  const savings = allocation.allocationSavings || 0;
-  const wishlist = allocation.allocationWishlist || 0;
-  const main = Math.max(0, 100 - emergency - savings - wishlist);
 
   return (
     <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-end sm:items-center justify-center p-4" onClick={(e) => e.target === e.currentTarget && onClose()}>
       <div className="bg-white dark:bg-gray-900 rounded-2xl w-full max-w-md max-h-[90vh] overflow-y-auto shadow-xl">
         <div className="flex items-center justify-between p-5 border-b border-gray-100 dark:border-gray-800">
-          <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Tambah Gajian</h2>
+          <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Tambah Pemasukan</h2>
           <button onClick={onClose} className="w-8 h-8 rounded-lg flex items-center justify-center text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800 transition">
             ✕
           </button>
@@ -163,7 +141,7 @@ export default function AddIncomeRoutineModal({ onClose, onSuccess, paydayDate }
           {pendingIncome && !confirmingPending && (
             <div className="mb-5 p-3 rounded-lg bg-indigo-50 dark:bg-indigo-500/10 border border-indigo-100 dark:border-indigo-500/20">
               <p className="text-sm font-medium text-indigo-700 dark:text-indigo-300 mb-2">
-                Ada gajian bulan ini yang belum dikonfirmasi
+                Ada pemasukan rutin bulan ini yang belum dikonfirmasi
               </p>
               <div className="flex gap-2">
                 <button onClick={() => setConfirmingPending(true)} className="flex-1 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-sm font-medium transition">
@@ -179,7 +157,7 @@ export default function AddIncomeRoutineModal({ onClose, onSuccess, paydayDate }
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
-                Nominal Gajian
+                Nominal Pemasukan
               </label>
               <input
                 type="number"
@@ -222,30 +200,12 @@ export default function AddIncomeRoutineModal({ onClose, onSuccess, paydayDate }
                   Alokasi: Rp {amountNum.toLocaleString('id-ID')}
                 </p>
                 <div className="space-y-1.5 text-xs">
-                  {main > 0 && (
-                    <div className="flex justify-between">
-                      <span className="text-gray-500">Dompet Utama</span>
-                      <span className="font-medium">{(amountNum * main / 100).toLocaleString('id-ID')} ({main}%)</span>
+                  {pockets.filter(p => p.allocation > 0).map(p => (
+                    <div key={p.id} className="flex justify-between">
+                      <span className="text-gray-500">{p.name}</span>
+                      <span className="font-medium text-indigo-600">{(amountNum * p.allocation / 100).toLocaleString('id-ID')} ({p.allocation}%)</span>
                     </div>
-                  )}
-                  {emergency > 0 && (
-                    <div className="flex justify-between">
-                      <span className="text-gray-500">Dana Darurat</span>
-                      <span className="font-medium text-rose-600">{(amountNum * emergency / 100).toLocaleString('id-ID')} ({emergency}%)</span>
-                    </div>
-                  )}
-                  {savings > 0 && (
-                    <div className="flex justify-between">
-                      <span className="text-gray-500">Tabungan</span>
-                      <span className="font-medium text-emerald-600">{(amountNum * savings / 100).toLocaleString('id-ID')} ({savings}%)</span>
-                    </div>
-                  )}
-                  {wishlist > 0 && (
-                    <div className="flex justify-between">
-                      <span className="text-gray-500">Wishlist</span>
-                      <span className="font-medium text-indigo-600">{(amountNum * wishlist / 100).toLocaleString('id-ID')} ({wishlist}%)</span>
-                    </div>
-                  )}
+                  ))}
                 </div>
               </div>
             )}
@@ -271,7 +231,7 @@ export default function AddIncomeRoutineModal({ onClose, onSuccess, paydayDate }
                 <textarea
                   value={form.notes}
                   onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))}
-                  placeholder="Contoh: Gajian bulan ini"
+                  placeholder="Contoh: Pemasukan bulan ini"
                   rows={2}
                   className="w-full px-4 py-2.5 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/50 resize-none text-sm"
                 />
@@ -283,7 +243,7 @@ export default function AddIncomeRoutineModal({ onClose, onSuccess, paydayDate }
               disabled={isSubmitting}
               className="w-full py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-medium text-sm transition-all disabled:opacity-50"
             >
-              {isSubmitting ? 'Menyimpan...' : (confirmingPending ? 'Konfirmasi Gajian' : 'Simpan Gajian')}
+              {isSubmitting ? 'Menyimpan...' : (confirmingPending ? 'Konfirmasi Pemasukan' : 'Simpan Pemasukan')}
             </button>
 
             {confirmingPending && (

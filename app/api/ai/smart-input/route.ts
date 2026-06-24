@@ -106,6 +106,7 @@ Rules:
 - Output HARUS JSON valid
 - Jangan gunakan markdown
 - Jangan tambahkan penjelasan
+- Gabungkan nama barang/kegiatan ke dalam 'notes' dengan rapi. Jika ada lebih dari satu kegiatan, pisahkan dengan koma dan spasi (, ) (contoh: "makan, isi bensin").
 
 Kategori yang tersedia:
 [${categoryNames}]

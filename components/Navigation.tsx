@@ -35,13 +35,6 @@ const navItems = [
     ),
   },
   {
-    href: '/analytics',
-    label: 'Analitik',
-    icon: (active: boolean) => (
-      <TrendingUp className={`w-6 h-6 transition-all duration-200 ${active ? 'text-indigo-600 dark:text-indigo-400' : 'text-gray-500 dark:text-gray-400'}`} strokeWidth={1.8} />
-    ),
-  },
-  {
     href: '/profile',
     label: 'Profil',
     icon: (active: boolean) => (

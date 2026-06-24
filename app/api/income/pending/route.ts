@@ -208,70 +208,47 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      // Check if allocation is enabled
-      const hasAllocation = 
-        user.allocationEmergency > 0 || user.allocationSavings > 0 || user.allocationWishlist > 0;
+      // Get all user pockets
+      const allPockets = await prisma.pocket.findMany({
+        where: { userId: decoded.userId },
+      });
 
-      if (hasAllocation) {
-        // Get all user pockets
-        const allPockets = await prisma.pocket.findMany({
-          where: { userId: decoded.userId },
-        });
+      const totalAllocation = allPockets.reduce((sum, p) => sum + p.allocation, 0);
 
-        const pocketMap = new Map(allPockets.map(p => [p.type, p]));
-        
-        // Calculate allocation
-        const emergency = user.allocationEmergency || 0;
-        const savings = user.allocationSavings || 0;
-        const wishlist = user.allocationWishlist || 0;
-        const main = 100 - emergency - savings - wishlist;
-
-        const emergencyAmount = (amount * emergency) / 100;
-        const savingsAmount = (amount * savings) / 100;
-        const wishlistAmount = (amount * wishlist) / 100;
-        const mainAmount = (amount * main) / 100;
-
+      if (totalAllocation > 0) {
         // Mark original pending transaction as cancelled/archived
         await prisma.transaction.update({
           where: { id: transactionId },
           data: { status: 'CANCELLED' },
         });
 
-        // Create transactions for each pocket
         const createdTransactions = [];
-        const transactionData: Array<{ pocketType: string; allocationAmount: number }> = [
-          { pocketType: 'MAIN', allocationAmount: mainAmount },
-          { pocketType: 'EMERGENCY', allocationAmount: emergencyAmount },
-          { pocketType: 'SAVINGS', allocationAmount: savingsAmount },
-          { pocketType: 'WISHLIST', allocationAmount: wishlistAmount },
-        ];
 
-        for (const td of transactionData) {
-          if (td.allocationAmount > 0) {
-            const targetPocket = pocketMap.get(td.pocketType as any);
-            if (targetPocket) {
-              // Create transaction
-              const newTxn = await prisma.transaction.create({
-                data: {
-                  userId: decoded.userId,
-                  pocketId: targetPocket.id,
-                  type: 'INCOME_ROUTINE',
-                  amount: td.allocationAmount,
-                  date: transaction.date,
-                  status: 'COMPLETED',
-                  notes: transaction.notes || `Gajian ke ${td.pocketType}`,
-                },
-                include: { pocket: true },
-              });
+        for (const targetPocket of allPockets) {
+          if (targetPocket.allocation > 0) {
+            const allocationAmount = (amount * targetPocket.allocation) / 100;
+            
+            // Create transaction
+            const newTxn = await prisma.transaction.create({
+              data: {
+                userId: decoded.userId,
+                pocketId: targetPocket.id,
+                type: 'INCOME_ROUTINE',
+                amount: allocationAmount,
+                date: transaction.date,
+                status: 'COMPLETED',
+                notes: transaction.notes || `Pemasukan Rutin ke ${targetPocket.name}`,
+              },
+              include: { pocket: true },
+            });
 
-              createdTransactions.push(newTxn);
+            createdTransactions.push(newTxn);
 
-              // Update pocket balance
-              await prisma.pocket.update({
-                where: { id: targetPocket.id },
-                data: { balance: targetPocket.balance.plus(td.allocationAmount) },
-              });
-            }
+            // Update pocket balance
+            await prisma.pocket.update({
+              where: { id: targetPocket.id },
+              data: { balance: targetPocket.balance.plus(allocationAmount) },
+            });
           }
         }
 

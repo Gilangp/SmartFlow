@@ -1,0 +1,319 @@
+'use client';
+
+import { useState, useEffect, useMemo } from 'react';
+import { TransactionRecord } from '@/types';
+import { PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend } from 'recharts';
+import { Lock } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+
+interface AnalyticsViewProps {
+  transactions: TransactionRecord[];
+  canUseAnalytics: boolean;
+  checkingSub: boolean;
+}
+
+const COLORS = ['#6366f1', '#ec4899', '#14b8a6', '#f59e0b', '#8b5cf6', '#ef4444', '#f97316'];
+
+function formatCurrency(amount: number): string {
+  if (amount >= 1000000) return `Rp ${(amount / 1000000).toFixed(1)}jt`;
+  if (amount >= 1000) return `Rp ${(amount / 1000).toFixed(0)}rb`;
+  return `Rp ${amount.toLocaleString('id-ID')}`;
+}
+
+export default function AnalyticsView({ transactions, canUseAnalytics, checkingSub }: AnalyticsViewProps) {
+  const router = useRouter();
+  const [trendData, setTrendData] = useState<any[]>([]);
+
+  useEffect(() => {
+    if (canUseAnalytics) {
+       const t = localStorage.getItem('sf-token');
+       if (t) {
+         fetch('/api/analytics', { headers: { Authorization: `Bearer ${t}` } })
+           .then(r => r.json())
+           .then(d => {
+             if (d.success && d.data?.trend) setTrendData(d.data.trend);
+           });
+       }
+    }
+  }, [canUseAnalytics]);
+
+  const { 
+    pieData, 
+    barData, 
+    highestCategory, 
+    totalExpense, 
+    totalIncomeAll, 
+    netFlow, 
+    topExpenses,
+    pocketPieData 
+  } = useMemo(() => {
+    // Basic Totals
+    const totalIncomeAll = transactions.filter(t => t.type.startsWith('INCOME')).reduce((s,t) => s + t.amount, 0);
+    const totalExpense = transactions.filter(t => t.type === 'EXPENSE').reduce((s,t) => s + t.amount, 0);
+    const netFlow = totalIncomeAll - totalExpense;
+
+    // Top 5 Single Expenses
+    const topExpenses = [...transactions]
+      .filter(t => t.type === 'EXPENSE')
+      .sort((a,b) => b.amount - a.amount)
+      .slice(0, 5);
+
+    // Pie Data (Expenses by Category)
+    const expensesByCategory = transactions
+      .filter(t => t.type === 'EXPENSE')
+      .reduce((acc, t) => {
+        const cat = t.category || 'Lainnya';
+        acc[cat] = (acc[cat] || 0) + t.amount;
+        return acc;
+      }, {} as Record<string, number>);
+
+    const pieData = Object.keys(expensesByCategory)
+      .map(key => ({ name: key, value: expensesByCategory[key] }))
+      .sort((a, b) => b.value - a.value);
+
+    const highestCategory = pieData.length > 0 ? pieData[0].name : '-';
+
+    // Pie Data (Expenses by Pocket)
+    const expensesByPocket = transactions
+      .filter(t => t.type === 'EXPENSE')
+      .reduce((acc, t) => {
+        const p = t.pocket || 'Lainnya';
+        acc[p] = (acc[p] || 0) + t.amount;
+        return acc;
+      }, {} as Record<string, number>);
+
+    const pocketPieData = Object.keys(expensesByPocket)
+      .map(key => ({ name: key, value: expensesByPocket[key] }))
+      .sort((a, b) => b.value - a.value);
+
+    // Bar Data (Last 7 Days Trend)
+    const last7Days = Array.from({ length: 7 }).map((_, i) => {
+      const d = new Date();
+      d.setDate(d.getDate() - i);
+      return d.toISOString().split('T')[0];
+    }).reverse();
+
+    const barData = last7Days.map(date => {
+      const dayTxs = transactions.filter(t => t.date === date);
+      const income = dayTxs.filter(t => t.type.startsWith('INCOME')).reduce((s, t) => s + t.amount, 0);
+      const expense = dayTxs.filter(t => t.type === 'EXPENSE').reduce((s, t) => s + t.amount, 0);
+      return {
+        date: new Date(date).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' }),
+        Pemasukan: income,
+        Pengeluaran: expense,
+        Net: income - expense
+      };
+    });
+
+    return { pieData, barData, highestCategory, totalExpense, totalIncomeAll, netFlow, topExpenses, pocketPieData };
+  }, [transactions]);
+
+  if (checkingSub) {
+    return (
+      <div className="bg-white dark:bg-gray-900 rounded-xl p-10 text-center border border-gray-200 dark:border-gray-800 animate-pulse">
+        <div className="h-4 w-32 bg-gray-200 dark:bg-gray-800 rounded mx-auto mb-3"></div>
+        <div className="h-3 w-48 bg-gray-100 dark:bg-gray-800 rounded mx-auto"></div>
+      </div>
+    );
+  }
+
+  if (!canUseAnalytics) {
+    return (
+      <div className="bg-white dark:bg-gray-900 rounded-xl p-8 text-center border border-dashed border-indigo-200 dark:border-indigo-900 relative overflow-hidden">
+        <div className="absolute inset-0 bg-gradient-to-b from-transparent to-white/50 dark:to-gray-900/50 backdrop-blur-[2px]"></div>
+        <div className="relative z-10 flex flex-col items-center">
+          <div className="w-12 h-12 rounded-full bg-indigo-50 dark:bg-indigo-500/10 flex items-center justify-center text-indigo-500 mb-4">
+            <Lock className="w-6 h-6" />
+          </div>
+          <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-2">Analitik Eksklusif</h3>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mb-5 max-w-sm">
+            Lihat kemana saja uangmu pergi dengan grafik visual yang interaktif. Khusus untuk pengguna Student & Premium.
+          </p>
+          <button 
+            onClick={() => router.push('/upgrade')}
+            className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-sm font-medium transition shadow-md shadow-indigo-600/20 active:scale-[0.98]"
+          >
+            Upgrade / Verifikasi KTM
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* Premium Dashboard Metrics */}
+      <div className="grid grid-cols-3 gap-4">
+        <div className="bg-white dark:bg-gray-900 rounded-2xl p-4 border border-gray-100 dark:border-gray-800 shadow-sm relative overflow-hidden">
+          <div className="absolute top-0 right-0 w-16 h-16 bg-emerald-500/10 rounded-full -mr-8 -mt-8"></div>
+          <p className="text-xs font-medium text-gray-500 mb-1">Total Pemasukan</p>
+          <p className="text-xl font-bold text-emerald-600 dark:text-emerald-400">{formatCurrency(totalIncomeAll)}</p>
+        </div>
+        <div className="bg-white dark:bg-gray-900 rounded-2xl p-4 border border-gray-100 dark:border-gray-800 shadow-sm relative overflow-hidden">
+          <div className="absolute top-0 right-0 w-16 h-16 bg-rose-500/10 rounded-full -mr-8 -mt-8"></div>
+          <p className="text-xs font-medium text-gray-500 mb-1">Total Pengeluaran</p>
+          <p className="text-xl font-bold text-rose-600 dark:text-rose-400">{formatCurrency(totalExpense)}</p>
+        </div>
+        <div className={`bg-gradient-to-br ${netFlow >= 0 ? 'from-emerald-50 to-teal-100 dark:from-emerald-900/40 dark:to-teal-900/20 border-emerald-200 dark:border-emerald-800' : 'from-rose-50 to-orange-100 dark:from-rose-900/40 dark:to-orange-900/20 border-rose-200 dark:border-rose-800'} rounded-2xl p-4 border shadow-sm relative overflow-hidden`}>
+          <p className={`text-xs font-medium mb-1 ${netFlow >= 0 ? 'text-emerald-800 dark:text-emerald-300' : 'text-rose-800 dark:text-rose-300'}`}>
+            Arus Kas (Net)
+          </p>
+          <p className={`text-xl font-bold ${netFlow >= 0 ? 'text-emerald-700 dark:text-emerald-400' : 'text-rose-700 dark:text-rose-400'}`}>
+            {netFlow > 0 ? '+' : ''}{formatCurrency(netFlow)}
+          </p>
+        </div>
+      </div>
+
+      {/* AI Deep Insight */}
+      <div className="bg-indigo-50 dark:bg-indigo-500/10 rounded-2xl p-5 border border-indigo-100 dark:border-indigo-500/20 shadow-sm">
+        <div className="flex items-center gap-3 mb-3">
+          <div className="w-8 h-8 rounded-full bg-indigo-600 flex items-center justify-center text-white text-xs font-bold">AI</div>
+          <h3 className="font-semibold text-indigo-900 dark:text-indigo-300">Executive Summary</h3>
+        </div>
+        <ul className="space-y-2.5">
+          <li className="flex gap-2 items-start text-sm text-gray-700 dark:text-gray-300 leading-relaxed">
+            <span className="text-indigo-500 mt-0.5">•</span>
+            <span>{netFlow >= 0 ? <strong className="text-emerald-600 dark:text-emerald-400">Cash flow sangat sehat!</strong> : <strong className="text-rose-600 dark:text-rose-400">Peringatan Defisit.</strong>} Pemasukanmu {netFlow >= 0 ? 'lebih besar' : 'lebih kecil'} dari pengeluaran sejauh ini.</span>
+          </li>
+          {highestCategory !== '-' && (
+            <li className="flex gap-2 items-start text-sm text-gray-700 dark:text-gray-300 leading-relaxed">
+              <span className="text-indigo-500 mt-0.5">•</span>
+              <span>Kategori dengan pengeluaran paling boros adalah <strong className="text-indigo-600 dark:text-indigo-400 bg-indigo-100/50 dark:bg-indigo-900/30 px-1.5 py-0.5 rounded">{highestCategory}</strong>. Cobalah untuk merem pengeluaran di kategori ini.</span>
+            </li>
+          )}
+          {topExpenses.length > 0 && (
+            <li className="flex gap-2 items-start text-sm text-gray-700 dark:text-gray-300 leading-relaxed">
+              <span className="text-indigo-500 mt-0.5">•</span>
+              <span>Transaksi terbesar tunggalmu adalah <strong className="text-rose-600 dark:text-rose-400">{topExpenses[0].notes || topExpenses[0].category} ({formatCurrency(topExpenses[0].amount)})</strong>.</span>
+            </li>
+          )}
+        </ul>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Pie Chart: Categories */}
+        <div className="bg-white dark:bg-gray-900 rounded-2xl p-5 border border-gray-100 dark:border-gray-800 shadow-sm">
+          <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-1">Pengeluaran per Kategori</h3>
+          <p className="text-xs text-gray-500 mb-4">Melihat kemana saja uangmu pergi</p>
+          
+          <div className="h-64">
+            {pieData.length > 0 ? (
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={pieData}
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={60}
+                    outerRadius={80}
+                    paddingAngle={3}
+                    dataKey="value"
+                    stroke="none"
+                  >
+                    {pieData.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                    ))}
+                  </Pie>
+                  <Tooltip 
+                    formatter={(value: number) => formatCurrency(value)}
+                    contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)', backgroundColor: 'var(--fallback-b1, #ffffff)' }}
+                    itemStyle={{ color: '#1f2937' }}
+                  />
+                  <Legend 
+                    layout="vertical" 
+                    verticalAlign="middle" 
+                    align="right"
+                    wrapperStyle={{ fontSize: '12px' }}
+                    iconType="circle"
+                  />
+                </PieChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="h-full flex items-center justify-center text-gray-400 text-sm">Belum ada data pengeluaran</div>
+            )}
+          </div>
+        </div>
+
+        {/* Bar Chart: Last 7 Days */}
+        <div className="bg-white dark:bg-gray-900 rounded-2xl p-5 border border-gray-100 dark:border-gray-800 shadow-sm">
+          <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-4">Arus Kas 7 Hari Terakhir</h3>
+          
+          <div className="h-64">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={barData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#374151" opacity={0.1} />
+                <XAxis dataKey="date" tick={{ fontSize: 10 }} axisLine={false} tickLine={false} dy={10} />
+                <YAxis tickFormatter={(val) => `Rp${val/1000}k`} tick={{ fontSize: 10 }} axisLine={false} tickLine={false} />
+                <Tooltip 
+                  formatter={(value: number) => formatCurrency(value)}
+                  cursor={{ fill: '#f3f4f6', opacity: 0.1 }}
+                  contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)', backgroundColor: '#ffffff' }}
+                  itemStyle={{ color: '#1f2937' }}
+                />
+                <Legend wrapperStyle={{ fontSize: '12px', paddingTop: '10px' }} iconType="circle" />
+                <Bar dataKey="Pemasukan" fill="#10b981" radius={[4, 4, 0, 0]} maxBarSize={30} />
+                <Bar dataKey="Pengeluaran" fill="#f43f5e" radius={[4, 4, 0, 0]} maxBarSize={30} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+
+        {/* Bar Chart: Last 6 Months (API) */}
+        {trendData.length > 0 && (
+          <div className="bg-white dark:bg-gray-900 rounded-2xl p-5 border border-gray-100 dark:border-gray-800 shadow-sm lg:col-span-2">
+            <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-4">Tren Arus Kas (6 Bulan Terakhir)</h3>
+            
+            <div className="h-72 w-full">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={trendData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#374151" opacity={0.1} />
+                  <XAxis dataKey="month" axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: '#6b7280' }} dy={10} />
+                  <YAxis 
+                    axisLine={false} 
+                    tickLine={false} 
+                    tick={{ fontSize: 11, fill: '#6b7280' }}
+                    tickFormatter={(value) => `Rp ${value / 1000000}jt`}
+                    width={50}
+                  />
+                  <Tooltip 
+                    cursor={{ fill: 'rgba(99, 102, 241, 0.05)' }}
+                    contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)', backgroundColor: 'rgba(255, 255, 255, 0.95)', color: '#111827' }}
+                    formatter={(value: any) => formatCurrency(Number(value))}
+                  />
+                  <Legend iconType="circle" wrapperStyle={{ paddingTop: '20px', fontSize: '12px' }} />
+                  <Bar dataKey="income" name="Pemasukan" fill="#10b981" radius={[4, 4, 0, 0]} maxBarSize={40} />
+                  <Bar dataKey="expense" name="Pengeluaran" fill="#ef4444" radius={[4, 4, 0, 0]} maxBarSize={40} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+        )}
+
+        {/* Top 5 Expenses List */}
+        <div className="bg-white dark:bg-gray-900 rounded-2xl p-5 border border-gray-100 dark:border-gray-800 shadow-sm lg:col-span-2">
+          <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-4">5 Pengeluaran Terbesar</h3>
+          {topExpenses.length > 0 ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {topExpenses.map((tx, idx) => (
+                <div key={tx.id} className="flex items-center gap-3 p-3 rounded-xl bg-gray-50 dark:bg-gray-800/50">
+                  <div className="w-8 h-8 rounded-full bg-rose-100 dark:bg-rose-500/20 text-rose-600 dark:text-rose-400 flex items-center justify-center font-bold text-xs flex-shrink-0">
+                    #{idx + 1}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-gray-900 dark:text-white truncate">{tx.notes || tx.category || 'Pengeluaran'}</p>
+                    <p className="text-xs text-gray-500">{new Date(tx.date).toLocaleDateString('id-ID')} • {tx.pocket}</p>
+                  </div>
+                  <p className="text-sm font-bold text-rose-600 dark:text-rose-400 flex-shrink-0">
+                    -{formatCurrency(tx.amount)}
+                  </p>
+                </div>
+              ))}
+            </div>
+          ) : (
+             <div className="text-gray-400 text-sm text-center py-4">Belum ada data pengeluaran</div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}

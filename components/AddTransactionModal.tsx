@@ -10,12 +10,7 @@ interface Pocket {
   id: string;
   name: string;
   type: string;
-}
-
-interface UserAllocation {
-  allocationEmergency: number;
-  allocationSavings: number;
-  allocationWishlist: number;
+  allocation: number;
 }
 
 interface AddTransactionModalProps {
@@ -43,11 +38,6 @@ export default function AddTransactionModal({ onClose, onSuccess, prefill }: Add
   const [aiProcessing, setAiProcessing] = useState(false);
   const [categories, setCategories] = useState<CategoryRecord[]>([]);
   const [pockets, setPockets] = useState<Pocket[]>([]);
-  const [allocation, setAllocation] = useState<UserAllocation>({
-    allocationEmergency: 0,
-    allocationSavings: 0,
-    allocationWishlist: 0,
-  });
   const [form, setForm] = useState({
     type: 'EXPENSE' as 'INCOME_ROUTINE' | 'INCOME_BONUS' | 'EXPENSE',
     amount: prefill?.amount ? String(prefill.amount) : '',
@@ -69,29 +59,26 @@ export default function AddTransactionModal({ onClose, onSuccess, prefill }: Add
     Promise.all([
       fetch('/api/categories', { headers }).then((r) => r.json()),
       fetch('/api/pockets', { headers }).then((r) => r.json()),
-      fetch('/api/auth/me', { headers }).then((r) => r.json()),
-    ]).then(([catData, pktData, userData]) => {
+    ]).then(([catData, pktData]) => {
       if (catData.success) {
         setCategories(catData.data);
-        // If prefill has a category name, try to match it
         if (prefill?.category && catData.data.length > 0) {
           const matched = catData.data.find(
             (c: CategoryRecord) => c.name.toLowerCase().includes(prefill.category!.toLowerCase()) ||
               prefill.category!.toLowerCase().includes(c.name.toLowerCase())
           );
-          if (matched) setForm((f) => ({ ...f, categoryId: matched.id }));
+          if (matched) {
+            setForm((f) => ({ ...f, categoryId: matched.id, pocketId: matched.pocketId || f.pocketId }));
+          }
         }
       }
       if (pktData.success) {
         setPockets(pktData.data);
         const mainPocket = pktData.data.find((p: Pocket) => p.type === 'MAIN');
-        if (mainPocket) setForm((f) => ({ ...f, pocketId: mainPocket.id }));
-      }
-      if (userData.success && userData.data) {
-        setAllocation({
-          allocationEmergency: userData.data.allocationEmergency || 0,
-          allocationSavings: userData.data.allocationSavings || 0,
-          allocationWishlist: userData.data.allocationWishlist || 0,
+        // If not prefilled with a category pocket, set default to main
+        setForm((f) => {
+           if (!f.pocketId && mainPocket) return { ...f, pocketId: mainPocket.id };
+           return f;
         });
       }
     });
@@ -118,6 +105,7 @@ export default function AddTransactionModal({ onClose, onSuccess, prefill }: Add
           ...f,
           amount: String(extracted.amount || ''),
           categoryId: matchedCat?.id || f.categoryId,
+          pocketId: matchedCat?.pocketId || f.pocketId,
           notes: extracted.notes || smartText,
         }));
         setMode('manual');
@@ -168,12 +156,9 @@ export default function AddTransactionModal({ onClose, onSuccess, prefill }: Add
     }
   };
 
-  const hasAllocation = allocation.allocationEmergency > 0 || allocation.allocationSavings > 0 || allocation.allocationWishlist > 0;
+  const totalAllocation = pockets.reduce((sum, p) => sum + (p.allocation || 0), 0);
+  const hasAllocation = totalAllocation > 0;
   const amountNum = parseFloat(form.amount) || 0;
-  const emergency = allocation.allocationEmergency || 0;
-  const savings = allocation.allocationSavings || 0;
-  const wishlist = allocation.allocationWishlist || 0;
-  const main = Math.max(0, 100 - emergency - savings - wishlist);
 
   return (
     <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-end sm:items-center justify-center p-4" onClick={(e) => e.target === e.currentTarget && onClose()}>
@@ -304,7 +289,14 @@ export default function AddTransactionModal({ onClose, onSuccess, prefill }: Add
                   </label>
                   <select
                     value={form.categoryId}
-                    onChange={(e) => setForm((f) => ({ ...f, categoryId: e.target.value }))}
+                    onChange={(e) => {
+                      const selectedCat = categories.find(c => c.id === e.target.value);
+                      setForm((f) => ({ 
+                        ...f, 
+                        categoryId: e.target.value,
+                        pocketId: selectedCat?.pocketId || f.pocketId 
+                      }));
+                    }}
                     className="w-full px-4 py-2.5 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
                   >
                     <option value="">Pilih kategori (opsional)</option>
@@ -355,30 +347,12 @@ export default function AddTransactionModal({ onClose, onSuccess, prefill }: Add
                     Alokasi: Rp {amountNum.toLocaleString('id-ID')}
                   </p>
                   <div className="space-y-1.5 text-xs">
-                    {main > 0 && (
-                      <div className="flex justify-between">
-                        <span className="text-gray-500">Dompet Utama</span>
-                        <span className="font-medium">{(amountNum * main / 100).toLocaleString('id-ID')} ({main}%)</span>
+                    {pockets.filter(p => p.allocation > 0).map(p => (
+                      <div key={p.id} className="flex justify-between">
+                        <span className="text-gray-500">{p.name}</span>
+                        <span className="font-medium text-indigo-600">{(amountNum * p.allocation / 100).toLocaleString('id-ID')} ({p.allocation}%)</span>
                       </div>
-                    )}
-                    {emergency > 0 && (
-                      <div className="flex justify-between">
-                        <span className="text-gray-500">Dana Darurat</span>
-                        <span className="font-medium text-rose-600">{(amountNum * emergency / 100).toLocaleString('id-ID')} ({emergency}%)</span>
-                      </div>
-                    )}
-                    {savings > 0 && (
-                      <div className="flex justify-between">
-                        <span className="text-gray-500">Tabungan</span>
-                        <span className="font-medium text-emerald-600">{(amountNum * savings / 100).toLocaleString('id-ID')} ({savings}%)</span>
-                      </div>
-                    )}
-                    {wishlist > 0 && (
-                      <div className="flex justify-between">
-                        <span className="text-gray-500">Wishlist</span>
-                        <span className="font-medium text-indigo-600">{(amountNum * wishlist / 100).toLocaleString('id-ID')} ({wishlist}%)</span>
-                      </div>
-                    )}
+                    ))}
                   </div>
                 </div>
               )}

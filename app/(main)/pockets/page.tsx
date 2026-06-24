@@ -2,14 +2,21 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
+import { Plus, ArrowRightLeft, Trash2, Percent } from 'lucide-react';
+import AddPocketModal from '@/components/AddPocketModal';
+import TransferPocketModal from '@/components/TransferPocketModal';
+import AllocationModal from '@/components/AllocationModal';
 
 interface Pocket {
   id: string;
   name: string;
-  type: 'MAIN' | 'EMERGENCY' | 'SAVINGS' | 'WISHLIST';
+  type: 'MAIN' | 'EMERGENCY' | 'SAVINGS' | 'WISHLIST' | 'CUSTOM';
   balance: number;
   targetAmount?: number;
   status: string;
+  allocation: number;
+  color: string;
+  icon: string;
   progressPercentage?: number;
 }
 
@@ -69,6 +76,9 @@ export default function PocketsPage() {
   const [editTarget, setEditTarget] = useState<{ pocket: Pocket; value: string } | null>(null);
   const [withdrawData, setWithdrawData] = useState<{ pocket: Pocket; amount: string } | null>(null);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [showTransferModal, setShowTransferModal] = useState(false);
+  const [showAllocationModal, setShowAllocationModal] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
   const getToken = useCallback(() => localStorage.getItem('sf-token'), []);
@@ -129,8 +139,11 @@ export default function PocketsPage() {
   };
 
   const sortedPockets = [...pockets].sort((a, b) => {
-    const order = ['MAIN', 'EMERGENCY', 'SAVINGS', 'WISHLIST'];
-    return order.indexOf(a.type) - order.indexOf(b.type);
+    const order = ['MAIN', 'EMERGENCY', 'SAVINGS', 'WISHLIST', 'CUSTOM'];
+    const indexA = order.indexOf(a.type);
+    const indexB = order.indexOf(b.type);
+    if (indexA === indexB) return a.name.localeCompare(b.name);
+    return indexA - indexB;
   });
 
   const totalWealth = pockets.reduce((s, p) => s + p.balance, 0);
@@ -140,12 +153,35 @@ export default function PocketsPage() {
       {/* Header */}
       <header className="sticky top-0 z-40 bg-white/80 dark:bg-gray-950/80 backdrop-blur-xl border-b border-gray-200 dark:border-gray-800 pt-safe">
         <div className="max-w-7xl mx-auto px-5 py-4">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
               <h1 className="text-xl font-semibold text-gray-900 dark:text-white">Kantong</h1>
               <p className="text-xs text-gray-500 dark:text-gray-500 mt-0.5">
                 Total: <span className="font-semibold text-indigo-600 dark:text-indigo-400">{formatCurrency(totalWealth)}</span>
               </p>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                onClick={() => setShowAllocationModal(true)}
+                className="flex items-center gap-1.5 px-3 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-xs font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition active:scale-[0.98]"
+              >
+                <Percent className="w-4 h-4" />
+                Alokasi
+              </button>
+              <button
+                onClick={() => setShowTransferModal(true)}
+                className="flex items-center gap-1.5 px-3 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-xs font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition active:scale-[0.98]"
+              >
+                <ArrowRightLeft className="w-4 h-4" />
+                Transfer
+              </button>
+              <button
+                onClick={() => setShowAddModal(true)}
+                className="flex items-center gap-1.5 px-3 py-2 bg-indigo-600 border border-indigo-600 rounded-lg text-xs font-medium text-white hover:bg-indigo-700 transition shadow-sm shadow-indigo-600/20 active:scale-[0.98]"
+              >
+                <Plus className="w-4 h-4" />
+                Tambah Kantong
+              </button>
             </div>
           </div>
         </div>
@@ -161,16 +197,29 @@ export default function PocketsPage() {
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             {sortedPockets.map((pocket) => {
-              const meta = POCKET_META[pocket.type];
+              const meta = POCKET_META[pocket.type as keyof typeof POCKET_META] || {
+                label: pocket.name,
+                description: 'Kantong Tambahan',
+                tip: `Alokasi Pemasukan: ${pocket.allocation}%`,
+                gradient: '',
+                canWithdraw: true,
+                canSetTarget: true,
+                withdrawWarning: 'Pastikan penarikan sesuai dengan tujuan kantong ini.',
+              };
+              
               const hasTarget = pocket.targetAmount && meta.canSetTarget;
               const isCompleted = pocket.status === 'completed';
               const progress = Math.min(pocket.progressPercentage || 0, 100);
               const canWithdraw = meta.canWithdraw && pocket.balance > 0;
               
+              const isCustomGradient = pocket.color?.startsWith('from-');
+              const gradientClass = meta.gradient || (isCustomGradient ? pocket.color : '');
+              
               return (
                 <div
                   key={pocket.id}
-                  className={`relative overflow-hidden rounded-2xl bg-gradient-to-r ${meta.gradient} p-5 text-white shadow-lg`}
+                  className={`relative overflow-hidden rounded-2xl p-5 text-white shadow-lg ${gradientClass ? `bg-gradient-to-r ${gradientClass}` : ''}`}
+                  style={!gradientClass ? { backgroundColor: pocket.color || '#6366f1' } : undefined}
                 >
                   {/* Decorative elements */}
                   <div className="absolute top-0 right-0 w-32 h-32 bg-white/5 rounded-full blur-2xl transform translate-x-16 -translate-y-16" />
@@ -235,6 +284,20 @@ export default function PocketsPage() {
                           className="px-3 py-1.5 bg-white/15 hover:bg-white/25 rounded-lg text-xs font-medium transition-all"
                         >
                           Tarik Dana
+                        </button>
+                      )}
+                      {pocket.type === 'CUSTOM' && pocket.balance === 0 && (
+                        <button
+                          onClick={async () => {
+                            if (!confirm('Yakin ingin menghapus kantong ini?')) return;
+                            const t = getToken();
+                            if(!t) return;
+                            await fetch(`/api/pockets?id=${pocket.id}`, { method: 'DELETE', headers: { Authorization: `Bearer ${t}` } });
+                            fetchPockets();
+                          }}
+                          className="px-2 py-1.5 bg-red-500/30 hover:bg-red-500/50 rounded-lg text-xs font-medium transition-all flex items-center justify-center ml-auto"
+                        >
+                          <Trash2 className="w-4 h-4 text-red-100" />
                         </button>
                       )}
                     </div>
@@ -352,6 +415,42 @@ export default function PocketsPage() {
             </div>
           </div>
         </div>
+      )}
+
+      {showAddModal && (
+        <AddPocketModal
+          token={getToken()!}
+          currentTotalAllocation={pockets.reduce((sum, p) => sum + p.allocation, 0)}
+          onClose={() => setShowAddModal(false)}
+          onSuccess={() => {
+            setShowAddModal(false);
+            fetchPockets();
+          }}
+        />
+      )}
+
+      {showTransferModal && (
+        <TransferPocketModal
+          token={getToken()!}
+          pockets={pockets}
+          onClose={() => setShowTransferModal(false)}
+          onSuccess={() => {
+            setShowTransferModal(false);
+            fetchPockets();
+          }}
+        />
+      )}
+
+      {showAllocationModal && (
+        <AllocationModal
+          token={getToken()!}
+          pockets={pockets}
+          onClose={() => setShowAllocationModal(false)}
+          onSuccess={() => {
+            setShowAllocationModal(false);
+            fetchPockets();
+          }}
+        />
       )}
     </div>
   );

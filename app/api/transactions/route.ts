@@ -68,53 +68,32 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Check if this is income and if allocation is enabled
+    // Check if this is income
     const isIncome = type === 'INCOME_ROUTINE' || type === 'INCOME_BONUS';
-    const hasAllocation = 
-      isIncome && 
-      (user.allocationEmergency > 0 || user.allocationSavings > 0 || user.allocationWishlist > 0);
 
-    if (isIncome && hasAllocation) {
+    if (isIncome) {
       // Get all user pockets
       const allPockets = await prisma.pocket.findMany({
         where: { userId: decoded.userId },
       });
 
-      const pocketMap = new Map(allPockets.map(p => [p.type, p]));
-      
-      // Calculate allocation
-      const emergency = user.allocationEmergency || 0;
-      const savings = user.allocationSavings || 0;
-      const wishlist = user.allocationWishlist || 0;
-      const main = 100 - emergency - savings - wishlist;
-
-      const emergencyAmount = (amount * emergency) / 100;
-      const savingsAmount = (amount * savings) / 100;
-      const wishlistAmount = (amount * wishlist) / 100;
-      const mainAmount = (amount * main) / 100;
-
-      // Create transactions for each pocket
+      const totalAllocation = allPockets.reduce((sum, p) => sum + p.allocation, 0);
       const transactions = [];
-      const transactionData: Array<{ pocketType: string; allocationAmount: number }> = [
-        { pocketType: 'MAIN', allocationAmount: mainAmount },
-        { pocketType: 'EMERGENCY', allocationAmount: emergencyAmount },
-        { pocketType: 'SAVINGS', allocationAmount: savingsAmount },
-        { pocketType: 'WISHLIST', allocationAmount: wishlistAmount },
-      ];
 
-      for (const td of transactionData) {
-        if (td.allocationAmount > 0) {
-          const targetPocket = pocketMap.get(td.pocketType as any);
-          if (targetPocket) {
+      if (totalAllocation > 0) {
+        for (const targetPocket of allPockets) {
+          if (targetPocket.allocation > 0) {
+            const allocationAmount = (amount * targetPocket.allocation) / 100;
+            
             // Create transaction
             const txn = await prisma.transaction.create({
               data: {
                 userId: decoded.userId,
                 pocketId: targetPocket.id,
                 type,
-                amount: td.allocationAmount,
+                amount: allocationAmount,
                 date: new Date(date),
-                notes: notes || `${type === 'INCOME_ROUTINE' ? 'Gajian' : 'Bonus'} ke ${td.pocketType}`,
+                notes: notes || `${type === 'INCOME_ROUTINE' ? 'Pemasukan Rutin' : 'Bonus'} ke ${targetPocket.name}`,
               },
               include: { category: true, pocket: true },
             });
@@ -124,10 +103,29 @@ export async function POST(request: NextRequest) {
             // Update pocket balance
             await prisma.pocket.update({
               where: { id: targetPocket.id },
-              data: { balance: targetPocket.balance.plus(td.allocationAmount) },
+              data: { balance: targetPocket.balance.plus(allocationAmount) },
             });
           }
         }
+      } else {
+        // Fallback: put everything into the selected pocket if no allocation is set up
+        const txn = await prisma.transaction.create({
+          data: {
+            userId: decoded.userId,
+            pocketId: pocket.id,
+            type,
+            amount,
+            date: new Date(date),
+            notes: notes || `${type === 'INCOME_ROUTINE' ? 'Pemasukan Rutin' : 'Bonus'} ke ${pocket.name}`,
+          },
+          include: { category: true, pocket: true },
+        });
+        transactions.push(txn);
+
+        await prisma.pocket.update({
+          where: { id: pocket.id },
+          data: { balance: pocket.balance.plus(amount) },
+        });
       }
 
       return NextResponse.json(

@@ -5,42 +5,54 @@ import { useRouter } from 'next/navigation';
 import { ArrowLeft, Edit2, Trash2 } from 'lucide-react';
 import { CategoryRecord } from '@/types';
 
+interface Pocket {
+  id: string;
+  name: string;
+}
+
 export default function CategoriesPage() {
   const router = useRouter();
   const [categories, setCategories] = useState<CategoryRecord[]>([]);
+  const [pockets, setPockets] = useState<Pocket[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [showAddModal, setShowAddModal] = useState(false);
   const [editItem, setEditItem] = useState<CategoryRecord | null>(null);
   const [deleteItem, setDeleteItem] = useState<CategoryRecord | null>(null);
-  const [form, setForm] = useState({ name: '', type: 'NEED' as 'NEED' | 'WANT' });
+  const [form, setForm] = useState<{name: string, type: 'NEED'|'WANT', pocketId: string | null}>({ name: '', type: 'NEED', pocketId: null });
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState('');
 
   const getToken = useCallback(() => localStorage.getItem('sf-token'), []);
 
-  const fetchCategories = useCallback(async () => {
+  const fetchData = useCallback(async () => {
     const token = getToken();
     if (!token) { router.push('/login'); return; }
     try {
-      const res = await fetch('/api/categories', { headers: { Authorization: `Bearer ${token}` } });
-      const data = await res.json();
-      if (data.success) setCategories(data.data);
-      else router.push('/login');
+      const [catRes, pocRes] = await Promise.all([
+        fetch('/api/categories', { headers: { Authorization: `Bearer ${token}` } }),
+        fetch('/api/pockets', { headers: { Authorization: `Bearer ${token}` } })
+      ]);
+      const catData = await catRes.json();
+      const pocData = await pocRes.json();
+      
+      if (catData.success) setCategories(catData.data);
+      if (pocData.success) setPockets(pocData.data);
+      else if (!catData.success) router.push('/login');
     } catch { router.push('/login'); }
     finally { setIsLoading(false); }
   }, [getToken, router]);
 
-  useEffect(() => { fetchCategories(); }, [fetchCategories]);
+  useEffect(() => { fetchData(); }, [fetchData]);
 
   const handleOpenAdd = () => {
-    setForm({ name: '', type: 'NEED' });
+    setForm({ name: '', type: 'NEED', pocketId: '' });
     setError('');
     setEditItem(null);
     setShowAddModal(true);
   };
 
   const handleOpenEdit = (cat: CategoryRecord) => {
-    setForm({ name: cat.name, type: cat.type });
+    setForm({ name: cat.name, type: cat.type, pocketId: cat.pocketId || '' });
     setEditItem(cat);
     setError('');
     setShowAddModal(true);
@@ -70,7 +82,7 @@ export default function CategoriesPage() {
       const data = await res.json();
       if (data.success) {
         setShowAddModal(false);
-        fetchCategories();
+        fetchData();
       } else {
         setError(data.message || 'Gagal menyimpan');
       }
@@ -89,7 +101,7 @@ export default function CategoriesPage() {
       const data = await res.json();
       if (data.success) {
         setDeleteItem(null);
-        fetchCategories();
+        fetchData();
       } else {
         setError(data.message || 'Gagal menghapus');
       }
@@ -176,8 +188,13 @@ export default function CategoriesPage() {
                           </span>
                         </div>
                         <div>
-                          <p className="font-medium text-sm text-gray-900 dark:text-white">
+                          <p className="font-medium text-sm text-gray-900 dark:text-white flex items-center gap-2">
                             {cat.name}
+                            {cat.pocketId && (
+                              <span className="px-1.5 py-0.5 rounded text-[10px] bg-indigo-100 dark:bg-indigo-900 text-indigo-700 dark:text-indigo-300">
+                                🔗 {pockets.find(p => p.id === cat.pocketId)?.name || 'Kantong'}
+                              </span>
+                            )}
                           </p>
                           <span className="text-xs text-indigo-600 dark:text-indigo-400 font-medium">
                             Need
@@ -232,8 +249,13 @@ export default function CategoriesPage() {
                           </span>
                         </div>
                         <div>
-                          <p className="font-medium text-sm text-gray-900 dark:text-white">
+                          <p className="font-medium text-sm text-gray-900 dark:text-white flex items-center gap-2">
                             {cat.name}
+                            {cat.pocketId && (
+                              <span className="px-1.5 py-0.5 rounded text-[10px] bg-indigo-100 dark:bg-indigo-900 text-indigo-700 dark:text-indigo-300">
+                                🔗 {pockets.find(p => p.id === cat.pocketId)?.name || 'Kantong'}
+                              </span>
+                            )}
                           </p>
                           <span className="text-xs text-indigo-400 font-medium">
                             Want
@@ -317,6 +339,25 @@ export default function CategoriesPage() {
                     </button>
                   ))}
                 </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5 flex items-center gap-1">
+                  Kaitkan ke Kantong (Opsional)
+                </label>
+                <select
+                  value={form.pocketId || ''}
+                  onChange={(e) => setForm(f => ({ ...f, pocketId: e.target.value || null }))}
+                  className="w-full px-4 py-2.5 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/50 transition-all text-sm"
+                >
+                  <option value="">-- Tidak dikaitkan --</option>
+                  {pockets.map(p => (
+                    <option key={p.id} value={p.id}>{p.name}</option>
+                  ))}
+                </select>
+                <p className="text-xs text-gray-500 mt-1">
+                  Jika dikaitkan, transaksi pengeluaran dengan kategori ini akan otomatis memotong saldo kantong yang dipilih.
+                </p>
               </div>
               
               <button
