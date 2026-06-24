@@ -77,42 +77,42 @@ export default function Home() {
 
   const features = [
     {
-      icon: <TrendingUp className="w-6 h-6 text-indigo-600 dark:text-indigo-400" />,
-      title: 'Jatah Harian Otomatis',
-      description: 'Sistem membagi penghasilan dengan sisa hari dalam bulan. Fokus ke batas harian, bukan total saldo.',
-      metric: 'Update real-time'
+      icon: <Wallet className="w-6 h-6 text-indigo-600 dark:text-indigo-400" />,
+      title: 'Dynamic Pockets (Sistem Amplop)',
+      description: 'Bagi pemasukanmu ke berbagai kantong khusus (Darurat, Tabungan, Wishlist) dengan persentase alokasi yang dinamis.',
+      metric: 'Auto-Allocation'
     },
     {
       icon: <Bot className="w-6 h-6 text-indigo-600 dark:text-indigo-400" />,
-      title: 'AI Pintar',
-      description: 'Cukup ketik "makan siang 25rb", AI otomatis mengisi kategori. Cepat dan praktis.',
-      metric: 'Natural Language'
+      title: 'AI Smart Input',
+      description: 'Cukup ketik "makan siang 25rb dan bensin 15k", AI akan memecah dan mengkategorikannya ke kantong yang tepat secara instan.',
+      metric: 'Powered by AI'
     },
     {
-      icon: <Wallet className="w-6 h-6 text-indigo-600 dark:text-indigo-400" />,
-      title: '4 Kantong Keuangan',
-      description: 'Main, Darurat, Tabungan, Wishlist. Masing-masing punya aturan berbeda.',
-      metric: 'Smart allocation'
+      icon: <TrendingUp className="w-6 h-6 text-indigo-600 dark:text-indigo-400" />,
+      title: 'Analitik & Jatah Harian',
+      description: 'Pantau arus kas dengan grafik memukau dan dapatkan perhitungan batas aman pengeluaran harianmu agar tidak boncos.',
+      metric: 'Real-time tracking'
     }
   ];
 
   const steps = [
-    { number: '01', title: 'Daftar Akun', description: 'Gunakan email kampus atau upload KTM. Verifikasi cepat.', duration: '2 menit' },
-    { number: '02', title: 'Atur Penghasilan', description: 'Masukkan pemasukan bulanan, atur tanggal gajian.', duration: '1 menit' },
-    { number: '03', title: 'Mulai Hemat', description: 'Catat transaksi dan ikuti jatah harianmu.', duration: '30 detik/hari' }
+    { number: '01', title: 'Buat Kantong', description: 'Atur kantong pengeluaran dan tabungan beserta persentase alokasinya.', duration: '2 menit' },
+    { number: '02', title: 'Terima Uang Saku', description: 'Sistem akan otomatis mendistribusikan uang kirimanmu ke seluruh kantong secara instan.', duration: 'Otomatis' },
+    { number: '03', title: 'Catat Pakai AI', description: 'Tinggal ketik pengeluaranmu sehari-hari, AI yang akan mengurus sisanya.', duration: '5 detik/transaksi' }
   ];
 
   const testimonials = [
     {
       name: 'Andi Wijaya',
       role: 'Teknik Informatika, UGM',
-      quote: 'Dulu selalu boncos akhir bulan. Sekarang pakai Finto, 3 bulan nabung 40% lebih banyak.',
+      quote: 'Dulu selalu boncos akhir bulan. Sejak pakai Finto dan sistem kantongnya, 3 bulan nabung 40% lebih banyak.',
       rating: 5
     },
     {
       name: 'Sari Dewi',
       role: 'Manajemen, UI',
-      quote: 'Sistem jatah harian bikin sadar pengeluaran. Gak pernah lagi panik akhir bulan.',
+      quote: 'Paling suka fitur AI Smart Input! Catat pengeluaran jadi ga malas lagi karena cuma tinggal ketik kayak chatting.',
       rating: 5
     },
     {
@@ -126,7 +126,7 @@ export default function Home() {
   const faqs = [
     { 
       q: 'Apa itu sistem jatah harian?', 
-      a: 'Kami membagi total penghasilanmu dengan sisa hari dalam bulan. Hasilnya adalah batas maksimal yang bisa kamu habiskan hari ini. Ini lebih realistis daripada lihat total saldo.' 
+      a: 'Kami membagi total uang sakumu dengan sisa hari dalam bulan. Hasilnya adalah batas maksimal yang bisa kamu habiskan hari ini. Ini lebih realistis daripada lihat total saldo.' 
     },
     { 
       q: 'Apakah data keuanganku aman?', 
@@ -166,8 +166,8 @@ export default function Home() {
       features: [
         'Semua fitur lengkap',
         'AI Financial Assistant',
-        'Input pakai bahasa sehari-hari',
-        '4 Kantong + progress tracking',
+        'Kantong tanpa batas',
+        'Scan Struk / Kwitansi (Baru)',
         'Verifikasi mahasiswa'
       ],
       popular: true,
@@ -182,8 +182,8 @@ export default function Home() {
       features: [
         'Semua fitur Student',
         'Export data ke Excel',
+        'Dashboard Analitik Mendalam',
         'Prioritas support 24/7',
-        'Analisis mendalam',
         'Tanpa batasan transaksi'
       ],
       popular: false,
@@ -209,10 +209,10 @@ export default function Home() {
             {/* Logo */}
             <button 
               onClick={() => scrollToSection('beranda')}
-              className="flex items-center gap-2"
+              className="flex items-center gap-2 group"
             >
-              <img src="/icon-512x512.png" alt="Finto" className="w-11 h-11 sm:w-12 sm:h-12 rounded-xl object-cover shadow-md" />
-              <span className="font-bold text-lg sm:text-xl text-gray-900 dark:text-white">Finto</span>
+              <img src="/icon-512x512.png" alt="Finto" className="w-11 h-11 sm:w-12 sm:h-12 rounded-xl object-cover shadow-md group-hover:shadow-indigo-500/20 transition-all duration-300" />
+              <span className="font-bold text-lg sm:text-xl bg-gradient-to-r from-gray-900 to-gray-700 dark:from-white dark:to-gray-300 bg-clip-text text-transparent">Finto</span>
             </button>
 
             {/* Desktop Navigation */}
@@ -317,19 +317,18 @@ export default function Home() {
  
             {/* Heading */}
             <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-extrabold text-gray-900 dark:text-white leading-tight mb-4 sm:mb-6 tracking-tight">
-              Berhenti Lihat
-              <span className="text-indigo-600 dark:text-indigo-400"> Total Saldo</span>
+              Revolusi Keuangan dengan
+              <span className="text-indigo-600 dark:text-indigo-400"> Kantong Cerdas</span>
               <br />
-              Fokus ke{' '}
+              Dikelola Otomatis oleh{' '}
               <span className="bg-gradient-to-r from-indigo-600 to-purple-600 dark:from-indigo-400 dark:to-purple-400 bg-clip-text text-transparent">
-                Jatah Harian
+                AI Assistant
               </span>
             </h1>
  
             {/* Description */}
             <p className="text-base sm:text-lg text-gray-600 dark:text-gray-400 max-w-2xl mx-auto mb-6 sm:mb-8 leading-relaxed px-2">
-              Finto mengubah cara mahasiswa kelola uang. Dari sekadar lihat saldo 
-              jadi strategi harian yang cerdas. Biar AI yang hitung, kamu fokus ke tujuan kuliahmu.
+              Finto membawa sistem Amplop Digital ke tingkat selanjutnya. Atur alokasi uang sakumu ke puluhan kantong dan biarkan AI kami yang mencatat setiap pengeluaranmu dalam hitungan detik.
             </p>
  
             {/* CTA Buttons */}
@@ -603,8 +602,8 @@ export default function Home() {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8 mb-8">
             {/* Brand Column */}
             <div>
-              <div className="flex items-center gap-2 mb-3">
-                <img src="/icon-512x512.png" alt="Finto" className="w-12 h-12 rounded-xl object-cover shadow-md" />
+              <div className="flex items-center gap-2 mb-3 group cursor-pointer">
+                <img src="/icon-512x512.png" alt="Finto" className="w-12 h-12 rounded-xl object-cover shadow-md group-hover:scale-105 transition-transform" />
                 <span className="font-bold text-lg">Finto</span>
               </div>
               <p className="text-gray-400 text-sm leading-relaxed">
@@ -685,7 +684,7 @@ export default function Home() {
           {/* Copyright */}
           <div className="border-t border-gray-900 pt-6 text-center">
             <p className="text-gray-500 text-xs">
-              © 2024 Finto — Student Financial Companion. Untuk mahasiswa Indonesia.
+              © 2026 Finto — Student Financial Companion. Untuk mahasiswa Indonesia.
             </p>
           </div>
         </div>
