@@ -7,6 +7,7 @@ interface Pocket {
   id: string;
   name: string;
   type: string;
+  allocation: number;
 }
 
 interface PendingIncome {

@@ -215,7 +215,7 @@ export default function AnalyticsView({ transactions, canUseAnalytics, checkingS
                     ))}
                   </Pie>
                   <Tooltip 
-                    formatter={(value: number) => formatCurrency(value)}
+                    formatter={(value: any) => formatCurrency(value)}
                     contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)', backgroundColor: 'var(--fallback-b1, #ffffff)' }}
                     itemStyle={{ color: '#1f2937' }}
                   />
@@ -245,7 +245,7 @@ export default function AnalyticsView({ transactions, canUseAnalytics, checkingS
                 <XAxis dataKey="date" tick={{ fontSize: 10 }} axisLine={false} tickLine={false} dy={10} />
                 <YAxis tickFormatter={(val) => `Rp${val/1000}k`} tick={{ fontSize: 10 }} axisLine={false} tickLine={false} />
                 <Tooltip 
-                  formatter={(value: number) => formatCurrency(value)}
+                  formatter={(value: any) => formatCurrency(value)}
                   cursor={{ fill: '#f3f4f6', opacity: 0.1 }}
                   contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)', backgroundColor: '#ffffff' }}
                   itemStyle={{ color: '#1f2937' }}
