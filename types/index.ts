@@ -52,7 +52,7 @@ export interface DailyMetrics {
 
 export interface TransactionRecord {
   id: string;
-  type: 'INCOME_ROUTINE' | 'INCOME_BONUS' | 'EXPENSE';
+  type: 'INCOME_ROUTINE' | 'INCOME_BONUS' | 'EXPENSE' | 'TRANSFER';
   amount: number;
   category?: string;
   categoryType?: 'NEED' | 'WANT';
