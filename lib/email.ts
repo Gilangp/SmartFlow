@@ -153,7 +153,7 @@ function buildOtpEmail(opts: OtpEmailOptions): string {
                 <tr>
                   <td style="vertical-align:middle;padding-right:8px;">
                     <img src="${LOGO_URL}" alt="${APP_NAME}" width="32" height="32"
-                      style="width:32px;height:32px;border-radius:7px;display:block;object-fit:cover;" />
+                      style="width:32px;height:32px;border-radius:7px;display:block;object-fit:contain;" />
                   </td>
                   <td style="vertical-align:middle;">
                     <span style="font-size:15px;font-weight:700;color:#1e293b;">${APP_NAME}</span>

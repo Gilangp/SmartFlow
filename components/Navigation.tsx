@@ -88,8 +88,8 @@ export default function Navigation() {
       {/* Desktop Sidebar Nav */}
       <aside className="hidden md:flex flex-col fixed top-0 left-0 h-screen w-64 bg-white/80 dark:bg-gray-950/80 backdrop-blur-3xl border-r border-gray-100 dark:border-gray-800 z-50">
         <div className="p-6 pb-2">
-          <div className="flex items-center gap-3">
-            <img src="/icon-512x512.png" alt="Finto" className="w-10 h-10 object-contain" />
+          <div className="flex items-center gap-2.5">
+            <img src="/icon-512x512.png" alt="Finto" className="w-10 h-10 object-contain rounded-xl" />
             <h1 className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-indigo-600 to-indigo-400">
               Finto
             </h1>

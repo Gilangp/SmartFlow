@@ -287,7 +287,7 @@ export default function RegisterPage() {
         {/* Logo */}
         <div className="text-center mb-8">
           <Link href="/" className="inline-flex items-center gap-3 mb-4">
-            <img src="/icon-512x512.png" alt="Finto" className="w-14 h-14 rounded-2xl object-cover shadow-lg shadow-indigo-500/30" />
+            <img src="/icon-512x512.png" alt="Finto" className="w-12 h-12 object-contain rounded-xl" />
             <span className="text-slate-900 dark:text-white font-black text-2xl">Finto</span>
           </Link>
           <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Buat Akun Baru</h1>

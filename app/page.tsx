@@ -203,15 +203,15 @@ export default function Home() {
   return (
     <div className="min-h-screen bg-white dark:bg-gray-950 text-gray-900 dark:text-slate-100 transition-colors duration-300">
       {/* Navigation */}
-      <nav className="fixed top-0 left-0 right-0 z-50 bg-white/95 dark:bg-gray-950/95 backdrop-blur-md border-b border-gray-100 dark:border-gray-800">
+      <nav className="fixed top-0 left-0 right-0 z-50 bg-white/95 dark:bg-gray-950/95 backdrop-blur-md border-b border-gray-100 dark:border-gray-800 pt-safe">
         <div className="max-w-6xl mx-auto px-4">
           <div className="flex justify-between items-center h-14 sm:h-16">
             {/* Logo */}
             <button 
               onClick={() => scrollToSection('beranda')}
-              className="flex items-center gap-2 group"
+              className="flex items-center gap-2.5 group"
             >
-              <img src="/icon-512x512.png" alt="Finto" className="w-11 h-11 sm:w-12 sm:h-12 rounded-xl object-cover shadow-md group-hover:shadow-indigo-500/20 transition-all duration-300" />
+              <img src="/icon-512x512.png" alt="Finto" className="w-9 h-9 sm:w-10 sm:h-10 object-contain group-hover:scale-105 transition-all duration-300 rounded-xl" />
               <span className="font-bold text-lg sm:text-xl bg-gradient-to-r from-gray-900 to-gray-700 dark:from-white dark:to-gray-300 bg-clip-text text-transparent">Finto</span>
             </button>
 
@@ -602,8 +602,8 @@ export default function Home() {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8 mb-8">
             {/* Brand Column */}
             <div>
-              <div className="flex items-center gap-2 mb-3 group cursor-pointer">
-                <img src="/icon-512x512.png" alt="Finto" className="w-12 h-12 rounded-xl object-cover shadow-md group-hover:scale-105 transition-transform" />
+              <div className="flex items-center gap-2.5 mb-3 group cursor-pointer">
+                <img src="/icon-512x512.png" alt="Finto" className="w-10 h-10 object-contain group-hover:scale-105 transition-transform rounded-xl" />
                 <span className="font-bold text-lg">Finto</span>
               </div>
               <p className="text-gray-400 text-sm leading-relaxed">
