@@ -262,18 +262,6 @@ export default function ProfilePage() {
           </button>
         </form>
 
-        {/* Category Link (Mobile) */}
-        <Link
-          href="/categories"
-          className="md:hidden flex items-center justify-between w-full py-3 px-4 bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-800 text-gray-700 dark:text-gray-300 font-medium text-sm hover:bg-gray-50 dark:hover:bg-gray-800 transition-all"
-        >
-          <div className="flex items-center gap-3">
-            <Tag className="w-5 h-5 text-indigo-500" strokeWidth={1.8} />
-            Kelola Kategori
-          </div>
-          <ChevronRight className="w-4 h-4 text-gray-400" />
-        </Link>
-
         {/* Logout Button */}
         <button
           onClick={handleLogout}

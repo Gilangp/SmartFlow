@@ -29,7 +29,6 @@ const navItems = [
   {
     href: '/categories',
     label: 'Kategori',
-    hideOnMobile: true,
     icon: (active: boolean) => (
       <Tag className={`w-6 h-6 transition-all duration-200 ${active ? 'text-indigo-600 dark:text-indigo-400' : 'text-gray-500 dark:text-gray-400'}`} strokeWidth={1.8} />
     ),
