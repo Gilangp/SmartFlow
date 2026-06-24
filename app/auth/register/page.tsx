@@ -19,6 +19,7 @@ import {
   Camera,
   Image as ImageIcon,
 } from 'lucide-react';
+import { compressImage } from '@/lib/image-helper';
 
 // Set to true to require email OTP verification on register
 const ENABLE_OTP = false;
@@ -67,27 +68,31 @@ export default function RegisterPage() {
     setError('');
 
     try {
-      const reader = new FileReader();
-      reader.onloadend = async () => {
-        const base64String = (reader.result as string).split(',')[1];
-        
-        const res = await fetch('/api/ai/verify-ktm', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ imageBase64: base64String, mimeType: file.type }),
-        });
-        
-        const data = await res.json();
-        
-        if (data.success && data.data) {
-          setForm(f => ({ ...f, name: data.data.name || f.name }));
-          // Optional: we can show a success toast here
-        } else {
-          setError(data.message || 'Gagal membaca KTM. Pastikan foto jelas.');
-        }
-        setIsScanningKtm(false);
-      };
-      reader.readAsDataURL(file);
+      // Compress the image before sending to save bandwidth and speed up AI processing
+      const compressedDataUrl = await compressImage(file, {
+        maxWidth: 1200, // 1200px is enough for AI to read text clearly
+        maxHeight: 1200,
+        quality: 0.8,
+        mimeType: 'image/webp', // WebP is highly recommended for best compression
+      });
+      
+      const base64String = compressedDataUrl.split(',')[1];
+      
+      const res = await fetch('/api/ai/verify-ktm', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ imageBase64: base64String, mimeType: 'image/webp' }),
+      });
+      
+      const data = await res.json();
+      
+      if (data.success && data.data) {
+        setForm(f => ({ ...f, name: data.data.name || f.name }));
+        // Optional: we can show a success toast here
+      } else {
+        setError(data.message || 'Gagal membaca KTM. Pastikan foto jelas.');
+      }
+      setIsScanningKtm(false);
     } catch {
       setError('Gagal memproses gambar KTM. Coba lagi.');
       setIsScanningKtm(false);

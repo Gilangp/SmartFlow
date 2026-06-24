@@ -4,6 +4,7 @@
 import { useState, useEffect } from 'react';
 import { CategoryRecord } from '@/types';
 import { Sparkles, Info, Camera, Image as ImageIcon } from 'lucide-react';
+import { compressImage } from '@/lib/image-helper';
 
 
 interface Pocket {
@@ -130,17 +131,21 @@ export default function AddTransactionModal({ onClose, onSuccess, prefill }: Add
     const token = getToken();
 
     try {
-      const reader = new FileReader();
-      reader.onloadend = async () => {
-        const base64String = (reader.result as string).split(',')[1];
-        
-        const res = await fetch('/api/ai/scan-receipt', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-          body: JSON.stringify({ imageBase64: base64String, mimeType: file.type }),
-        });
-        
-        const data = await res.json();
+      const compressedDataUrl = await compressImage(file, {
+        maxWidth: 1200,
+        maxHeight: 1200,
+        quality: 0.8,
+        mimeType: 'image/webp',
+      });
+      const base64String = compressedDataUrl.split(',')[1];
+      
+      const res = await fetch('/api/ai/scan-receipt', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ imageBase64: base64String, mimeType: 'image/webp' }),
+      });
+      
+      const data = await res.json();
         
         if (data.success && data.data) {
           const extracted = data.data;
@@ -167,8 +172,6 @@ export default function AddTransactionModal({ onClose, onSuccess, prefill }: Add
           setError(data.message || 'Gagal membaca struk. Pastikan foto jelas.');
         }
         setAiProcessing(false);
-      };
-      reader.readAsDataURL(file);
     } catch {
       setError('Gagal memproses gambar. Coba lagi.');
       setAiProcessing(false);

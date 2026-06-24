@@ -2,6 +2,7 @@
 
 import { useState, useRef, useCallback } from 'react';
 import { GraduationCap, Camera, Upload, X, CheckCircle, AlertCircle, Loader2, Shield } from 'lucide-react';
+import { compressImage } from '@/lib/image-helper';
 
 interface KtmResult {
   name: string;
@@ -27,7 +28,7 @@ export default function KtmVerifyModal({ isOpen, onClose, onSuccess, token, user
   const fileInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
 
-  const handleFile = useCallback((file: File) => {
+  const handleFile = useCallback(async (file: File) => {
     if (!file.type.startsWith('image/')) {
       setError('File harus berupa gambar (JPG, PNG, WEBP)');
       return;
@@ -38,11 +39,22 @@ export default function KtmVerifyModal({ isOpen, onClose, onSuccess, token, user
     }
 
     setError(null);
-    setMimeType(file.type);
+    setLoading(true);
 
-    const reader = new FileReader();
-    reader.onload = (e) => setPreview(e.target?.result as string);
-    reader.readAsDataURL(file);
+    try {
+      const compressedDataUrl = await compressImage(file, {
+        maxWidth: 1200,
+        maxHeight: 1200,
+        quality: 0.8,
+        mimeType: 'image/webp',
+      });
+      setMimeType('image/webp');
+      setPreview(compressedDataUrl);
+    } catch {
+      setError('Gagal memproses gambar. Coba lagi.');
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
   const handleVerify = async () => {
