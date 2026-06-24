@@ -327,7 +327,7 @@ export default function RegisterPage() {
                   <div className="flex items-center justify-between">
                     <div>
                       <h3 className="text-sm font-semibold text-indigo-900 dark:text-indigo-100 mb-1 flex items-center gap-1.5">
-                        <Camera className="w-4 h-4" /> Scan KTM (AI)
+                        <Camera className="w-4 h-4" /> Scan KTM
                       </h3>
                       <p className="text-xs text-indigo-700 dark:text-indigo-300">Isi nama otomatis & klaim Student Plan!</p>
                     </div>

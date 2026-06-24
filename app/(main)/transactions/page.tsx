@@ -291,7 +291,7 @@ export default function TransactionsPage() {
               ) : (
                 <span className="flex items-center justify-center gap-2 text-center w-full px-2">
                   <ScanLine className="w-4 h-4 flex-shrink-0" />
-                  <span className="leading-tight">Scan Struk / Kwitansi (AI)</span>
+                  <span className="leading-tight">Scan Struk / Kwitansi</span>
                 </span>
 
               )}
