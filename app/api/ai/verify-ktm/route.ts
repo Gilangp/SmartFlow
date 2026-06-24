@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { GoogleGenerativeAI } from '@google/generative-ai';
+import { generateKtmToken } from '@/lib/auth';
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
 
@@ -57,10 +58,13 @@ export async function POST(request: NextRequest) {
       }, { status: 422 });
     }
 
+    const ktmToken = generateKtmToken(parsed.nim || '', parsed.name || '');
+
     return NextResponse.json({
       success: true,
       message: 'KTM berhasil diverifikasi',
       data: parsed,
+      ktmToken,
     });
   } catch (error: any) {
     console.error('Verify KTM error:', error);

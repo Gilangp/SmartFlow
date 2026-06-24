@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
-import { hashPassword, generateToken } from '@/lib/auth';
+import { hashPassword, generateToken, verifyKtmToken } from '@/lib/auth';
 import { RegisterRequest, AuthResponse } from '@/types';
 import { assignTrialSubscription, upgradeToStudent, isStudentEmail } from '@/lib/subscription';
 import { verifyOtp } from '@/lib/otp';
@@ -18,8 +18,8 @@ export async function POST(
   request: NextRequest
 ): Promise<NextResponse<AuthResponse>> {
   try {
-    const body: RegisterRequest = await request.json();
-    const { name, email, password, paydayDate, otpCode } = body;
+    const body = await request.json();
+    const { name, email, password, paydayDate, otpCode, ktmToken } = body;
 
     // 🔹 VALIDATION
     if (!name || !email || !password) {
@@ -100,9 +100,18 @@ export async function POST(
     });
 
     // 🔹 AUTO-ASSIGN SUBSCRIPTION
-    // Jika email .ac.id → langsung Student (gratis selamanya)
+    // Jika email .ac.id ATAU ada ktmToken yang valid → langsung Student (gratis selamanya)
     // Selain itu → Trial 14 hari
-    if (isStudentEmail(normalizedEmail)) {
+    
+    let isKtmVerified = false;
+    if (ktmToken) {
+      const decodedKtm = verifyKtmToken(ktmToken);
+      if (decodedKtm && decodedKtm.validKtm) {
+        isKtmVerified = true;
+      }
+    }
+
+    if (isStudentEmail(normalizedEmail) || isKtmVerified) {
       await upgradeToStudent(result.id);
     } else {
       await assignTrialSubscription(result.id);

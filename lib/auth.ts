@@ -37,3 +37,19 @@ export function extractTokenFromHeader(authHeader?: string): string | null {
   }
   return authHeader.substring(7);
 }
+
+export function generateKtmToken(nim: string, name: string): string {
+  return jwt.sign(
+    { nim, name, validKtm: true },
+    JWT_SECRET,
+    { expiresIn: '1h' } // Valid for 1 hour
+  );
+}
+
+export function verifyKtmToken(token: string): { nim: string; name: string; validKtm: boolean } | null {
+  try {
+    return jwt.verify(token, JWT_SECRET) as { nim: string; name: string; validKtm: boolean };
+  } catch {
+    return null;
+  }
+}

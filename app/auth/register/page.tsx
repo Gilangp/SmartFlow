@@ -41,6 +41,8 @@ export default function RegisterPage() {
   const [error, setError] = useState('');
   const [step, setStep] = useState<Step>(1);
   const [isScanningKtm, setIsScanningKtm] = useState(false);
+  const [ktmToken, setKtmToken] = useState<string | null>(null);
+  const [verifiedKtmName, setVerifiedKtmName] = useState<string | null>(null);
 
   // OTP states
   const [otpDigits, setOtpDigits] = useState(['', '', '', '', '', '']);
@@ -88,7 +90,8 @@ export default function RegisterPage() {
       
       if (data.success && data.data) {
         setForm(f => ({ ...f, name: data.data.name || f.name }));
-        // Optional: we can show a success toast here
+        setKtmToken(data.ktmToken);
+        setVerifiedKtmName(data.data.name);
       } else {
         setError(data.message || 'Gagal membaca KTM. Pastikan foto jelas.');
       }
@@ -130,6 +133,7 @@ export default function RegisterPage() {
             email: form.email,
             password: form.password,
             paydayDate: form.paydayDate ? parseInt(form.paydayDate) : undefined,
+            ktmToken,
           }),
         });
         const data = await res.json();
@@ -250,6 +254,7 @@ export default function RegisterPage() {
           password: form.password,
           paydayDate: form.paydayDate ? parseInt(form.paydayDate) : undefined,
           otpCode: code,
+          ktmToken,
         }),
       });
       const data = await res.json();
@@ -317,41 +322,68 @@ export default function RegisterPage() {
               </p>
 
               {/* Scan KTM Button */}
-              <div className="relative overflow-hidden rounded-xl bg-gradient-to-r from-indigo-50 to-purple-50 dark:from-indigo-950/30 dark:to-purple-950/30 border border-indigo-100 dark:border-indigo-800/50 p-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h3 className="text-sm font-semibold text-indigo-900 dark:text-indigo-100 mb-1 flex items-center gap-1.5">
-                      <Camera className="w-4 h-4" /> Scan KTM (AI)
-                    </h3>
-                    <p className="text-xs text-indigo-700 dark:text-indigo-300">Isi nama otomatis dari kartu mahasiswa</p>
+              {!ktmToken ? (
+                <div className="relative overflow-hidden rounded-xl bg-gradient-to-r from-indigo-50 to-purple-50 dark:from-indigo-950/30 dark:to-purple-950/30 border border-indigo-100 dark:border-indigo-800/50 p-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h3 className="text-sm font-semibold text-indigo-900 dark:text-indigo-100 mb-1 flex items-center gap-1.5">
+                        <Camera className="w-4 h-4" /> Scan KTM (AI)
+                      </h3>
+                      <p className="text-xs text-indigo-700 dark:text-indigo-300">Isi nama otomatis & klaim Student Plan!</p>
+                    </div>
+                    <div className="relative">
+                      <input
+                        type="file"
+                        accept="image/*"
+                        capture="environment"
+                        onChange={handleScanKtm}
+                        disabled={isScanningKtm}
+                        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer disabled:cursor-not-allowed"
+                      />
+                      <button
+                        type="button"
+                        disabled={isScanningKtm}
+                        className="flex items-center gap-1.5 bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-2 rounded-lg text-xs font-medium transition shadow-sm disabled:opacity-70 pointer-events-none"
+                      >
+                        {isScanningKtm ? (
+                          <>
+                            <Loader2 className="w-3.5 h-3.5 animate-spin" /> Proses...
+                          </>
+                        ) : (
+                          <>
+                            <ImageIcon className="w-3.5 h-3.5" /> Pilih Foto
+                          </>
+                        )}
+                      </button>
+                    </div>
                   </div>
-                  <div className="relative">
-                    <input
-                      type="file"
-                      accept="image/*"
-                      capture="environment"
-                      onChange={handleScanKtm}
-                      disabled={isScanningKtm}
-                      className="absolute inset-0 w-full h-full opacity-0 cursor-pointer disabled:cursor-not-allowed"
-                    />
+                </div>
+              ) : (
+                <div className="relative overflow-hidden rounded-xl bg-gradient-to-r from-emerald-50 to-teal-50 dark:from-emerald-950/30 dark:to-teal-950/30 border border-emerald-200 dark:border-emerald-800/50 p-4 shadow-sm">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-start gap-3">
+                      <div className="w-10 h-10 rounded-full bg-emerald-100 dark:bg-emerald-900/50 flex items-center justify-center flex-shrink-0">
+                        <CheckCircle2 className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
+                      </div>
+                      <div>
+                        <h3 className="text-sm font-semibold text-emerald-900 dark:text-emerald-100 flex items-center gap-1.5">
+                          KTM Terverifikasi!
+                        </h3>
+                        <p className="text-xs text-emerald-700 dark:text-emerald-300 mt-0.5">
+                          {verifiedKtmName} — Akses Student Plan siap aktif.
+                        </p>
+                      </div>
+                    </div>
                     <button
                       type="button"
-                      disabled={isScanningKtm}
-                      className="flex items-center gap-1.5 bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-2 rounded-lg text-xs font-medium transition shadow-sm disabled:opacity-70 pointer-events-none"
+                      onClick={() => { setKtmToken(null); setVerifiedKtmName(null); }}
+                      className="text-xs text-emerald-600 hover:text-emerald-800 dark:text-emerald-400 dark:hover:text-emerald-200 font-medium px-2 py-1"
                     >
-                      {isScanningKtm ? (
-                        <>
-                          <Loader2 className="w-3.5 h-3.5 animate-spin" /> Proses...
-                        </>
-                      ) : (
-                        <>
-                          <ImageIcon className="w-3.5 h-3.5" /> Pilih Foto
-                        </>
-                      )}
+                      Batal
                     </button>
                   </div>
                 </div>
-              </div>
+              )}
 
               <div>
                 <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Nama Lengkap</label>
