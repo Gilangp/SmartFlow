@@ -3,7 +3,7 @@
 
 import { useState, useEffect } from 'react';
 import { CategoryRecord } from '@/types';
-import { Sparkles, Info } from 'lucide-react';
+import { Sparkles, Info, Camera, Image as ImageIcon } from 'lucide-react';
 
 
 interface Pocket {
@@ -33,7 +33,7 @@ const SMART_INPUT_EXAMPLES = [
 
 export default function AddTransactionModal({ onClose, onSuccess, prefill }: AddTransactionModalProps) {
   // If prefill is provided (from scan receipt), start directly in manual mode
-  const [mode, setMode] = useState<'smart' | 'manual'>(prefill ? 'manual' : 'smart');
+  const [mode, setMode] = useState<'smart' | 'manual' | 'scan'>(prefill ? 'manual' : 'smart');
   const [smartText, setSmartText] = useState('');
   const [aiProcessing, setAiProcessing] = useState(false);
   const [categories, setCategories] = useState<CategoryRecord[]>([]);
@@ -121,6 +121,60 @@ export default function AddTransactionModal({ onClose, onSuccess, prefill }: Add
     }
   };
 
+  const handleScanReceipt = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setAiProcessing(true);
+    setError('');
+    const token = getToken();
+
+    try {
+      const reader = new FileReader();
+      reader.onloadend = async () => {
+        const base64String = (reader.result as string).split(',')[1];
+        
+        const res = await fetch('/api/ai/scan-receipt', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+          body: JSON.stringify({ imageBase64: base64String, mimeType: file.type }),
+        });
+        
+        const data = await res.json();
+        
+        if (data.success && data.data) {
+          const extracted = data.data;
+          const matchedCat = categories.find(
+            (c) => c.name.toLowerCase() === extracted.category?.toLowerCase() || 
+                   extracted.category?.toLowerCase().includes(c.name.toLowerCase())
+          );
+          
+          let notes = extracted.merchant;
+          if (extracted.items && extracted.items.length > 0) {
+             notes += ' - ' + extracted.items.map((i: any) => i.name).join(', ');
+          }
+
+          setForm((f) => ({
+            ...f,
+            amount: String(extracted.amount || ''),
+            categoryId: matchedCat?.id || f.categoryId,
+            pocketId: matchedCat?.pocketId || f.pocketId,
+            notes: notes.substring(0, 200),
+            date: extracted.date || f.date
+          }));
+          setMode('manual');
+        } else {
+          setError(data.message || 'Gagal membaca struk. Pastikan foto jelas.');
+        }
+        setAiProcessing(false);
+      };
+      reader.readAsDataURL(file);
+    } catch {
+      setError('Gagal memproses gambar. Coba lagi.');
+      setAiProcessing(false);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.amount || !form.pocketId || !form.date) {
@@ -190,17 +244,59 @@ export default function AddTransactionModal({ onClose, onSuccess, prefill }: Add
           <div className="flex gap-2 mb-5 p-1 bg-gray-100 dark:bg-gray-800 rounded-lg">
             <button
               onClick={() => setMode('smart')}
-              className={`flex-1 py-2 rounded-lg text-sm font-medium transition-all ${mode === 'smart' ? 'bg-white dark:bg-gray-700 text-indigo-600 dark:text-indigo-400 shadow-sm' : 'text-gray-500'}`}
+              className={`flex-1 py-2 rounded-lg text-sm font-medium transition-all ${mode === 'smart' ? 'bg-white dark:bg-gray-700 text-indigo-600 dark:text-indigo-400 shadow-sm' : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'}`}
             >
               Smart Input
             </button>
             <button
+              onClick={() => setMode('scan')}
+              className={`flex-1 py-2 rounded-lg text-sm font-medium transition-all ${mode === 'scan' ? 'bg-white dark:bg-gray-700 text-indigo-600 dark:text-indigo-400 shadow-sm' : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'}`}
+            >
+              Scan Struk
+            </button>
+            <button
               onClick={() => setMode('manual')}
-              className={`flex-1 py-2 rounded-lg text-sm font-medium transition-all ${mode === 'manual' ? 'bg-white dark:bg-gray-700 text-indigo-600 dark:text-indigo-400 shadow-sm' : 'text-gray-500'}`}
+              className={`flex-1 py-2 rounded-lg text-sm font-medium transition-all ${mode === 'manual' ? 'bg-white dark:bg-gray-700 text-indigo-600 dark:text-indigo-400 shadow-sm' : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'}`}
             >
               Manual
             </button>
           </div>
+
+          {/* Scan Mode */}
+          {mode === 'scan' && (
+            <div className="space-y-4">
+              <div className="p-6 rounded-2xl border-2 border-dashed border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 flex flex-col items-center justify-center text-center">
+                <div className="w-16 h-16 bg-white dark:bg-gray-900 rounded-full flex items-center justify-center shadow-sm mb-4">
+                  {aiProcessing ? (
+                     <div className="w-6 h-6 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin" />
+                  ) : (
+                     <Camera className="w-8 h-8 text-indigo-500" />
+                  )}
+                </div>
+                <h3 className="text-gray-900 dark:text-white font-semibold mb-1">Scan Struk / Kwitansi</h3>
+                <p className="text-sm text-gray-500 dark:text-gray-400 max-w-xs mb-6">
+                  Foto struk belanjamu dan biarkan Gemini AI mengekstrak total harga dan item otomatis.
+                </p>
+                <div className="relative">
+                  <input
+                    type="file"
+                    accept="image/*"
+                    capture="environment"
+                    onChange={handleScanReceipt}
+                    disabled={aiProcessing}
+                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer disabled:cursor-not-allowed"
+                  />
+                  <button
+                    disabled={aiProcessing}
+                    className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2.5 rounded-xl font-medium transition-all shadow-sm shadow-indigo-600/20 disabled:opacity-70 pointer-events-none"
+                  >
+                    <ImageIcon className="w-4 h-4" />
+                    <span>{aiProcessing ? 'Menganalisis Struk...' : 'Pilih Foto / Kamera'}</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Smart Input */}
           {mode === 'smart' && (
