@@ -50,7 +50,7 @@ export async function GET(request: NextRequest) {
     // Get today's date boundary in WIB (Asia/Jakarta) timezone
     // This ensures the daily reset happens at midnight WIB, not midnight UTC (which is 7am WIB)
     const nowWIB = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Jakarta' }); // 'en-CA' gives YYYY-MM-DD format
-    const today = new Date(nowWIB + 'T00:00:00.000+07:00');
+    const today = new Date(nowWIB + 'T00:00:00.000Z'); // UTC midnight representing precisely the calendar date in WIB
 
     // Get all of today's transactions for the user
     const todayTransactions = await prisma.transaction.findMany({
@@ -108,8 +108,7 @@ export async function GET(request: NextRequest) {
     });
 
     // Check for yesterday's rollover surplus
-    const yesterday = new Date(today.getTime());
-    yesterday.setDate(yesterday.getDate() - 1);
+    const yesterday = new Date(today.getTime() - 24 * 60 * 60 * 1000);
 
     const yesterdayPerformance = await prisma.dailyPerformance.findUnique({
       where: {

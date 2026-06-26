@@ -47,8 +47,11 @@ export function determineSpendingStatus(
  */
 export function getDaysLeftInMonth(date: Date = new Date()): number {
   const now = new Date(date);
-  const lastDayOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-  const daysLeft = lastDayOfMonth.getDate() - now.getDate() + 1; // +1 to include today
+  const year = now.getUTCFullYear();
+  const month = now.getUTCMonth();
+  const day = now.getUTCDate();
+  const lastDayOfMonth = new Date(Date.UTC(year, month + 1, 0));
+  const daysLeft = lastDayOfMonth.getUTCDate() - day + 1; // +1 to include today
   return Math.max(1, daysLeft);
 }
 
