@@ -42,3 +42,16 @@ export function sleep(ms: number): Promise<void> {
 export function clamp(value: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, value));
 }
+
+export function formatNominalInput(value: string | number): string {
+  if (value === undefined || value === null || value === '') return '';
+  const cleanNum = String(value).replace(/\D/g, '');
+  if (!cleanNum) return '';
+  return Number(cleanNum).toLocaleString('id-ID');
+}
+
+export function cleanNominalInput(value: string): string {
+  if (!value) return '';
+  return value.replace(/\D/g, '');
+}
+

@@ -3,6 +3,7 @@
 
 import { useState, useEffect } from 'react';
 import { X, Info } from 'lucide-react';
+import { formatNominalInput, cleanNominalInput } from '@/lib/utils';
 
 interface Pocket {
   id: string;
@@ -162,11 +163,11 @@ export default function AddIncomeRoutineModal({ onClose, onSuccess, paydayDate }
                 Nominal Pemasukan
               </label>
               <input
-                type="number"
-                value={form.amount}
-                onChange={(e) => setForm((f) => ({ ...f, amount: e.target.value }))}
+                type="text"
+                inputMode="numeric"
+                value={formatNominalInput(form.amount)}
+                onChange={(e) => setForm((f) => ({ ...f, amount: cleanNominalInput(e.target.value) }))}
                 placeholder="0"
-                min={1}
                 required
                 className="w-full px-4 py-2.5 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/50 font-mono"
               />

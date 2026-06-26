@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import toast from 'react-hot-toast';
 import { Loader2, AlertCircle, X } from 'lucide-react';
+import { formatNominalInput, cleanNominalInput } from '@/lib/utils';
 
 interface AddPocketModalProps {
   onClose: () => void;
@@ -142,10 +143,11 @@ export default function AddPocketModal({ onClose, onSuccess, token, currentTotal
               Target Saldo (Opsional)
             </label>
             <input
-              type="number"
-              value={targetAmount}
-              onChange={(e) => setTargetAmount(e.target.value)}
-              placeholder="Contoh: 15000000"
+              type="text"
+              inputMode="numeric"
+              value={formatNominalInput(targetAmount)}
+              onChange={(e) => setTargetAmount(cleanNominalInput(e.target.value))}
+              placeholder="Contoh: 15.000.000"
               className="w-full px-4 py-2.5 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/50 text-sm font-mono"
             />
             <p className="text-xs text-gray-500 mt-1">Kosongkan jika tidak ada target kumpul dana.</p>

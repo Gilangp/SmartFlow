@@ -6,6 +6,7 @@ import { Plus, ArrowRightLeft, Trash2, Percent, Wallet, ShieldAlert, PiggyBank, 
 import AddPocketModal from '@/components/AddPocketModal';
 import TransferPocketModal from '@/components/TransferPocketModal';
 import AllocationModal from '@/components/AllocationModal';
+import { formatNominalInput, cleanNominalInput } from '@/lib/utils';
 
 interface Pocket {
   id: string;
@@ -372,12 +373,12 @@ export default function PocketsPage() {
                   Nominal Target
                 </label>
                 <input
-                  type="number"
-                  value={editTarget.value}
-                  onChange={(e) => setEditTarget((prev) => prev ? { ...prev, value: e.target.value } : null)}
-                  placeholder="Contoh: 5000000"
+                  type="text"
+                  inputMode="numeric"
+                  value={formatNominalInput(editTarget.value)}
+                  onChange={(e) => setEditTarget((prev) => prev ? { ...prev, value: cleanNominalInput(e.target.value) } : null)}
+                  placeholder="Contoh: 5.000.000"
                   className="w-full px-4 py-2.5 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500 transition-all font-mono"
-                  min={1}
                 />
               </div>
 
@@ -417,13 +418,12 @@ export default function PocketsPage() {
                   Jumlah Penarikan
                 </label>
                 <input
-                  type="number"
-                  value={withdrawData.amount}
-                  onChange={(e) => setWithdrawData((prev) => prev ? { ...prev, amount: e.target.value } : null)}
+                  type="text"
+                  inputMode="numeric"
+                  value={formatNominalInput(withdrawData.amount)}
+                  onChange={(e) => setWithdrawData((prev) => prev ? { ...prev, amount: cleanNominalInput(e.target.value) } : null)}
                   placeholder="Masukkan nominal"
                   className="w-full px-4 py-2.5 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500 transition-all font-mono"
-                  min={1}
-                  max={withdrawData.pocket.balance}
                 />
                 <p className="text-xs text-gray-500 mt-1">
                   Max: {formatCurrencyFull(withdrawData.pocket.balance)}

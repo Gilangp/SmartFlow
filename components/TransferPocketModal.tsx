@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import toast from 'react-hot-toast';
 import { Loader2, ArrowRightLeft, X } from 'lucide-react';
+import { formatNominalInput, cleanNominalInput } from '@/lib/utils';
 
 interface Pocket {
   id: string;
@@ -125,13 +126,12 @@ export default function TransferPocketModal({ pockets, onClose, onSuccess, token
               Nominal Transfer
             </label>
             <input
-              type="number"
+              type="text"
+              inputMode="numeric"
               required
-              value={amount}
-              onChange={(e) => setAmount(e.target.value)}
-              placeholder="Contoh: 50000"
-              min="1"
-              max={sourcePocket?.balance || 0}
+              value={formatNominalInput(amount)}
+              onChange={(e) => setAmount(cleanNominalInput(e.target.value))}
+              placeholder="Contoh: 50.000"
               className="w-full px-4 py-2.5 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/50 text-sm font-mono"
             />
             {sourcePocket && (
