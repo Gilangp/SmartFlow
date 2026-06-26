@@ -47,9 +47,10 @@ export async function GET(request: NextRequest) {
     const mainWallet = user.pockets.find((p) => p.type === 'MAIN');
     const mainBalance = mainWallet?.balance.toNumber() || 0;
 
-    // Get today's date boundary
-    const todayStr = new Date().toISOString().split('T')[0];
-    const today = new Date(todayStr + 'T00:00:00.000Z');
+    // Get today's date boundary in WIB (Asia/Jakarta) timezone
+    // This ensures the daily reset happens at midnight WIB, not midnight UTC (which is 7am WIB)
+    const nowWIB = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Jakarta' }); // 'en-CA' gives YYYY-MM-DD format
+    const today = new Date(nowWIB + 'T00:00:00.000+07:00');
 
     // Get all of today's transactions for the user
     const todayTransactions = await prisma.transaction.findMany({
@@ -76,7 +77,7 @@ export async function GET(request: NextRequest) {
     const startOfDayMainBalance = mainBalance + totalMainSpentToday;
 
     // Calculate daily allowance using start of day balance (FR-DASH-01)
-    const daysLeft = getDaysLeftInMonth();
+    const daysLeft = getDaysLeftInMonth(today);
     const dailyAllowance = calculateDailyAllowance(startOfDayMainBalance, 0, daysLeft);
 
     const percentageUsed = calculateSpendingPercentage(totalSpent, dailyAllowance);
@@ -150,11 +151,11 @@ export async function GET(request: NextRequest) {
       };
     });
 
-    // Get recent transactions
+    // Get recent transactions (only COMPLETED, sorted by date then creation time)
     const recentTransactions = await prisma.transaction.findMany({
-      where: { userId: decoded.userId },
+      where: { userId: decoded.userId, status: 'COMPLETED' },
       include: { category: true, pocket: true },
-      orderBy: { date: 'desc' },
+      orderBy: [{ date: 'desc' }, { createdAt: 'desc' }],
       take: 10,
     });
 

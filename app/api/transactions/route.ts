@@ -77,14 +77,31 @@ export async function POST(request: NextRequest) {
         where: { userId: decoded.userId },
       });
 
-      const totalAllocation = allPockets.reduce((sum, p) => sum + p.allocation, 0);
+      // Find Dompet Utama (MAIN pocket)
+      const mainPocket = allPockets.find(p => p.type === 'MAIN');
+
+      // Calculate total allocation from NON-MAIN pockets
+      const otherPocketsAllocation = allPockets
+        .filter(p => p.type !== 'MAIN')
+        .reduce((sum, p) => sum + p.allocation, 0);
+
+      // Main pocket auto-remainder = 100% - other pockets total
+      const mainPocketAllocation = Math.max(0, 100 - otherPocketsAllocation);
+
+      const totalEffectiveAllocation = otherPocketsAllocation + mainPocketAllocation;
       const transactions = [];
 
-      if (totalAllocation > 0) {
+      if (totalEffectiveAllocation > 0) {
         for (const targetPocket of allPockets) {
-          if (targetPocket.allocation > 0) {
-            const allocationAmount = (amount * targetPocket.allocation) / 100;
-            
+          // Determine effective allocation for this pocket
+          let effectiveAllocation = targetPocket.allocation;
+          if (targetPocket.type === 'MAIN' && mainPocket) {
+            effectiveAllocation = mainPocketAllocation;
+          }
+
+          if (effectiveAllocation > 0) {
+            const allocationAmount = (amount * effectiveAllocation) / 100;
+
             // Create transaction
             const txn = await prisma.transaction.create({
               data: {
@@ -93,7 +110,7 @@ export async function POST(request: NextRequest) {
                 type,
                 amount: allocationAmount,
                 date: new Date(date),
-                notes: notes || `${type === 'INCOME_ROUTINE' ? 'Pemasukan Rutin' : 'Bonus'} ke ${targetPocket.name}`,
+                notes: notes || `${type === 'INCOME_ROUTINE' ? 'Pemasukan Rutin' : 'Pemasukan Tambahan'} ke ${targetPocket.name}`,
               },
               include: { category: true, pocket: true },
             });
@@ -116,7 +133,7 @@ export async function POST(request: NextRequest) {
             type,
             amount,
             date: new Date(date),
-            notes: notes || `${type === 'INCOME_ROUTINE' ? 'Pemasukan Rutin' : 'Bonus'} ke ${pocket.name}`,
+            notes: notes || `${type === 'INCOME_ROUTINE' ? 'Pemasukan Rutin' : 'Pemasukan Tambahan'} ke ${pocket.name}`,
           },
           include: { category: true, pocket: true },
         });
@@ -163,7 +180,7 @@ export async function POST(request: NextRequest) {
 
       // Update pocket balance
       let newBalance = pocket.balance;
-      
+
       if (type === 'EXPENSE') {
         if (pocket.balance.toNumber() < amount) {
           return NextResponse.json(
@@ -172,8 +189,6 @@ export async function POST(request: NextRequest) {
           );
         }
         newBalance = pocket.balance.minus(amount);
-      } else if (type === 'INCOME_ROUTINE' || type === 'INCOME_BONUS') {
-        newBalance = pocket.balance.plus(amount);
       }
 
       await prisma.pocket.update({
@@ -233,13 +248,20 @@ export async function GET(request: NextRequest) {
     const offset = parseInt(searchParams.get('offset') || '0');
     const type = searchParams.get('type');
 
-    const where: any = { userId: decoded.userId };
-    if (type) where.type = type;
+    const where: any = {
+      userId: decoded.userId,
+      status: 'COMPLETED', // Only show completed transactions (exclude PENDING templates)
+    };
+    if (type === 'INCOME') {
+      where.type = { in: ['INCOME_ROUTINE', 'INCOME_BONUS'] };
+    } else if (type) {
+      where.type = type;
+    }
 
     const transactions = await prisma.transaction.findMany({
       where,
       include: { category: true, pocket: true },
-      orderBy: { date: 'desc' },
+      orderBy: [{ date: 'desc' }, { createdAt: 'desc' }], // Sort by date then creation time
       take: limit,
       skip: offset,
     });

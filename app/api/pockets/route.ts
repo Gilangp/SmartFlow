@@ -28,10 +28,16 @@ export async function GET(request: NextRequest) {
       where: { userId: decoded.userId },
     });
 
+    const sortedPockets = [...pockets].sort((a, b) => {
+      if (a.type === 'MAIN') return -1;
+      if (b.type === 'MAIN') return 1;
+      return 0;
+    });
+
     return NextResponse.json({
       success: true,
       message: 'Pockets retrieved',
-      data: pockets.map((p) => {
+      data: sortedPockets.map((p) => {
         const balance = p.balance.toNumber();
         let progressPercentage = undefined;
 

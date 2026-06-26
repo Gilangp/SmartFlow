@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import toast from 'react-hot-toast';
-import { Loader2, ArrowRightLeft } from 'lucide-react';
+import { Loader2, ArrowRightLeft, X } from 'lucide-react';
 
 interface Pocket {
   id: string;
@@ -71,7 +71,7 @@ export default function TransferPocketModal({ pockets, onClose, onSuccess, token
             Pindah Saldo
           </h2>
           <button onClick={onClose} className="w-8 h-8 rounded-lg flex items-center justify-center text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800 transition">
-            ✕
+            <X className="w-4 h-4" />
           </button>
         </div>
         

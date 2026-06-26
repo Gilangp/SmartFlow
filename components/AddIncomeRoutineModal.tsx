@@ -2,6 +2,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { X, Info } from 'lucide-react';
 
 interface Pocket {
   id: string;
@@ -127,7 +128,7 @@ export default function AddIncomeRoutineModal({ onClose, onSuccess, paydayDate }
         <div className="flex items-center justify-between p-5 border-b border-gray-100 dark:border-gray-800">
           <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Tambah Pemasukan</h2>
           <button onClick={onClose} className="w-8 h-8 rounded-lg flex items-center justify-center text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800 transition">
-            ✕
+            <X className="w-4 h-4" />
           </button>
         </div>
 
@@ -189,27 +190,35 @@ export default function AddIncomeRoutineModal({ onClose, onSuccess, paydayDate }
                 </select>
               </div>
             ) : (
-              <div className="p-3.5 rounded-xl bg-indigo-50/50 dark:bg-indigo-500/5 border border-indigo-100/50 dark:border-indigo-500/10 text-indigo-600 dark:text-indigo-400 text-xs leading-relaxed">
-                ✨ Pemasukan rutin akan dibagikan otomatis ke kantong Anda sesuai target alokasi di bawah.
+              <div className="flex items-start gap-2 p-3.5 rounded-xl bg-indigo-50/50 dark:bg-indigo-500/5 border border-indigo-100/50 dark:border-indigo-500/10 text-indigo-600 dark:text-indigo-400 text-xs leading-relaxed">
+                <Info className="w-4 h-4 flex-shrink-0 mt-0.5" />
+                <span>Pemasukan rutin akan dibagikan otomatis ke kantong Anda sesuai target alokasi di bawah.</span>
               </div>
             )}
 
-            {/* Allocation Preview */}
-            {hasAllocation && form.amount && (
-              <div className="p-3 rounded-lg bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
-                <p className="text-xs font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Alokasi: Rp {amountNum.toLocaleString('id-ID')}
-                </p>
-                <div className="space-y-1.5 text-xs">
-                  {pockets.filter(p => p.allocation > 0).map(p => (
-                    <div key={p.id} className="flex justify-between">
-                      <span className="text-gray-500">{p.name}</span>
-                      <span className="font-medium text-indigo-600">{(amountNum * p.allocation / 100).toLocaleString('id-ID')} ({p.allocation}%)</span>
-                    </div>
-                  ))}
+            {hasAllocation && form.amount && (() => {
+              const otherTotal = pockets.filter(p => p.type !== 'MAIN').reduce((s, p) => s + p.allocation, 0);
+              const mainRemainder = Math.max(0, 100 - otherTotal);
+              return (
+                <div className="p-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 space-y-2">
+                  <p className="text-xs font-semibold text-gray-600 dark:text-gray-300">Rincian Pembagian</p>
+                  <div className="space-y-1.5">
+                    {pockets.filter(p => p.type !== 'MAIN' && p.allocation > 0).map(p => (
+                      <div key={p.id} className="flex justify-between text-xs">
+                        <span className="text-gray-500">{p.name} ({p.allocation}%)</span>
+                        <span className="font-semibold text-indigo-600 dark:text-indigo-400">Rp {(amountNum * p.allocation / 100).toLocaleString('id-ID')}</span>
+                      </div>
+                    ))}
+                    {mainRemainder > 0 && pockets.filter(p => p.type === 'MAIN').map(p => (
+                      <div key={p.id} className="flex justify-between text-xs border-t border-gray-200 dark:border-gray-700 pt-1.5 mt-1.5">
+                        <span className="text-indigo-500 font-medium">{p.name} (Sisa {mainRemainder}%)</span>
+                        <span className="font-semibold text-indigo-600 dark:text-indigo-400">Rp {(amountNum * mainRemainder / 100).toLocaleString('id-ID')}</span>
+                      </div>
+                    ))}
+                  </div>
                 </div>
-              </div>
-            )}
+              );
+            })()}
 
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">

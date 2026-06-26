@@ -213,9 +213,14 @@ export async function POST(request: NextRequest) {
         where: { userId: decoded.userId },
       });
 
-      const totalAllocation = allPockets.reduce((sum, p) => sum + p.allocation, 0);
+      // Calculate auto-remainder for Dompet Utama (MAIN pocket)
+      const otherPocketsAllocation = allPockets
+        .filter(p => p.type !== 'MAIN')
+        .reduce((sum, p) => sum + p.allocation, 0);
+      const mainPocketAllocation = Math.max(0, 100 - otherPocketsAllocation);
+      const totalEffectiveAllocation = otherPocketsAllocation + mainPocketAllocation;
 
-      if (totalAllocation > 0) {
+      if (totalEffectiveAllocation > 0) {
         // Mark original pending transaction as cancelled/archived
         await prisma.transaction.update({
           where: { id: transactionId },
@@ -225,8 +230,13 @@ export async function POST(request: NextRequest) {
         const createdTransactions = [];
 
         for (const targetPocket of allPockets) {
-          if (targetPocket.allocation > 0) {
-            const allocationAmount = (amount * targetPocket.allocation) / 100;
+          // Use auto-remainder for MAIN pocket
+          const effectiveAllocation = targetPocket.type === 'MAIN'
+            ? mainPocketAllocation
+            : targetPocket.allocation;
+
+          if (effectiveAllocation > 0) {
+            const allocationAmount = (amount * effectiveAllocation) / 100;
             
             // Create transaction
             const newTxn = await prisma.transaction.create({

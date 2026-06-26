@@ -3,7 +3,7 @@
 
 import { useState, useEffect } from 'react';
 import { CategoryRecord } from '@/types';
-import { Sparkles, Info, Camera, Image as ImageIcon } from 'lucide-react';
+import { Sparkles, Info, Camera, Image as ImageIcon, TrendingDown, TrendingUp, Gift, X } from 'lucide-react';
 import { compressImage } from '@/lib/image-helper';
 
 
@@ -17,6 +17,7 @@ interface Pocket {
 interface AddTransactionModalProps {
   onClose: () => void;
   onSuccess: () => void;
+  defaultType?: 'EXPENSE' | 'INCOME_ROUTINE' | 'INCOME_BONUS';
   prefill?: {
     amount?: number;
     date?: string;
@@ -32,15 +33,15 @@ const SMART_INPUT_EXAMPLES = [
   'Kopi sama teman 35.000',
 ];
 
-export default function AddTransactionModal({ onClose, onSuccess, prefill }: AddTransactionModalProps) {
-  // If prefill is provided (from scan receipt), start directly in manual mode
-  const [mode, setMode] = useState<'smart' | 'manual' | 'scan'>(prefill ? 'manual' : 'smart');
+export default function AddTransactionModal({ onClose, onSuccess, defaultType, prefill }: AddTransactionModalProps) {
+  // If prefill is provided or defaultType is set, start directly in manual mode
+  const [mode, setMode] = useState<'smart' | 'manual' | 'scan'>(prefill || defaultType ? 'manual' : 'smart');
   const [smartText, setSmartText] = useState('');
   const [aiProcessing, setAiProcessing] = useState(false);
   const [categories, setCategories] = useState<CategoryRecord[]>([]);
   const [pockets, setPockets] = useState<Pocket[]>([]);
   const [form, setForm] = useState({
-    type: 'EXPENSE' as 'INCOME_ROUTINE' | 'INCOME_BONUS' | 'EXPENSE',
+    type: (defaultType || 'EXPENSE') as 'INCOME_ROUTINE' | 'INCOME_BONUS' | 'EXPENSE',
     amount: prefill?.amount ? String(prefill.amount) : '',
     categoryId: '',
     pocketId: '',
@@ -232,7 +233,7 @@ export default function AddTransactionModal({ onClose, onSuccess, prefill }: Add
           </div>
 
           <button onClick={onClose} className="w-8 h-8 rounded-lg flex items-center justify-center text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800 transition">
-            ✕
+            <X className="w-4 h-4" />
           </button>
         </div>
 
@@ -344,25 +345,47 @@ export default function AddTransactionModal({ onClose, onSuccess, prefill }: Add
           {mode === 'manual' && (
             <form onSubmit={handleSubmit} className="space-y-4">
               {/* Type */}
-              <div className="flex gap-2">
+              <div className="grid grid-cols-3 gap-1.5">
                 {[
-                  { value: 'EXPENSE', label: 'Pengeluaran' },
-                  { value: 'INCOME_BONUS', label: 'Bonus' },
+                  { value: 'EXPENSE', label: 'Pengeluaran', icon: TrendingDown },
+                  { value: 'INCOME_ROUTINE', label: 'Pemasukan', icon: TrendingUp },
+                  { value: 'INCOME_BONUS', label: 'Bonus', icon: Gift },
                 ].map((t) => (
                   <button
                     key={t.value}
                     type="button"
                     onClick={() => setForm((f) => ({ ...f, type: t.value as any }))}
-                    className={`flex-1 py-2.5 rounded-lg text-sm font-medium border transition-all ${
+                    className={`flex flex-col items-center gap-1 py-2.5 rounded-lg text-xs font-medium border transition-all ${
                       form.type === t.value
                         ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400'
-                        : 'border-gray-200 dark:border-gray-700 text-gray-500'
+                        : 'border-gray-200 dark:border-gray-700 text-gray-500 hover:border-gray-300 dark:hover:border-gray-600'
                     }`}
                   >
+                    <t.icon className="w-4 h-4" />
                     {t.label}
                   </button>
                 ))}
               </div>
+
+              {/* Educational Info Card */}
+              {form.type === 'EXPENSE' && (
+                <div className="flex items-start gap-2 p-3 rounded-xl bg-rose-50 dark:bg-rose-500/10 border border-rose-100 dark:border-rose-500/20 text-xs text-rose-700 dark:text-rose-400 leading-relaxed">
+                  <Info className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" />
+                  <span><strong>Pengeluaran</strong> — Mencatat belanjaan atau pengeluaran hari ini. Akan memotong saldo kantong dan mengurangi Jatah Harian.</span>
+                </div>
+              )}
+              {form.type === 'INCOME_ROUTINE' && (
+                <div className="flex items-start gap-2 p-3 rounded-xl bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-100 dark:border-emerald-500/20 text-xs text-emerald-700 dark:text-emerald-400 leading-relaxed">
+                  <Info className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" />
+                  <span><strong>Pemasukan Rutin</strong> — Uang saku bulanan / gaji tetap. Dibagi ke semua kantong sesuai alokasi, dan menjadi dasar perhitungan <strong>Jatah Harian</strong>.</span>
+                </div>
+              )}
+              {form.type === 'INCOME_BONUS' && (
+                <div className="flex items-start gap-2 p-3 rounded-xl bg-amber-50 dark:bg-amber-500/10 border border-amber-100 dark:border-amber-500/20 text-xs text-amber-700 dark:text-amber-400 leading-relaxed">
+                  <Info className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" />
+                  <span><strong>Pemasukan Tambahan / Bonus</strong> — Uang kaget, hadiah, THR, dll. Dibagi ke kantong sesuai alokasi, namun <strong>tidak menaikkan Jatah Harian dasar</strong> agar kamu tetap hemat.</span>
+                </div>
+              )}
 
               {/* Amount */}
               <div>
@@ -413,11 +436,11 @@ export default function AddTransactionModal({ onClose, onSuccess, prefill }: Add
                 </div>
               )}
 
-              {/* Pocket */}
-              {!(form.type === 'INCOME_BONUS' && hasAllocation) ? (
+              {/* Pocket Selector - only for EXPENSE */}
+              {form.type === 'EXPENSE' ? (
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
-                    {form.type === 'EXPENSE' ? 'Dari Kantong' : 'Masuk ke Kantong'}
+                    Dari Kantong
                   </label>
                   <select
                     value={form.pocketId}
@@ -434,27 +457,41 @@ export default function AddTransactionModal({ onClose, onSuccess, prefill }: Add
               ) : (
                 <div className="p-3.5 rounded-xl bg-indigo-50/50 dark:bg-indigo-500/5 border border-indigo-100/50 dark:border-indigo-500/10 text-indigo-600 dark:text-indigo-400 text-xs flex items-start gap-2 leading-relaxed">
                   <Info className="w-4 h-4 text-indigo-500 flex-shrink-0 mt-0.5" />
-                  <span>Pemasukan bonus akan dibagikan otomatis ke kantong Anda sesuai target alokasi di bawah.</span>
+                  <span>Uang masuk akan dibagikan otomatis ke semua kantong sesuai alokasi yang sudah kamu atur.</span>
                 </div>
               )}
 
-
-              {/* Allocation Preview for Bonus */}
-              {form.type === 'INCOME_BONUS' && hasAllocation && form.amount && (
-                <div className="p-3 rounded-lg bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
-                  <p className="text-xs font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    Alokasi: Rp {amountNum.toLocaleString('id-ID')}
-                  </p>
-                  <div className="space-y-1.5 text-xs">
-                    {pockets.filter(p => p.allocation > 0).map(p => (
-                      <div key={p.id} className="flex justify-between">
-                        <span className="text-gray-500">{p.name}</span>
-                        <span className="font-medium text-indigo-600">{(amountNum * p.allocation / 100).toLocaleString('id-ID')} ({p.allocation}%)</span>
-                      </div>
-                    ))}
+              {/* Real-time Allocation Preview for INCOME */}
+              {(form.type === 'INCOME_ROUTINE' || form.type === 'INCOME_BONUS') && form.amount && (() => {
+                const amountNum = parseFloat(form.amount) || 0;
+                const otherPocketsTotal = pockets
+                  .filter(p => p.type !== 'MAIN')
+                  .reduce((sum, p) => sum + p.allocation, 0);
+                const mainRemainder = Math.max(0, 100 - otherPocketsTotal);
+                const allPocketsWithAlloc = [
+                  ...pockets.filter(p => p.type !== 'MAIN' && p.allocation > 0),
+                  ...(mainRemainder > 0 ? pockets.filter(p => p.type === 'MAIN') : []),
+                ];
+                return (
+                  <div className="p-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 space-y-2">
+                    <p className="text-xs font-semibold text-gray-600 dark:text-gray-300">Rincian Pembagian</p>
+                    <div className="space-y-1.5">
+                      {pockets.filter(p => p.type !== 'MAIN' && p.allocation > 0).map(p => (
+                        <div key={p.id} className="flex justify-between text-xs">
+                          <span className="text-gray-500">{p.name} ({p.allocation}%)</span>
+                          <span className="font-semibold text-indigo-600 dark:text-indigo-400">Rp {(amountNum * p.allocation / 100).toLocaleString('id-ID')}</span>
+                        </div>
+                      ))}
+                      {mainRemainder > 0 && pockets.filter(p => p.type === 'MAIN').map(p => (
+                        <div key={p.id} className="flex justify-between text-xs border-t border-gray-200 dark:border-gray-700 pt-1.5 mt-1.5">
+                          <span className="text-indigo-500 font-medium">{p.name} (Sisa {mainRemainder}%)</span>
+                          <span className="font-semibold text-indigo-600 dark:text-indigo-400">Rp {(amountNum * mainRemainder / 100).toLocaleString('id-ID')}</span>
+                        </div>
+                      ))}
+                    </div>
                   </div>
-                </div>
-              )}
+                );
+              })()}
 
               {/* Date */}
               <div>

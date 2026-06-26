@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from 'next';
+import { SpeedInsights } from '@vercel/speed-insights/next';
 import AdMobProvider from '@/components/AdMobProvider';
 import OfflineStatusDetector from '@/components/OfflineStatusDetector';
 import InstallPrompt from '@/components/InstallPrompt';
@@ -101,6 +102,7 @@ export default function RootLayout({
           <OfflineStatusDetector />
           <InstallPrompt />
           {children}
+          <SpeedInsights />
         </AdMobProvider>
       </body>
     </html>

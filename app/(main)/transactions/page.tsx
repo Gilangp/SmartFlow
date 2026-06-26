@@ -3,12 +3,12 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import AddTransactionModal from '@/components/AddTransactionModal';
-import AddIncomeRoutineModal from '@/components/AddIncomeRoutineModal';
+import AddExpenseModal from '@/components/AddExpenseModal';
+import AddIncomeModal from '@/components/AddIncomeModal';
 import ScanReceiptModal from '@/components/ScanReceiptModal';
 import { showInterstitial } from '@/lib/admob';
 import { TransactionRecord } from '@/types';
-import { ScanLine, Lock, Download } from 'lucide-react';
+import { ScanLine, Lock, Download, TrendingDown, TrendingUp } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 import AnalyticsView from '@/components/AnalyticsView';
@@ -25,12 +25,10 @@ export default function TransactionsPage() {
   const router = useRouter();
   const [transactions, setTransactions] = useState<TransactionRecord[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [showAddModal, setShowAddModal] = useState(false);
-  const [showIncomeRoutineModal, setShowIncomeRoutineModal] = useState(false);
+  const [addModalType, setAddModalType] = useState<'EXPENSE' | 'INCOME_ROUTINE' | null>(null);
   const [showScanModal, setShowScanModal] = useState(false);
   const [scanPrefill, setScanPrefill] = useState<{ amount?: number; date?: string; notes?: string; category?: string } | null>(null);
   const [paydayDate, setPaydayDate] = useState<number | null>(null);
-  const [pendingIncomeCount, setPendingIncomeCount] = useState(0);
   const [filter, setFilter] = useState<'ALL' | 'EXPENSE' | 'INCOME_ROUTINE' | 'INCOME_BONUS'>('ALL');
   const [searchQuery, setSearchQuery] = useState('');
   const [token, setToken] = useState('');
@@ -68,14 +66,9 @@ export default function TransactionsPage() {
       const token = getToken();
       if (!token) return;
       try {
-        const [profileRes, pendingRes] = await Promise.all([
-          fetch('/api/auth/me', { headers: { Authorization: `Bearer ${token}` } }),
-          fetch('/api/income/pending', { headers: { Authorization: `Bearer ${token}` } }),
-        ]);
-        const profileData = await profileRes.json();
+        const res = await fetch('/api/auth/me', { headers: { Authorization: `Bearer ${token}` } });
+        const profileData = await res.json();
         if (profileData.success && profileData.data.paydayDate) setPaydayDate(profileData.data.paydayDate);
-        const pendingData = await pendingRes.json();
-        if (pendingData.success && pendingData.data) setPendingIncomeCount(pendingData.data.length);
       } catch {}
     };
     fetchProfile();
@@ -196,23 +189,7 @@ export default function TransactionsPage() {
           )}
         </div>
       </header>
-
       <main className="max-w-7xl mx-auto px-5 py-6">
-        {/* Pending Income Alert */}
-        {pendingIncomeCount > 0 && (
-          <div className="mb-5 p-3 rounded-lg bg-indigo-50 dark:bg-indigo-500/10 border border-indigo-100 dark:border-indigo-500/20 flex items-center justify-between">
-            <div>
-              <p className="font-medium text-indigo-700 dark:text-indigo-300 text-sm">
-                {pendingIncomeCount} pemasukan belum dikonfirmasi
-              </p>
-              <p className="text-xs text-indigo-600 dark:text-indigo-400">Klik tombol pemasukan untuk konfirmasi</p>
-            </div>
-            <button onClick={() => setShowIncomeRoutineModal(true)} className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-sm font-medium transition">
-              Konfirmasi
-            </button>
-          </div>
-        )}
-
         {/* View Mode Content */}
         {viewMode === 'analytics' ? (
           <AnalyticsView 
@@ -239,7 +216,7 @@ export default function TransactionsPage() {
               {[
                 { value: 'ALL', label: 'Semua' },
                 { value: 'EXPENSE', label: 'Pengeluaran' },
-                { value: 'INCOME_ROUTINE', label: 'Pemasukan' },
+                { value: 'INCOME_ROUTINE', label: 'Gaji / Rutin' },
                 { value: 'INCOME_BONUS', label: 'Bonus' },
               ].map((f) => (
                 <button
@@ -256,15 +233,23 @@ export default function TransactionsPage() {
               ))}
             </div>
 
-            {/* Action Buttons */}
-            <div className="grid grid-cols-2 gap-3 mb-4">
-              <button onClick={() => setShowAddModal(true)} className="py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-medium text-sm transition shadow-sm shadow-indigo-600/20 active:scale-[0.98]">
-                + Pengeluaran / Bonus
-              </button>
-              <button onClick={() => setShowIncomeRoutineModal(true)} className="py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-medium text-sm transition shadow-sm shadow-indigo-600/20 active:scale-[0.98]">
-                + Pemasukan
-              </button>
-            </div>
+             {/* Action Buttons */}
+             <div className="grid grid-cols-2 gap-3 mb-4">
+               <button
+                 onClick={() => setAddModalType('EXPENSE')}
+                 className="py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-medium text-sm transition shadow-sm shadow-indigo-600/20 active:scale-[0.98] flex items-center justify-center gap-2"
+               >
+                 <TrendingDown className="w-4 h-4" />
+                 Catat Pengeluaran
+               </button>
+               <button
+                 onClick={() => setAddModalType('INCOME_ROUTINE')}
+                 className="py-2.5 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 text-emerald-600 dark:text-emerald-400 rounded-lg font-medium text-sm backdrop-blur-sm transition active:scale-[0.98] flex items-center justify-center gap-2"
+               >
+                 <TrendingUp className="w-4 h-4 text-emerald-500" />
+                 Catat Pemasukan
+               </button>
+             </div>
 
             {/* Scan Struk Button */}
             <button
@@ -365,7 +350,12 @@ export default function TransactionsPage() {
                             <p className="font-medium text-sm text-gray-900 dark:text-white truncate">
                               {title}
                             </p>
-                            <p className="text-xs text-gray-500">{tx.pocket}</p>
+                            <p className="text-xs text-gray-500">
+                              {tx.pocket}
+                              {tx.createdAt && (
+                                <span className="text-gray-400"> • {new Date(tx.createdAt).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}</span>
+                              )}
+                            </p>
                           </div>
                           <p className={`font-medium text-sm flex-shrink-0 ${textClass}`}>
                             {sign}{formatCurrency(tx.amount)}
@@ -381,11 +371,11 @@ export default function TransactionsPage() {
         )}
       </main>
 
-      {showAddModal && (
-        <AddTransactionModal
-          onClose={() => { setShowAddModal(false); setScanPrefill(null); }}
+      {addModalType === 'EXPENSE' && (
+        <AddExpenseModal
+          onClose={() => { setAddModalType(null); setScanPrefill(null); }}
           onSuccess={() => {
-            setShowAddModal(false);
+            setAddModalType(null);
             setScanPrefill(null);
             fetchTransactions();
             showInterstitial();
@@ -394,15 +384,14 @@ export default function TransactionsPage() {
         />
       )}
 
-      {showIncomeRoutineModal && (
-        <AddIncomeRoutineModal
-          onClose={() => setShowIncomeRoutineModal(false)}
+      {addModalType === 'INCOME_ROUTINE' && (
+        <AddIncomeModal
+          onClose={() => setAddModalType(null)}
           onSuccess={() => {
-            setShowIncomeRoutineModal(false);
+            setAddModalType(null);
             fetchTransactions();
             showInterstitial();
           }}
-          paydayDate={paydayDate}
         />
       )}
 
@@ -419,7 +408,7 @@ export default function TransactionsPage() {
               category: data.category,
             });
             setShowScanModal(false);
-            setShowAddModal(true);
+            setAddModalType('EXPENSE');
           }}
         />
       )}

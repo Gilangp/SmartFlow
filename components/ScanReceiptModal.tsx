@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef, useCallback } from 'react';
-import { Camera, Upload, X, ScanLine, CheckCircle, AlertCircle, Loader2 } from 'lucide-react';
+import { Camera, Upload, X, ScanLine, CheckCircle, AlertCircle, Loader2, Info } from 'lucide-react';
 import { compressImage } from '@/lib/image-helper';
 
 interface ScanResult {
@@ -166,9 +166,10 @@ export default function ScanReceiptModal({ isOpen, onClose, onResult, token }: S
                     </div>
                   </button>
 
-                  <p className="text-center text-xs text-gray-400 dark:text-gray-500">
-                    💡 Pastikan foto terang dan teks struk terbaca jelas
-                  </p>
+                  <div className="flex items-center justify-center gap-1.5 text-xs text-gray-400 dark:text-gray-500">
+                    <Info className="w-3.5 h-3.5 flex-shrink-0" />
+                    <span>Pastikan foto terang dan teks struk terbaca jelas</span>
+                  </div>
                 </div>
               ) : (
                 <div className="space-y-3">

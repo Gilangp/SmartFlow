@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import toast from 'react-hot-toast';
-import { Loader2, AlertCircle } from 'lucide-react';
+import { Loader2, AlertCircle, X } from 'lucide-react';
 
 interface AddPocketModalProps {
   onClose: () => void;
@@ -77,7 +77,7 @@ export default function AddPocketModal({ onClose, onSuccess, token, currentTotal
             Tambah Kantong Baru
           </h2>
           <button onClick={onClose} className="w-8 h-8 rounded-lg flex items-center justify-center text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800 transition">
-            ✕
+            <X className="w-4 h-4" />
           </button>
         </div>
         

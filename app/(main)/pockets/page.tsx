@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { Plus, ArrowRightLeft, Trash2, Percent, Wallet, ShieldAlert, PiggyBank, Target, Car, Plane, Home, GraduationCap, Laptop, Gift, Heart, ShoppingBag, Coffee, Coins } from 'lucide-react';
+import { Plus, ArrowRightLeft, Trash2, Percent, Wallet, ShieldAlert, PiggyBank, Target, Car, Plane, Home, GraduationCap, Laptop, Gift, Heart, ShoppingBag, Coffee, Coins, X, Info } from 'lucide-react';
 import AddPocketModal from '@/components/AddPocketModal';
 import TransferPocketModal from '@/components/TransferPocketModal';
 import AllocationModal from '@/components/AllocationModal';
@@ -35,7 +35,7 @@ function getPocketIcon(type: string, name: string) {
   if (type === 'EMERGENCY') return <ShieldAlert className="w-5 h-5 text-white" strokeWidth={2.5} />;
   if (type === 'SAVINGS') return <PiggyBank className="w-5 h-5 text-white" strokeWidth={2.5} />;
   if (type === 'WISHLIST') return <Target className="w-5 h-5 text-white" strokeWidth={2.5} />;
-  
+
   const n = name.toLowerCase();
   if (n.includes('liburan') || n.includes('jalan') || n.includes('trip') || n.includes('travel') || n.includes('tiket')) return <Plane className="w-5 h-5 text-white" strokeWidth={2.5} />;
   if (n.includes('mobil') || n.includes('motor') || n.includes('kendaraan') || n.includes('bensin') || n.includes('servis')) return <Car className="w-5 h-5 text-white" strokeWidth={2.5} />;
@@ -46,7 +46,7 @@ function getPocketIcon(type: string, name: string) {
   if (n.includes('kesehatan') || n.includes('obat') || n.includes('asuransi') || n.includes('sehat') || n.includes('rs')) return <Heart className="w-5 h-5 text-white" strokeWidth={2.5} />;
   if (n.includes('belanja') || n.includes('shopping') || n.includes('baju') || n.includes('skincare')) return <ShoppingBag className="w-5 h-5 text-white" strokeWidth={2.5} />;
   if (n.includes('makan') || n.includes('jajan') || n.includes('kopi') || n.includes('resto') || n.includes('food')) return <Coffee className="w-5 h-5 text-white" strokeWidth={2.5} />;
-  
+
   return <Coins className="w-5 h-5 text-white" strokeWidth={2.5} />;
 }
 
@@ -226,15 +226,15 @@ export default function PocketsPage() {
                 canSetTarget: true,
                 withdrawWarning: 'Pastikan penarikan sesuai dengan tujuan kantong ini.',
               };
-              
+
               const hasTarget = pocket.targetAmount && meta.canSetTarget;
               const isCompleted = pocket.status === 'completed';
               const progress = Math.min(pocket.progressPercentage || 0, 100);
               const canWithdraw = meta.canWithdraw && pocket.balance > 0;
-              
+
               const isCustomGradient = pocket.color?.startsWith('from-');
               const gradientClass = meta.gradient || (isCustomGradient ? pocket.color : '');
-              
+
               return (
                 <div
                   key={pocket.id}
@@ -245,7 +245,7 @@ export default function PocketsPage() {
                   <div className="absolute inset-0 opacity-10 mix-blend-overlay" style={{ backgroundImage: 'radial-gradient(circle at 2px 2px, white 1px, transparent 0)', backgroundSize: '16px 16px' }}></div>
                   <div className="absolute top-0 right-0 w-32 h-32 bg-white/20 rounded-full blur-2xl transform translate-x-12 -translate-y-12" />
                   <div className="absolute bottom-0 left-0 w-24 h-24 bg-black/10 rounded-full blur-2xl transform -translate-x-10 translate-y-10" />
-                  
+
                   <div className="relative z-10 flex flex-col h-full">
                     {/* Header with Icon */}
                     <div className="flex items-start justify-between mb-4">
@@ -292,9 +292,10 @@ export default function PocketsPage() {
 
                     <div className="mt-auto">
                       {/* Tip */}
-                      <p className="text-white/70 text-xs italic mb-4 font-medium drop-shadow-sm">
-                        💡 {meta.tip}
-                      </p>
+                      <div className="flex items-start gap-1.5 text-white/70 text-xs italic mb-4 font-medium drop-shadow-sm">
+                        <Info className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" />
+                        <span>{meta.tip}</span>
+                      </div>
 
                       {/* Actions */}
                       <div className="flex gap-2">
@@ -322,7 +323,7 @@ export default function PocketsPage() {
                             onClick={async () => {
                               if (!confirm('Yakin ingin menghapus kantong ini?')) return;
                               const t = getToken();
-                              if(!t) return;
+                              if (!t) return;
                               await fetch(`/api/pockets?id=${pocket.id}`, { method: 'DELETE', headers: { Authorization: `Bearer ${t}` } });
                               fetchPockets();
                             }}
@@ -346,7 +347,7 @@ export default function PocketsPage() {
             Cara Kerja
           </h3>
           <p className="text-xs text-gray-600 dark:text-gray-400 leading-relaxed">
-            Saat menerima pemasukan, dana akan dialokasikan ke semua kantong. 
+            Saat menerima pemasukan, dana akan dialokasikan ke semua kantong.
             Hanya saldo <span className="font-medium text-indigo-600 dark:text-indigo-400">Dompet Utama</span> yang digunakan untuk menghitung Jatah Harian.
           </p>
         </div>
@@ -361,10 +362,10 @@ export default function PocketsPage() {
                 Set Target {editTarget.pocket.name}
               </h2>
               <button onClick={() => setEditTarget(null)} className="w-8 h-8 rounded-lg flex items-center justify-center text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800 transition">
-                ✕
+                <X className="w-4 h-4" />
               </button>
             </div>
-            
+
             <div className="p-5 space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
@@ -379,7 +380,7 @@ export default function PocketsPage() {
                   min={1}
                 />
               </div>
-              
+
               <button
                 onClick={handleSetTarget}
                 disabled={!editTarget.value || isSaving}
@@ -400,10 +401,10 @@ export default function PocketsPage() {
                 Tarik Dana dari {withdrawData.pocket.name}
               </h2>
               <button onClick={() => { setShowConfirmModal(false); setWithdrawData(null); }} className="w-8 h-8 rounded-lg flex items-center justify-center text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800 transition">
-                ✕
+                <X className="w-4 h-4" />
               </button>
             </div>
-            
+
             <div className="p-5 space-y-4">
               <div className="p-3 rounded-lg bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/20">
                 <p className="text-xs text-amber-700 dark:text-amber-400 leading-relaxed">
@@ -428,7 +429,7 @@ export default function PocketsPage() {
                   Max: {formatCurrencyFull(withdrawData.pocket.balance)}
                 </p>
               </div>
-              
+
               <div className="flex gap-3">
                 <button
                   onClick={() => { setShowConfirmModal(false); setWithdrawData(null); }}

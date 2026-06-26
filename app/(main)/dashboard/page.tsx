@@ -2,13 +2,14 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import AddTransactionModal from '@/components/AddTransactionModal';
+import AddExpenseModal from '@/components/AddExpenseModal';
+import AddIncomeModal from '@/components/AddIncomeModal';
 import RolloverModal from '@/components/RolloverModal';
 import { showInterstitial } from '@/lib/admob';
 import { DashboardData } from '@/types';
 import { driver } from 'driver.js';
 import 'driver.js/dist/driver.css';
-import { Sun, Moon, HelpCircle, Loader2 } from 'lucide-react';
+import { Sun, Moon, HelpCircle, Loader2, Coins, ChevronRight, TrendingDown, TrendingUp } from 'lucide-react';
 
 function formatCurrency(amount: number): string {
   if (amount >= 1000000) return `Rp ${(amount / 1000000).toFixed(1)}jt`;
@@ -30,7 +31,7 @@ export default function DashboardPage() {
   const router = useRouter();
   const [dashboard, setDashboard] = useState<DashboardData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [showAddModal, setShowAddModal] = useState(false);
+  const [addModalType, setAddModalType] = useState<'EXPENSE' | 'INCOME_ROUTINE' | null>(null);
   const [showRolloverModal, setShowRolloverModal] = useState(false);
   const [rolloverData, setRolloverData] = useState<{ id: string; surplus: number } | null>(null);
   const [aiRoast, setAiRoast] = useState<string | null>(null);
@@ -267,6 +268,7 @@ export default function DashboardPage() {
       </header>
 
       <main className="max-w-7xl mx-auto px-5 py-6">
+
         {/* AI Roast Card */}
         <div id="tour-ai-roast" className="mb-6 bg-indigo-50 dark:bg-indigo-500/5 rounded-2xl p-5 border-l-4 border-indigo-500">
           <div className="flex items-start gap-3">
@@ -355,14 +357,23 @@ export default function DashboardPage() {
               </div>
             </div>
 
-            {/* Add Transaction Button */}
-            <button
-              id="tour-add-transaction"
-              onClick={() => setShowAddModal(true)}
-              className="w-full py-3.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-medium text-sm shadow-lg shadow-indigo-600/20 transition-all active:scale-[0.98]"
-            >
-              + Catat Transaksi
-            </button>
+            {/* Action Buttons */}
+            <div id="tour-add-transaction" className="grid grid-cols-2 gap-3">
+              <button
+                onClick={() => setAddModalType('EXPENSE')}
+                className="py-3.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-medium text-sm shadow-md shadow-indigo-600/15 transition-all active:scale-[0.98] flex items-center justify-center gap-2"
+              >
+                <TrendingDown className="w-4 h-4" />
+                Catat Pengeluaran
+              </button>
+              <button
+                onClick={() => setAddModalType('INCOME_ROUTINE')}
+                className="py-3.5 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 text-emerald-600 dark:text-emerald-400 rounded-xl font-medium text-sm backdrop-blur-sm transition-all active:scale-[0.98] flex items-center justify-center gap-2"
+              >
+                <TrendingUp className="w-4 h-4 text-emerald-500" />
+                Catat Pemasukan
+              </button>
+            </div>
 
             {/* Pocket Cards */}
             <section id="tour-pockets">
@@ -477,10 +488,16 @@ export default function DashboardPage() {
                           <p className="font-medium text-sm text-gray-900 dark:text-white truncate">
                             {title}
                           </p>
-                          <div className="flex items-center gap-1 text-xs text-gray-400">
-                            <span>{tx.pocket}</span>
-                            <span>•</span>
-                            <span>{new Date(tx.date).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' })}</span>
+                          <div className="flex items-center gap-1 text-xs text-gray-400 flex-nowrap overflow-hidden">
+                            <span className="truncate">{tx.pocket}</span>
+                            <span className="flex-shrink-0">•</span>
+                            <span className="flex-shrink-0">{new Date(tx.date).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' })}</span>
+                            {tx.createdAt && (
+                              <>
+                                <span className="flex-shrink-0">•</span>
+                                <span className="flex-shrink-0">{new Date(tx.createdAt).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}</span>
+                              </>
+                            )}
                           </div>
                         </div>
                         
@@ -503,11 +520,23 @@ export default function DashboardPage() {
         </div>
       </main>
       
-      {showAddModal && (
-        <AddTransactionModal
-          onClose={() => setShowAddModal(false)}
+      {addModalType === 'EXPENSE' && (
+        <AddExpenseModal
+          onClose={() => setAddModalType(null)}
           onSuccess={() => {
-            setShowAddModal(false);
+            setAddModalType(null);
+            fetchDashboard();
+            fetchAiRoast();
+            showInterstitial();
+          }}
+        />
+      )}
+
+      {addModalType === 'INCOME_ROUTINE' && (
+        <AddIncomeModal
+          onClose={() => setAddModalType(null)}
+          onSuccess={() => {
+            setAddModalType(null);
             fetchDashboard();
             fetchAiRoast();
             showInterstitial();
