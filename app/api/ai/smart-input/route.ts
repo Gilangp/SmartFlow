@@ -32,23 +32,38 @@ function safeParseJSON(text: string): AIResponse | null {
   }
 }
 
-// 🔹 Helper: Fallback parsing (regex sederhana)
+// 🔹 Helper: Fallback parsing (regex lebih akurat untuk satuan Indonesia)
 function fallbackParser(text: string) {
-  const matches = text.match(/(\d+)\s?(rb|k)?/gi) || [];
-
+  // Dalam konteks Indonesia: m/M = Miliar (1.000.000.000), jt/juta = 1.000.000, t = Triliun
+  const regex = /(\d+(?:[\.,]\d+)?)\s*(ribu|rb|k|juta|jt|miliar|m|triliun|t)?\b/gi;
+  let match;
   let total = 0;
 
-  matches.forEach((m) => {
-    const num = parseInt(m.replace(/[^\d]/g, ''));
-    if (m.toLowerCase().includes('rb') || m.toLowerCase().includes('k')) {
+  while ((match = regex.exec(text)) !== null) {
+    let rawNum = match[1].replace(',', '.');
+    if (rawNum.includes('.') && rawNum.split('.')[1].length === 3 && !match[2]) {
+      rawNum = rawNum.replace('.', '');
+    }
+
+    const num = parseFloat(rawNum);
+    if (isNaN(num)) continue;
+
+    const unit = (match[2] || '').toLowerCase();
+    if (unit === 'ribu' || unit === 'rb' || unit === 'k') {
       total += num * 1000;
+    } else if (unit === 'juta' || unit === 'jt') {
+      total += num * 1000000;
+    } else if (unit === 'miliar' || unit === 'm') {
+      total += num * 1000000000;
+    } else if (unit === 'triliun' || unit === 't') {
+      total += num * 1000000000000;
     } else {
       total += num;
     }
-  });
+  }
 
   return {
-    totalAmount: total,
+    totalAmount: Math.round(total),
     category: 'Lainnya',
     notes: text,
   };
@@ -105,6 +120,10 @@ Ekstrak semua nominal dari teks dan hitung total.
 Rules:
 - 3k = 3000
 - 10rb = 10000
+- 20 ribu = 20000
+- 1.5jt = 1500000
+- 2M / 2 miliar = 2000000000
+- Dalam Indonesia: 'k'/'rb'/'ribu' = 1.000, 'jt'/'juta' = 1.000.000, 'm'/'M'/'miliar' = 1.000.000.000 (Miliar), 't' = Triliun.
 - Output HARUS JSON valid
 - Jangan gunakan markdown
 - Jangan tambahkan penjelasan
@@ -128,7 +147,7 @@ Input:
       let rawText = '';
       try {
         const model = genAI.getGenerativeModel({
-          model: 'gemini-2.5-flash',
+          model: 'gemini-1.5-flash',
         });
 
         const result = await model.generateContent(prompt);
