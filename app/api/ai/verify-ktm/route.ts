@@ -18,8 +18,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, message: 'Image is required' }, { status: 400 });
     }
 
-    // Bersihkan prefix data:image/...;base64, jika ada dari frontend
-    const cleanBase64 = imageBase64.replace(/^data:image\/\w+;base64,/, '');
+    // Bersihkan prefix header data URL (seperti data:image/jpeg;base64,) secara mutlak
+    const cleanBase64 = imageBase64.includes(',') ? imageBase64.split(',')[1] : imageBase64;
 
     const validMimeTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/heic'];
     const finalMimeType = validMimeTypes.includes(mimeType) ? mimeType : 'image/jpeg';
