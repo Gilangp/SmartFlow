@@ -1,9 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyToken, extractTokenFromHeader } from '@/lib/auth';
 import { GoogleGenerativeAI } from '@google/generative-ai';
+import OpenAI from 'openai';
 import { getUserSubscription } from '@/lib/subscription';
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
+const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY || '' });
 
 // POST /api/ai/scan-receipt
 // Strategi Hybrid:
@@ -54,6 +56,7 @@ export async function POST(request: NextRequest) {
     const ocrBackendUrl = process.env.OCR_BACKEND_URL;
 
     // ── 4. TAHAP 1: FASTAPI OCR (EKSTRAKSI RAW TEXT) ─────────────────────────
+    let parsed: any = null;
     let rawText = '';
     let rawOcrSuccess = false;
 
@@ -65,7 +68,7 @@ export async function POST(request: NextRequest) {
         formData.append('file', blob, `receipt.${extension}`);
 
         const ocrApiKey = process.env.OCR_API_KEY || '';
-        const ocrResponse = await fetch(`${ocrBackendUrl}/api/v1/scan`, {
+        const ocrResponse = await fetch(`${ocrBackendUrl}/api/v1/scan/struk`, {
           method: 'POST',
           body: formData,
           headers: ocrApiKey ? { 'X-API-Key': ocrApiKey } : {},
@@ -74,13 +77,34 @@ export async function POST(request: NextRequest) {
 
         if (ocrResponse.ok) {
           const ocrResult = await ocrResponse.json();
-          rawText = ocrResult?.data?.raw_text || '';
+          const data = ocrResult?.data;
+          rawText = data?.raw_text || '';
+          let totalAmount = data?.total || 0;
 
-          if (rawText.trim().length > 20) {
+          // Fallback ekstraksi nominal dari raw_text jika data.total kosong
+          if (!totalAmount && rawText) {
+            const match = rawText.match(/(?:TOTAL|JUMLAH|BAYAR|GRAND\s*TOTAL|NETTO)\s*[:=]?\s*(?:Rp\.?|IDR)?\s*([\d.,]+)/i);
+            if (match) {
+              const numStr = match[1].replace(/[.,]/g, '');
+              const num = parseInt(numStr, 10);
+              if (!isNaN(num) && num > 100) totalAmount = num;
+            }
+          }
+
+          if (totalAmount > 0) {
+            parsed = {
+              merchant: data?.merchant || 'Toko Terdeteksi',
+              totalAmount: totalAmount,
+              date: data?.date || new Date().toISOString().split('T')[0],
+              items: data?.items || [],
+              category: 'Belanja',
+              confidence: 'HIGH',
+            };
             rawOcrSuccess = true;
-            console.log('[SCAN] Raw text berhasil diekstrak via FastAPI OCR:', rawText.length, 'karakter.');
-          } else {
-            console.warn('[SCAN] FastAPI OCR menghasilkan teks terlalu pendek, beralih ke Gemini Vision...');
+            console.log('[SCAN] ✅ Berhasil diekstrak lengkap via FastAPI OCR lokal tanpa AI eksternal.');
+          } else if (rawText.trim().length > 20) {
+            rawOcrSuccess = true;
+            console.log('[SCAN] Raw text diekstrak via FastAPI OCR:', rawText.length, 'karakter, lanjut ke AI...');
           }
         } else {
           console.warn(`[SCAN] FastAPI OCR HTTP ${ocrResponse.status}.`);
@@ -94,13 +118,8 @@ export async function POST(request: NextRequest) {
 
     // ── 5. TAHAP 2A: PARSING DENGAN GEMINI TEXT (JIKA FASTAPI OCR BERHASIL) ──
     // Hemat token: kirim teks biasa, bukan gambar
-    let parsed: any = null;
-
-    if (rawOcrSuccess && rawText) {
-      try {
-        console.log('[SCAN] Memproses raw text dengan Gemini 1.5 Flash (Text Mode)...');
-
-        const textPrompt = `
+    if (!parsed && rawOcrSuccess && rawText) {
+      const textPrompt = `
 Kamu adalah parser struk/kwitansi Indonesia yang sangat akurat.
 Analisis teks hasil OCR di bawah ini dan ekstrak informasi transaksi ke dalam format JSON.
 
@@ -126,8 +145,10 @@ Rules:
 - Jika ada tulisan TOTAL, GRAND TOTAL, JUMLAH, gunakan nilai tersebut
 - Semua harga dalam Rupiah (integer)
 - confidence: HIGH jika teks jelas, MEDIUM jika agak berantakan, LOW jika tidak yakin
-        `.trim();
+      `.trim();
 
+      try {
+        console.log('[SCAN] Memproses raw text dengan Gemini 1.5 Flash (Text Mode)...');
         const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
         const result = await model.generateContent(textPrompt);
         const responseText = result.response.text();
@@ -148,7 +169,28 @@ Rules:
         }
       } catch (textParseErr: any) {
         console.warn('[SCAN] Gemini Text parsing gagal:', textParseErr.message);
-        parsed = null;
+        if (process.env.OPENAI_API_KEY) {
+          try {
+            console.log('[SCAN] Beralih ke OpenAI gpt-4o-mini (Text Mode)...');
+            const completion = await openai.chat.completions.create({
+              model: 'gpt-4o-mini',
+              messages: [{ role: 'user', content: textPrompt }],
+              response_format: { type: 'json_object' },
+            });
+            const content = completion.choices[0]?.message?.content || '{}';
+            parsed = JSON.parse(content);
+            if (parsed?.totalAmount) {
+              console.log('[SCAN] Berhasil diproses via OpenAI gpt-4o-mini (Text Mode).');
+            } else {
+              parsed = null;
+            }
+          } catch (openaiErr: any) {
+            console.warn('[SCAN] OpenAI Text fallback juga gagal:', openaiErr.message);
+            parsed = null;
+          }
+        } else {
+          parsed = null;
+        }
       }
     }
 
@@ -204,11 +246,43 @@ Rules:
 
         console.log('[SCAN] Berhasil diproses via Gemini Vision Fallback.');
       } catch (visionErr: any) {
-        console.error('[SCAN] Gemini Vision fallback juga gagal:', visionErr.message);
-        return NextResponse.json({
-          success: false,
-          message: 'Gagal membaca struk. Pastikan foto jelas, tidak buram, dan seluruh struk terlihat.',
-        }, { status: 422 });
+        console.warn('[SCAN] Gemini Vision fallback gagal:', visionErr.message);
+        if (process.env.OPENAI_API_KEY) {
+          try {
+            console.log('[SCAN] Beralih ke OpenAI gpt-4o-mini (Vision Mode)...');
+            const completion = await openai.chat.completions.create({
+              model: 'gpt-4o-mini',
+              messages: [
+                {
+                  role: 'user',
+                  content: [
+                    { type: 'text', text: visionPrompt },
+                    { type: 'image_url', image_url: { url: `data:${finalMimeType};base64,${cleanBase64}` } },
+                  ],
+                },
+              ],
+              response_format: { type: 'json_object' },
+            });
+            const content = completion.choices[0]?.message?.content || '{}';
+            parsed = JSON.parse(content);
+            if (parsed?.totalAmount) {
+              console.log('[SCAN] Berhasil diproses via OpenAI gpt-4o-mini (Vision Mode).');
+            } else {
+              parsed = null;
+            }
+          } catch (openaiErr: any) {
+            console.error('[SCAN] OpenAI Vision fallback juga gagal:', openaiErr.message);
+            return NextResponse.json({
+              success: false,
+              message: 'Gagal membaca struk. Pastikan foto jelas, tidak buram, dan seluruh struk terlihat.',
+            }, { status: 422 });
+          }
+        } else {
+          return NextResponse.json({
+            success: false,
+            message: 'Gagal membaca struk. Pastikan foto jelas, tidak buram, dan seluruh struk terlihat.',
+          }, { status: 422 });
+        }
       }
     }
 
