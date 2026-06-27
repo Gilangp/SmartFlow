@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef, useCallback } from 'react';
-import { Camera, Upload, X, ScanLine, CheckCircle, AlertCircle, Loader2, Info } from 'lucide-react';
+import { Camera, Upload, X, ScanLine, CheckCircle, AlertCircle, Loader2, Info, RefreshCw, Clock, ImageOff, WifiOff, ShieldOff } from 'lucide-react';
 import { compressImage } from '@/lib/image-helper';
 
 interface ScanResult {
@@ -20,26 +20,57 @@ interface ScanReceiptModalProps {
   token: string;
 }
 
+type ErrorType = 'timeout' | 'quality' | 'quota' | 'server' | 'network' | null;
+
+const LOADING_STAGES = [
+  'Mengirim gambar ke server OCR...',
+  'Server AI sedang membaca teks struk...',
+  'Menganalisis data transaksi...',
+  'Hampir selesai...',
+];
+
 export default function ScanReceiptModal({ isOpen, onClose, onResult, token }: ScanReceiptModalProps) {
   const [preview, setPreview] = useState<string | null>(null);
   const [mimeType, setMimeType] = useState('image/jpeg');
   const [loading, setLoading] = useState(false);
+  const [loadingStage, setLoadingStage] = useState(0);
   const [error, setError] = useState<string | null>(null);
+  const [errorType, setErrorType] = useState<ErrorType>(null);
   const [result, setResult] = useState<ScanResult | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
+  const stageIntervalRef = useRef<NodeJS.Timeout | null>(null);
+
+  const startLoadingStages = () => {
+    setLoadingStage(0);
+    let stage = 0;
+    stageIntervalRef.current = setInterval(() => {
+      stage = Math.min(stage + 1, LOADING_STAGES.length - 1);
+      setLoadingStage(stage);
+    }, 5000);
+  };
+
+  const stopLoadingStages = () => {
+    if (stageIntervalRef.current) {
+      clearInterval(stageIntervalRef.current);
+      stageIntervalRef.current = null;
+    }
+  };
 
   const handleFile = useCallback(async (file: File) => {
     if (!file.type.startsWith('image/')) {
       setError('File harus berupa gambar (JPG, PNG, WEBP)');
+      setErrorType('quality');
       return;
     }
     if (file.size > 10 * 1024 * 1024) {
-      setError('Ukuran file maksimal 10MB');
+      setError('Ukuran file maksimal 10MB. Coba kompres foto terlebih dahulu.');
+      setErrorType('quality');
       return;
     }
 
     setError(null);
+    setErrorType(null);
     setResult(null);
     setLoading(true);
 
@@ -53,7 +84,8 @@ export default function ScanReceiptModal({ isOpen, onClose, onResult, token }: S
       setMimeType('image/webp');
       setPreview(compressedDataUrl);
     } catch {
-      setError('Gagal memproses gambar.');
+      setError('Gagal memproses gambar. Coba lagi dengan foto yang berbeda.');
+      setErrorType('quality');
     } finally {
       setLoading(false);
     }
@@ -64,9 +96,10 @@ export default function ScanReceiptModal({ isOpen, onClose, onResult, token }: S
 
     setLoading(true);
     setError(null);
+    setErrorType(null);
+    startLoadingStages();
 
     try {
-      // Ambil base64 tanpa prefix "data:image/...;base64,"
       const base64 = preview.split(',')[1];
 
       const res = await fetch('/api/ai/scan-receipt', {
@@ -81,16 +114,46 @@ export default function ScanReceiptModal({ isOpen, onClose, onResult, token }: S
       const data = await res.json();
 
       if (!data.success) {
-        setError(data.message || 'Gagal membaca struk');
+        // Kategorikan error berdasarkan HTTP status
+        if (res.status === 403) {
+          setErrorType('quota');
+          setError('Fitur Scan Struk memerlukan paket Student atau Premium.');
+        } else if (res.status === 422) {
+          setErrorType('quality');
+          setError(data.message || 'Struk tidak terbaca. Pastikan foto jelas dan seluruh struk terlihat.');
+        } else if (res.status === 503 || res.status === 504) {
+          setErrorType('timeout');
+          setError('Server AI sedang memuat model (cold start). Biasanya terjadi hanya sekali. Coba lagi dalam 30 detik.');
+        } else if (res.status === 502) {
+          setErrorType('server');
+          setError('Server OCR tidak dapat dijangkau. Sistem tetap menggunakan AI cadangan, coba lagi.');
+        } else {
+          setErrorType('server');
+          setError(data.message || 'Terjadi kesalahan pada server. Coba lagi.');
+        }
         return;
       }
 
       setResult(data.data);
-    } catch {
-      setError('Terjadi kesalahan. Coba lagi.');
+    } catch (err: any) {
+      // Network error (offline, timeout fetch)
+      if (err?.name === 'TypeError' && err?.message?.includes('fetch')) {
+        setErrorType('network');
+        setError('Tidak ada koneksi internet atau server tidak dapat dijangkau.');
+      } else {
+        setErrorType('server');
+        setError('Terjadi kesalahan tak terduga. Coba lagi.');
+      }
     } finally {
       setLoading(false);
+      stopLoadingStages();
     }
+  };
+
+  const handleRetry = () => {
+    setError(null);
+    setErrorType(null);
+    handleScan();
   };
 
   const handleUseResult = () => {
@@ -103,8 +166,10 @@ export default function ScanReceiptModal({ isOpen, onClose, onResult, token }: S
   const handleClose = () => {
     setPreview(null);
     setError(null);
+    setErrorType(null);
     setResult(null);
     setLoading(false);
+    stopLoadingStages();
     onClose();
   };
 
@@ -112,6 +177,75 @@ export default function ScanReceiptModal({ isOpen, onClose, onResult, token }: S
     new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(n);
 
   if (!isOpen) return null;
+
+  // ── Konfigurasi tampilan error berdasarkan tipe ───────────────────────────
+  const errorConfig: Record<NonNullable<ErrorType>, {
+    icon: React.ReactNode;
+    title: string;
+    bgClass: string;
+    borderClass: string;
+    titleClass: string;
+    textClass: string;
+    showRetry: boolean;
+    retryLabel?: string;
+    showManual: boolean;
+  }> = {
+    timeout: {
+      icon: <Clock className="w-5 h-5 text-amber-500 flex-shrink-0 mt-0.5" />,
+      title: 'Server Sedang Memuat',
+      bgClass: 'bg-amber-50 dark:bg-amber-950/20',
+      borderClass: 'border-amber-200 dark:border-amber-800/50',
+      titleClass: 'text-amber-800 dark:text-amber-300',
+      textClass: 'text-amber-600 dark:text-amber-400',
+      showRetry: true,
+      retryLabel: 'Coba Lagi (30 detik)',
+      showManual: true,
+    },
+    quality: {
+      icon: <ImageOff className="w-5 h-5 text-orange-500 flex-shrink-0 mt-0.5" />,
+      title: 'Foto Tidak Terbaca',
+      bgClass: 'bg-orange-50 dark:bg-orange-950/20',
+      borderClass: 'border-orange-200 dark:border-orange-800/50',
+      titleClass: 'text-orange-800 dark:text-orange-300',
+      textClass: 'text-orange-600 dark:text-orange-400',
+      showRetry: false,
+      showManual: true,
+    },
+    quota: {
+      icon: <ShieldOff className="w-5 h-5 text-purple-500 flex-shrink-0 mt-0.5" />,
+      title: 'Fitur Terbatas',
+      bgClass: 'bg-purple-50 dark:bg-purple-950/20',
+      borderClass: 'border-purple-200 dark:border-purple-800/50',
+      titleClass: 'text-purple-800 dark:text-purple-300',
+      textClass: 'text-purple-600 dark:text-purple-400',
+      showRetry: false,
+      showManual: true,
+    },
+    server: {
+      icon: <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" />,
+      title: 'Kesalahan Server',
+      bgClass: 'bg-red-50 dark:bg-red-950/20',
+      borderClass: 'border-red-200 dark:border-red-800/50',
+      titleClass: 'text-red-800 dark:text-red-300',
+      textClass: 'text-red-600 dark:text-red-400',
+      showRetry: true,
+      retryLabel: 'Coba Lagi',
+      showManual: true,
+    },
+    network: {
+      icon: <WifiOff className="w-5 h-5 text-gray-500 flex-shrink-0 mt-0.5" />,
+      title: 'Tidak Ada Koneksi',
+      bgClass: 'bg-gray-50 dark:bg-gray-800/50',
+      borderClass: 'border-gray-200 dark:border-gray-700',
+      titleClass: 'text-gray-800 dark:text-gray-300',
+      textClass: 'text-gray-600 dark:text-gray-400',
+      showRetry: true,
+      retryLabel: 'Coba Lagi',
+      showManual: true,
+    },
+  };
+
+  const currentError = errorType ? errorConfig[errorType] : null;
 
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm p-4">
@@ -138,7 +272,6 @@ export default function ScanReceiptModal({ isOpen, onClose, onResult, token }: S
             <>
               {!preview ? (
                 <div className="space-y-3">
-                  {/* Kamera */}
                   <button
                     onClick={() => cameraInputRef.current?.click()}
                     className="w-full flex items-center gap-3 p-4 rounded-xl border-2 border-dashed border-indigo-300 dark:border-indigo-700 bg-indigo-50/50 dark:bg-indigo-950/20 hover:border-indigo-500 transition group"
@@ -152,7 +285,6 @@ export default function ScanReceiptModal({ isOpen, onClose, onResult, token }: S
                     </div>
                   </button>
 
-                  {/* Upload file */}
                   <button
                     onClick={() => fileInputRef.current?.click()}
                     className="w-full flex items-center gap-3 p-4 rounded-xl border-2 border-dashed border-gray-200 dark:border-gray-700 hover:border-indigo-300 dark:hover:border-indigo-700 transition group"
@@ -176,50 +308,68 @@ export default function ScanReceiptModal({ isOpen, onClose, onResult, token }: S
                   {/* Preview gambar */}
                   <div className="relative">
                     <img src={preview} alt="Struk" className="w-full max-h-48 object-contain rounded-xl bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700" />
-                    <button
-                      onClick={() => { setPreview(null); setError(null); }}
-                      className="absolute top-2 right-2 w-7 h-7 bg-black/50 rounded-full flex items-center justify-center text-white hover:bg-black/70 transition"
-                    >
-                      <X className="w-3.5 h-3.5" />
-                    </button>
+                    {!loading && (
+                      <button
+                        onClick={() => { setPreview(null); setError(null); setErrorType(null); }}
+                        className="absolute top-2 right-2 w-7 h-7 bg-black/50 rounded-full flex items-center justify-center text-white hover:bg-black/70 transition"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    )}
                   </div>
 
-                  {/* Error */}
-                  {error && (
-                    <div className="flex flex-col gap-3 p-4 bg-orange-50 dark:bg-orange-950/20 border border-orange-200 dark:border-orange-800/50 rounded-xl">
+                  {/* Error Block — tampilan berbeda per tipe */}
+                  {error && currentError && (
+                    <div className={`flex flex-col gap-3 p-4 ${currentError.bgClass} border ${currentError.borderClass} rounded-xl`}>
                       <div className="flex items-start gap-2.5">
-                        <AlertCircle className="w-5 h-5 text-orange-500 flex-shrink-0 mt-0.5" />
-                        <div className="space-y-1">
-                          <p className="font-medium text-orange-800 dark:text-orange-300 text-sm">Gagal Memproses Gambar</p>
-                          <p className="text-xs text-orange-600 dark:text-orange-400 leading-relaxed">{error}</p>
+                        {currentError.icon}
+                        <div className="space-y-1 flex-1">
+                          <p className={`font-semibold text-sm ${currentError.titleClass}`}>{currentError.title}</p>
+                          <p className={`text-xs leading-relaxed ${currentError.textClass}`}>{error}</p>
                         </div>
                       </div>
-                      <button
-                        onClick={handleClose}
-                        className="w-full py-2 bg-white dark:bg-gray-800 text-orange-600 dark:text-orange-400 border border-orange-200 dark:border-orange-800 rounded-lg text-sm font-medium hover:bg-orange-100 dark:hover:bg-orange-900/30 transition shadow-sm"
-                      >
-                        Input Manual Saja
-                      </button>
+                      <div className="flex gap-2">
+                        {currentError.showRetry && (
+                          <button
+                            onClick={handleRetry}
+                            className="flex-1 flex items-center justify-center gap-1.5 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 rounded-lg text-xs font-medium hover:bg-gray-50 dark:hover:bg-gray-700 transition"
+                          >
+                            <RefreshCw className="w-3.5 h-3.5" />
+                            {currentError.retryLabel || 'Coba Lagi'}
+                          </button>
+                        )}
+                        {currentError.showManual && (
+                          <button
+                            onClick={handleClose}
+                            className="flex-1 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 rounded-lg text-xs font-medium hover:bg-gray-50 dark:hover:bg-gray-700 transition"
+                          >
+                            Input Manual
+                          </button>
+                        )}
+                      </div>
                     </div>
                   )}
 
-                  <button
-                    onClick={handleScan}
-                    disabled={loading}
-                    className="w-full flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-60 text-white py-3 rounded-xl font-semibold transition"
-                  >
-                    {loading ? (
-                      <>
-                        <Loader2 className="w-4 h-4 animate-spin" />
-                        AI sedang membaca struk...
-                      </>
-                    ) : (
-                      <>
-                        <ScanLine className="w-4 h-4" />
-                        Scan Sekarang
-                      </>
-                    )}
-                  </button>
+                  {/* Tombol Scan / Loading */}
+                  {loading ? (
+                    <div className="w-full flex flex-col items-center justify-center gap-2 bg-indigo-50 dark:bg-indigo-950/20 border border-indigo-200 dark:border-indigo-800/50 py-4 rounded-xl">
+                      <div className="flex items-center gap-2">
+                        <Loader2 className="w-4 h-4 animate-spin text-indigo-500" />
+                        <span className="text-sm font-medium text-indigo-700 dark:text-indigo-400">
+                          {LOADING_STAGES[loadingStage]}
+                        </span>
+                      </div>
+                      <p className="text-xs text-indigo-400 dark:text-indigo-500">Proses ini bisa memakan 10-60 detik</p>
+                    </div>
+                  ) : !error && (
+                    <button
+                      onClick={handleScan}
+                      className="w-full flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white py-3 rounded-xl font-semibold transition"
+                    >
+                      <ScanLine className="w-4 h-4" />
+                      Scan Sekarang
+                    </button>
+                  )}
                 </div>
               )}
             </>
@@ -232,15 +382,23 @@ export default function ScanReceiptModal({ isOpen, onClose, onResult, token }: S
                 <CheckCircle className="w-5 h-5 text-emerald-500" />
                 <span className="font-semibold text-gray-900 dark:text-white text-sm">Struk Berhasil Dibaca!</span>
                 <span className={`ml-auto text-xs px-2 py-0.5 rounded-full font-medium ${
-                  result.confidence === 'HIGH' 
+                  result.confidence === 'HIGH'
                     ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400'
                     : result.confidence === 'MEDIUM'
                     ? 'bg-amber-100 text-amber-700 dark:bg-amber-950/30 dark:text-amber-400'
                     : 'bg-red-100 text-red-700 dark:bg-red-950/30 dark:text-red-400'
                 }`}>
-                  {result.confidence === 'HIGH' ? 'Akurat' : result.confidence === 'MEDIUM' ? 'Cukup Akurat' : 'Perlu Dicek'}
+                  {result.confidence === 'HIGH' ? '✓ Akurat' : result.confidence === 'MEDIUM' ? '~ Cukup Akurat' : '⚠ Perlu Dicek'}
                 </span>
               </div>
+
+              {/* Warning jika confidence LOW */}
+              {result.confidence === 'LOW' && (
+                <div className="flex items-start gap-2 p-3 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800/50 rounded-xl">
+                  <AlertCircle className="w-4 h-4 text-amber-500 flex-shrink-0 mt-0.5" />
+                  <p className="text-xs text-amber-700 dark:text-amber-400">Data mungkin tidak akurat. Pastikan Anda memeriksa kembali sebelum menyimpan.</p>
+                </div>
+              )}
 
               <div className="bg-gray-50 dark:bg-gray-800/50 rounded-xl p-3 space-y-2">
                 <div className="flex justify-between items-center">
@@ -296,22 +454,8 @@ export default function ScanReceiptModal({ isOpen, onClose, onResult, token }: S
           )}
         </div>
 
-        {/* Hidden file inputs */}
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept="image/*"
-          className="hidden"
-          onChange={(e) => e.target.files?.[0] && handleFile(e.target.files[0])}
-        />
-        <input
-          ref={cameraInputRef}
-          type="file"
-          accept="image/*"
-          capture="environment"
-          className="hidden"
-          onChange={(e) => e.target.files?.[0] && handleFile(e.target.files[0])}
-        />
+        <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={(e) => e.target.files?.[0] && handleFile(e.target.files[0])} />
+        <input ref={cameraInputRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={(e) => e.target.files?.[0] && handleFile(e.target.files[0])} />
       </div>
     </div>
   );

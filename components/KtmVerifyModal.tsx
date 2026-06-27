@@ -1,8 +1,17 @@
 'use client';
 
 import { useState, useRef, useCallback } from 'react';
-import { GraduationCap, Camera, Upload, X, CheckCircle, AlertCircle, Loader2, Shield } from 'lucide-react';
+import { GraduationCap, Camera, Upload, X, CheckCircle, AlertCircle, Loader2, Shield, RefreshCw, Clock, ImageOff, WifiOff, ShieldOff } from 'lucide-react';
 import { compressImage } from '@/lib/image-helper';
+
+type ErrorType = 'timeout' | 'quality' | 'quota' | 'server' | 'network' | null;
+
+const LOADING_STAGES = [
+  'Mengirim gambar KTM ke server...',
+  'Server OCR sedang membaca teks KTM...',
+  'Memverifikasi data mahasiswa...',
+  'Hampir selesai...',
+];
 
 interface KtmResult {
   name: string;
@@ -23,10 +32,29 @@ export default function KtmVerifyModal({ isOpen, onClose, onSuccess, token, user
   const [preview, setPreview] = useState<string | null>(null);
   const [mimeType, setMimeType] = useState('image/jpeg');
   const [loading, setLoading] = useState(false);
+  const [loadingStage, setLoadingStage] = useState(0);
   const [error, setError] = useState<string | null>(null);
+  const [errorType, setErrorType] = useState<ErrorType>(null);
   const [success, setSuccess] = useState<KtmResult | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
+  const stageIntervalRef = useRef<NodeJS.Timeout | null>(null);
+
+  const startLoadingStages = () => {
+    setLoadingStage(0);
+    let stage = 0;
+    stageIntervalRef.current = setInterval(() => {
+      stage = Math.min(stage + 1, LOADING_STAGES.length - 1);
+      setLoadingStage(stage);
+    }, 5000);
+  };
+
+  const stopLoadingStages = () => {
+    if (stageIntervalRef.current) {
+      clearInterval(stageIntervalRef.current);
+      stageIntervalRef.current = null;
+    }
+  };
 
   const handleFile = useCallback(async (file: File) => {
     if (!file.type.startsWith('image/')) {
@@ -62,6 +90,8 @@ export default function KtmVerifyModal({ isOpen, onClose, onSuccess, token, user
 
     setLoading(true);
     setError(null);
+    setErrorType(null);
+    startLoadingStages();
 
     try {
       const base64 = preview.split(',')[1];
@@ -78,25 +108,96 @@ export default function KtmVerifyModal({ isOpen, onClose, onSuccess, token, user
       const data = await res.json();
 
       if (!data.success) {
-        setError(data.message || 'Verifikasi gagal');
+        if (res.status === 422) {
+          setErrorType('quality');
+          setError(data.message || 'KTM tidak terbaca. Pastikan foto KTM jelas dan tidak buram.');
+        } else if (res.status === 503 || res.status === 504) {
+          setErrorType('timeout');
+          setError('Server AI sedang memuat model (cold start). Coba lagi dalam 30 detik.');
+        } else if (res.status === 502) {
+          setErrorType('server');
+          setError('Server OCR tidak dapat dijangkau. Sistem mencoba AI cadangan, coba lagi.');
+        } else {
+          setErrorType('server');
+          setError(data.message || 'Verifikasi gagal. Coba lagi.');
+        }
         return;
       }
 
       setSuccess(data.data);
-    } catch {
-      setError('Terjadi kesalahan. Coba lagi.');
+    } catch (err: any) {
+      if (err?.name === 'TypeError' && err?.message?.includes('fetch')) {
+        setErrorType('network');
+        setError('Tidak ada koneksi internet. Periksa koneksi Anda dan coba lagi.');
+      } else {
+        setErrorType('server');
+        setError('Terjadi kesalahan tak terduga. Coba lagi.');
+      }
     } finally {
       setLoading(false);
+      stopLoadingStages();
     }
+  };
+
+  const handleRetry = () => {
+    setError(null);
+    setErrorType(null);
+    handleVerify();
   };
 
   const handleClose = () => {
     setPreview(null);
     setError(null);
+    setErrorType(null);
     setSuccess(null);
     setLoading(false);
+    stopLoadingStages();
     onClose();
   };
+
+  // Konfigurasi tampilan error
+  const errorConfig: Record<NonNullable<ErrorType>, {
+    icon: React.ReactNode; title: string;
+    bgClass: string; borderClass: string; titleClass: string; textClass: string;
+    showRetry: boolean; retryLabel?: string;
+  }> = {
+    timeout: {
+      icon: <Clock className="w-5 h-5 text-amber-500 flex-shrink-0 mt-0.5" />,
+      title: 'Server Sedang Memuat',
+      bgClass: 'bg-amber-50 dark:bg-amber-950/20', borderClass: 'border-amber-200 dark:border-amber-800/50',
+      titleClass: 'text-amber-800 dark:text-amber-300', textClass: 'text-amber-600 dark:text-amber-400',
+      showRetry: true, retryLabel: 'Coba Lagi (30 detik)',
+    },
+    quality: {
+      icon: <ImageOff className="w-5 h-5 text-orange-500 flex-shrink-0 mt-0.5" />,
+      title: 'Foto KTM Tidak Terbaca',
+      bgClass: 'bg-orange-50 dark:bg-orange-950/20', borderClass: 'border-orange-200 dark:border-orange-800/50',
+      titleClass: 'text-orange-800 dark:text-orange-300', textClass: 'text-orange-600 dark:text-orange-400',
+      showRetry: false,
+    },
+    quota: {
+      icon: <ShieldOff className="w-5 h-5 text-purple-500 flex-shrink-0 mt-0.5" />,
+      title: 'Akses Terbatas',
+      bgClass: 'bg-purple-50 dark:bg-purple-950/20', borderClass: 'border-purple-200 dark:border-purple-800/50',
+      titleClass: 'text-purple-800 dark:text-purple-300', textClass: 'text-purple-600 dark:text-purple-400',
+      showRetry: false,
+    },
+    server: {
+      icon: <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" />,
+      title: 'Kesalahan Server',
+      bgClass: 'bg-red-50 dark:bg-red-950/20', borderClass: 'border-red-200 dark:border-red-800/50',
+      titleClass: 'text-red-800 dark:text-red-300', textClass: 'text-red-600 dark:text-red-400',
+      showRetry: true, retryLabel: 'Coba Lagi',
+    },
+    network: {
+      icon: <WifiOff className="w-5 h-5 text-gray-500 flex-shrink-0 mt-0.5" />,
+      title: 'Tidak Ada Koneksi',
+      bgClass: 'bg-gray-50 dark:bg-gray-800/50', borderClass: 'border-gray-200 dark:border-gray-700',
+      titleClass: 'text-gray-800 dark:text-gray-300', textClass: 'text-gray-600 dark:text-gray-400',
+      showRetry: true, retryLabel: 'Coba Lagi',
+    },
+  };
+  const currentError = errorType ? errorConfig[errorType] : null;
 
   const handleDone = () => {
     if (success) {
@@ -208,42 +309,55 @@ export default function KtmVerifyModal({ isOpen, onClose, onSuccess, token, user
                   <div className="relative">
                     <img src={preview} alt="KTM" className="w-full max-h-48 object-contain rounded-xl bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700" />
                     <button
-                      onClick={() => { setPreview(null); setError(null); }}
+                      onClick={() => { setPreview(null); setError(null); setErrorType(null); }}
                       className="absolute top-2 right-2 w-7 h-7 bg-black/50 rounded-full flex items-center justify-center text-white hover:bg-black/70 transition"
                     >
                       <X className="w-3.5 h-3.5" />
                     </button>
                   </div>
 
-                  {error && (
-                    <div className="flex flex-col gap-3 p-4 bg-orange-50 dark:bg-orange-950/20 border border-orange-200 dark:border-orange-800/50 rounded-xl">
+                  {error && currentError && (
+                    <div className={`flex flex-col gap-3 p-4 ${currentError.bgClass} border ${currentError.borderClass} rounded-xl`}>
                       <div className="flex items-start gap-2.5">
-                        <AlertCircle className="w-5 h-5 text-orange-500 flex-shrink-0 mt-0.5" />
-                        <div className="space-y-1">
-                          <p className="font-medium text-orange-800 dark:text-orange-300 text-sm">Gagal Verifikasi</p>
-                          <p className="text-xs text-orange-600 dark:text-orange-400 leading-relaxed">{error}</p>
+                        {currentError.icon}
+                        <div className="space-y-1 flex-1">
+                          <p className={`font-semibold text-sm ${currentError.titleClass}`}>{currentError.title}</p>
+                          <p className={`text-xs leading-relaxed ${currentError.textClass}`}>{error}</p>
                         </div>
+                      </div>
+                      <div className="flex gap-2">
+                        {currentError.showRetry && (
+                          <button onClick={handleRetry} className="flex-1 flex items-center justify-center gap-1.5 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 rounded-lg text-xs font-medium hover:bg-gray-50 transition">
+                            <RefreshCw className="w-3.5 h-3.5" />
+                            {currentError.retryLabel || 'Coba Lagi'}
+                          </button>
+                        )}
+                        <button onClick={() => { setPreview(null); setError(null); setErrorType(null); }} className="flex-1 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 rounded-lg text-xs font-medium hover:bg-gray-50 transition">
+                          Foto Ulang
+                        </button>
                       </div>
                     </div>
                   )}
 
-                  <button
-                    onClick={handleVerify}
-                    disabled={loading}
-                    className="w-full flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-60 text-white py-3 rounded-xl font-semibold transition"
-                  >
-                    {loading ? (
-                      <>
-                        <Loader2 className="w-4 h-4 animate-spin" />
-                        AI sedang memverifikasi KTM...
-                      </>
-                    ) : (
-                      <>
-                        <GraduationCap className="w-4 h-4" />
-                        Verifikasi Sekarang
-                      </>
-                    )}
-                  </button>
+                  {loading ? (
+                    <div className="w-full flex flex-col items-center justify-center gap-2 bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-800/50 py-4 rounded-xl">
+                      <div className="flex items-center gap-2">
+                        <Loader2 className="w-4 h-4 animate-spin text-emerald-500" />
+                        <span className="text-sm font-medium text-emerald-700 dark:text-emerald-400">
+                          {LOADING_STAGES[loadingStage]}
+                        </span>
+                      </div>
+                      <p className="text-xs text-emerald-400 dark:text-emerald-500">Proses ini bisa memakan 10-60 detik</p>
+                    </div>
+                  ) : !error && (
+                    <button
+                      onClick={handleVerify}
+                      className="w-full flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white py-3 rounded-xl font-semibold transition"
+                    >
+                      <GraduationCap className="w-4 h-4" />
+                      Verifikasi Sekarang
+                    </button>
+                  )}
                 </div>
               )}
             </>
