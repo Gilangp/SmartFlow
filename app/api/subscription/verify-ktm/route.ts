@@ -92,7 +92,7 @@ Kembalikan response HANYA dalam format JSON persis seperti ini, tanpa teks penga
       `.trim();
 
       try {
-        const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+        const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
         const result = await model.generateContent([
           { inlineData: { data: imageBase64, mimeType: finalMimeType as any } },
           prompt,

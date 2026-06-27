@@ -125,7 +125,7 @@ Rules:
 - confidence: HIGH jika teks jelas, MEDIUM jika agak berantakan, LOW jika tidak yakin
         `.trim();
 
-        const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+        const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
         const result = await model.generateContent(textPrompt);
         const responseText = result.response.text();
         const cleaned = responseText.replace(/```json/g, '').replace(/```/g, '').trim();
@@ -178,7 +178,7 @@ Rules:
       `.trim();
 
       try {
-        const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+        const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
         const result = await model.generateContent([
           {
             inlineData: {
