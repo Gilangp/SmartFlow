@@ -302,7 +302,7 @@ export default function Home() {
       </nav>
 
       {/* Hero Section */}
-      <section id="beranda" className="relative pt-20 pb-12 sm:pt-28 sm:pb-16 md:pt-32 md:pb-20 overflow-hidden">
+      <section id="beranda" className="relative pt-24 pb-12 sm:pt-28 sm:pb-16 md:pt-32 md:pb-20 overflow-hidden">
         {/* Decorative Background Glows */}
         <div className="absolute top-12 left-1/2 -translate-x-1/2 w-[350px] sm:w-[600px] h-[350px] sm:h-[600px] bg-indigo-500/10 dark:bg-indigo-500/5 rounded-full blur-3xl pointer-events-none -z-10" />
         <div className="absolute top-24 left-1/4 w-[200px] sm:w-[400px] h-[200px] sm:h-[400px] bg-purple-500/10 dark:bg-purple-500/5 rounded-full blur-3xl pointer-events-none -z-10" />
