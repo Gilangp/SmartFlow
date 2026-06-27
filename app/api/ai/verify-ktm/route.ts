@@ -1,8 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { GoogleGenerativeAI } from '@google/generative-ai';
+import OpenAI from 'openai';
 import { generateKtmToken } from '@/lib/auth';
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
+const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY || '' });
 
 // POST /api/ai/verify-ktm
 // Route ini dipertahankan untuk backward compatibility.
@@ -46,10 +48,12 @@ export async function POST(request: NextRequest) {
         if (ocrResponse.ok) {
           const ocrResult = await ocrResponse.json();
           const data = ocrResult?.data;
-          if (ocrResult.success && data?.nim && data?.name) {
+          const detectedUniv = detectUniversity(data?.raw_text || data?.study_program || data?.faculty || '');
+          // Cek ketat: harus ada NIM, Nama, dan Kampus terdeteksi
+          if (ocrResult.success && data?.nim && data?.name && detectedUniv !== 'Universitas Terdeteksi') {
             extractedName = data.name;
             extractedNim = data.nim;
-            extractedUniv = detectUniversity(data.raw_text || '');
+            extractedUniv = detectedUniv;
             isOcrSuccessful = true;
           }
         }
@@ -58,41 +62,83 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // ── TAHAP 2: Gemini Vision Fallback ───────────────────────────────────────
+    // ── TAHAP 2: Gemini / OpenAI Vision Fallback ──────────────────────────────
     if (!isOcrSuccessful) {
       const prompt = `
 Kamu adalah sistem pendeteksi KTM Indonesia.
-Baca kartu identitas dari gambar ini. Jika bukan KTM, kembalikan valid=false.
+Baca kartu identitas dari gambar ini. Jika bukan KTM atau teksnya tidak jelas, kembalikan valid=false.
+Jika ini adalah KTM yang jelas, ekstrak nama mahasiswa, NIM, dan nama Universitas/Kampus.
+WAJIB: Ketiganya (name, nim, university) harus terbaca dengan jelas. Jika ada salah satu yang kosong atau tidak terbaca, kembalikan valid=false.
 Kembalikan HANYA JSON ini tanpa teks lain:
 { "valid": true, "name": "Nama Lengkap", "nim": "12345678", "university": "Nama Kampus" }
       `.trim();
 
-      const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
-      const result = await model.generateContent([
-        { inlineData: { data: imageBase64, mimeType: finalMimeType as any } },
-        prompt,
-      ]);
-      const responseText = result.response.text();
-      const cleaned = responseText.replace(/```json/g, '').replace(/```/g, '').trim();
+      let parsed: any = null;
 
-      let parsed: any;
       try {
-        parsed = JSON.parse(cleaned);
-      } catch {
-        const match = cleaned.match(/\{[\s\S]*\}/);
-        if (match) parsed = JSON.parse(match[0]);
+        const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
+        const result = await model.generateContent([
+          { inlineData: { data: imageBase64, mimeType: finalMimeType as any } },
+          prompt,
+        ]);
+        const responseText = result.response.text();
+        const cleaned = responseText.replace(/```json/g, '').replace(/```/g, '').trim();
+
+        try {
+          parsed = JSON.parse(cleaned);
+        } catch {
+          const match = cleaned.match(/\{[\s\S]*\}/);
+          if (match) parsed = JSON.parse(match[0]);
+        }
+      } catch (geminiErr: any) {
+        console.warn('[ai/verify-ktm] Gemini limit/gagal, beralih ke OpenAI...', geminiErr.message);
+        try {
+          const openaiResponse = await openai.chat.completions.create({
+            model: 'gpt-4o-mini',
+            messages: [
+              {
+                role: 'user',
+                content: [
+                  { type: 'text', text: prompt },
+                  {
+                    type: 'image_url',
+                    image_url: { url: `data:${finalMimeType};base64,${imageBase64}` },
+                  },
+                ],
+              },
+            ],
+            response_format: { type: 'json_object' },
+          });
+
+          const rawOpenAI = openaiResponse.choices[0]?.message?.content || '{}';
+          parsed = JSON.parse(rawOpenAI);
+        } catch (openaiErr: any) {
+          console.error('[ai/verify-ktm] Kedua AI Vision gagal:', openaiErr.message);
+          return NextResponse.json({
+            success: false,
+            message: 'Sistem AI tidak dapat memproses gambar saat ini. Coba lagi nanti.',
+          }, { status: 503 });
+        }
       }
 
-      if (!parsed || !parsed.valid || (!parsed.nim && !parsed.name)) {
+      if (!parsed || !parsed.valid || !parsed.nim || !parsed.name || !parsed.university || parsed.university === 'Universitas Terdeteksi') {
         return NextResponse.json({
           success: false,
-          message: 'KTM tidak terbaca jelas. Coba foto ulang dengan pencahayaan yang lebih baik.',
+          message: 'KTM tidak terbaca lengkap. Pastikan foto memperlihatkan Nama Mahasiswa, NIM, dan Nama Kampus dengan jelas.',
         }, { status: 422 });
       }
 
-      extractedName = parsed.name || '';
-      extractedNim = parsed.nim || '';
-      extractedUniv = parsed.university || 'Universitas Terdeteksi';
+      extractedName = parsed.name;
+      extractedNim = parsed.nim;
+      extractedUniv = parsed.university;
+    }
+
+    // Validasi akhir ketat
+    if (!extractedNim || !extractedName || !extractedUniv || extractedUniv === 'Universitas Terdeteksi') {
+      return NextResponse.json({
+        success: false,
+        message: 'KTM tidak terbaca lengkap. Pastikan foto memperlihatkan Nama Mahasiswa, NIM, dan Nama Kampus dengan jelas.',
+      }, { status: 422 });
     }
 
     const ktmToken = generateKtmToken(extractedNim, extractedName);

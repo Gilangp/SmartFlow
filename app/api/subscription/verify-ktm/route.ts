@@ -1,9 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyToken, extractTokenFromHeader } from '@/lib/auth';
 import { GoogleGenerativeAI } from '@google/generative-ai';
+import OpenAI from 'openai';
 import { prisma } from '@/lib/db';
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
+const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY || '' });
 
 // POST /api/subscription/verify-ktm
 export async function POST(request: NextRequest) {
@@ -53,15 +55,16 @@ export async function POST(request: NextRequest) {
           const ocrResult = await ocrResponse.json();
           const data = ocrResult?.data;
 
-          // Cek apakah field penting berhasil diekstrak
-          if (ocrResult.success && data?.nim && data?.name) {
+          const detectedUniv = detectUniversity(data?.raw_text || data?.study_program || data?.faculty || '');
+          // Cek ketat: harus ada NIM, Nama, dan Kampus terdeteksi
+          if (ocrResult.success && data?.nim && data?.name && detectedUniv !== 'Universitas Terdeteksi') {
             extractedName = data.name;
             extractedNim = data.nim;
-            extractedUniv = detectUniversity(data.raw_text || '');
+            extractedUniv = detectedUniv;
             isOcrSuccessful = true;
-            console.log('[KTM] Berhasil diverifikasi via FastAPI OCR.');
+            console.log('[KTM] Berhasil diverifikasi lengkap via FastAPI OCR.');
           } else {
-            console.warn('[KTM] FastAPI OCR berhasil merespon namun data KTM tidak lengkap, beralih ke Gemini...');
+            console.warn('[KTM] FastAPI OCR berhasil namun data (NIM/Nama/Kampus) tidak lengkap 100%, beralih ke AI Vision...');
           }
         } else {
           console.warn(`[KTM] FastAPI OCR HTTP ${ocrResponse.status}, beralih ke Gemini...`);
@@ -73,15 +76,16 @@ export async function POST(request: NextRequest) {
       console.warn('[KTM] OCR_BACKEND_URL tidak dikonfigurasi, langsung menggunakan Gemini Vision.');
     }
 
-    // ── 3. TAHAP 2: FALLBACK KE GEMINI VISION (JIKA FASTAPI OCR GAGAL) ──────
+    // ── 3. TAHAP 2: FALLBACK KE GEMINI / OPENAI VISION (JIKA FASTAPI OCR GAGAL) ──
     if (!isOcrSuccessful) {
       console.log('[KTM] Menggunakan Gemini Vision sebagai fallback...');
 
       const prompt = `
 Kamu adalah sistem pendeteksi Kartu Tanda Mahasiswa (KTM) Indonesia.
 Tugasmu adalah membaca kartu identitas dari gambar ini.
-Jika gambar ini bukan KTM atau kartu pelajar/identitas mahasiswa, kembalikan valid = false.
-Jika ini adalah KTM, ekstrak nama mahasiswa, NIM (Nomor Induk Mahasiswa), dan nama Universitas/Kampus.
+Jika gambar ini bukan KTM atau kartu pelajar/identitas mahasiswa, ATAU jika teksnya tidak terbaca jelas, kembalikan valid = false.
+Jika ini adalah KTM yang jelas, ekstrak nama mahasiswa, NIM (Nomor Induk Mahasiswa), dan nama Universitas/Kampus/Politeknik/Institut.
+WAJIB: Ketiganya (name, nim, university) harus terbaca dengan jelas. Jika ada salah satu yang kosong atau tidak terbaca, kembalikan valid = false.
 Kembalikan response HANYA dalam format JSON persis seperti ini, tanpa teks pengantar:
 {
   "valid": true,
@@ -90,6 +94,8 @@ Kembalikan response HANYA dalam format JSON persis seperti ini, tanpa teks penga
   "university": "Nama Universitas/Institut/Politeknik"
 }
       `.trim();
+
+      let parsed: any = null;
 
       try {
         const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
@@ -101,7 +107,6 @@ Kembalikan response HANYA dalam format JSON persis seperti ini, tanpa teks penga
         const responseText = result.response.text();
         const cleaned = responseText.replace(/```json/g, '').replace(/```/g, '').trim();
 
-        let parsed: any;
         try {
           parsed = JSON.parse(cleaned);
         } catch {
@@ -109,31 +114,56 @@ Kembalikan response HANYA dalam format JSON persis seperti ini, tanpa teks penga
           if (match) parsed = JSON.parse(match[0]);
         }
 
-        if (!parsed || !parsed.valid) {
-          return NextResponse.json({
-            success: false,
-            message: 'Gambar tidak terdeteksi sebagai KTM yang valid. Coba foto ulang dengan pencahayaan yang lebih baik.',
-          }, { status: 422 });
-        }
-
-        extractedName = parsed.name || '';
-        extractedNim = parsed.nim || '';
-        extractedUniv = parsed.university || 'Universitas Terdeteksi';
         console.log('[KTM] Berhasil diverifikasi via Gemini Vision Fallback.');
       } catch (geminiErr: any) {
-        console.error('[KTM] Gemini Vision juga gagal:', geminiErr.message);
+        console.warn('[KTM] Gemini Vision gagal/limit, beralih ke OpenAI Vision...', geminiErr.message);
+        try {
+          const openaiResponse = await openai.chat.completions.create({
+            model: 'gpt-4o-mini',
+            messages: [
+              {
+                role: 'user',
+                content: [
+                  { type: 'text', text: prompt },
+                  {
+                    type: 'image_url',
+                    image_url: { url: `data:${finalMimeType};base64,${imageBase64}` },
+                  },
+                ],
+              },
+            ],
+            response_format: { type: 'json_object' },
+          });
+
+          const rawOpenAI = openaiResponse.choices[0]?.message?.content || '{}';
+          parsed = JSON.parse(rawOpenAI);
+          console.log('[KTM] Berhasil diverifikasi via OpenAI Vision Fallback.');
+        } catch (openaiErr: any) {
+          console.error('[KTM] Kedua AI Vision gagal:', openaiErr.message);
+          return NextResponse.json({
+            success: false,
+            message: 'Sistem AI tidak dapat memproses gambar saat ini. Coba lagi nanti.',
+          }, { status: 503 });
+        }
+      }
+
+      if (!parsed || !parsed.valid || !parsed.nim || !parsed.name || !parsed.university || parsed.university === 'Universitas Terdeteksi') {
         return NextResponse.json({
           success: false,
-          message: 'Sistem AI tidak dapat memproses gambar saat ini. Coba lagi nanti.',
-        }, { status: 503 });
+          message: 'KTM tidak terbaca lengkap. Pastikan foto memperlihatkan Nama Mahasiswa, NIM, dan Nama Kampus dengan jelas.',
+        }, { status: 422 });
       }
+
+      extractedName = parsed.name;
+      extractedNim = parsed.nim;
+      extractedUniv = parsed.university;
     }
 
-    // Validasi akhir
-    if (!extractedNim && !extractedName) {
+    // Validasi akhir ketat
+    if (!extractedNim || !extractedName || !extractedUniv || extractedUniv === 'Universitas Terdeteksi') {
       return NextResponse.json({
         success: false,
-        message: 'KTM tidak terbaca jelas. Pastikan seluruh kartu terlihat dan foto tidak buram.',
+        message: 'KTM tidak terbaca lengkap. Pastikan foto memperlihatkan Nama Mahasiswa, NIM, dan Nama Kampus dengan jelas.',
       }, { status: 422 });
     }
 
