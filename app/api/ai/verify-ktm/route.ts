@@ -48,6 +48,7 @@ export async function POST(request: NextRequest) {
         if (ocrResponse.ok) {
           const ocrResult = await ocrResponse.json();
           const data = ocrResult?.data;
+          console.log('[ai/verify-ktm] Hasil ekstraksi FastAPI OCR:', JSON.stringify(data));
           const detectedUniv = detectUniversity(data?.raw_text || data?.study_program || data?.faculty || '');
           // Cek ketat: harus ada NIM, Nama, dan Kampus terdeteksi
           if (ocrResult.success && data?.nim && data?.name && detectedUniv !== 'Universitas Terdeteksi') {
