@@ -218,6 +218,8 @@ Kembalikan response HANYA dalam format JSON persis seperti ini, tanpa teks penga
       create: { userId: decoded.userId, plan: 'STUDENT', status: 'ACTIVE', expiresAt: null },
     });
 
+    console.log('[KTM] ✅ Verifikasi Sukses! Data terdeteksi:', JSON.stringify({ name: extractedName, nim: extractedNim, university: extractedUniv }));
+
     return NextResponse.json({
       success: true,
       message: 'KTM berhasil diverifikasi',

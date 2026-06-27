@@ -44,6 +44,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, message: 'Gambar struk wajib diunggah' }, { status: 400 });
     }
 
+    // Bersihkan prefix header data URL jika ada
+    const cleanBase64 = imageBase64.includes(',') ? imageBase64.split(',')[1] : imageBase64;
+
     const validMimeTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/heic'];
     const finalMimeType = validMimeTypes.includes(mimeType) ? mimeType : 'image/jpeg';
     const extension = finalMimeType.split('/')[1] === 'heic' ? 'jpg' : finalMimeType.split('/')[1];
@@ -56,7 +59,7 @@ export async function POST(request: NextRequest) {
 
     if (ocrBackendUrl) {
       try {
-        const buffer = Buffer.from(imageBase64, 'base64');
+        const buffer = Buffer.from(cleanBase64, 'base64');
         const blob = new Blob([buffer], { type: finalMimeType });
         const formData = new FormData();
         formData.append('file', blob, `receipt.${extension}`);
@@ -182,7 +185,7 @@ Rules:
         const result = await model.generateContent([
           {
             inlineData: {
-              data: imageBase64,
+              data: cleanBase64,
               mimeType: finalMimeType as 'image/jpeg' | 'image/png' | 'image/webp' | 'image/heic',
             },
           },
@@ -211,23 +214,28 @@ Rules:
 
     // ── 7. VALIDASI DATA HASIL PARSING ────────────────────────────────────────
     if (!parsed || !parsed.totalAmount) {
+      console.warn('[SCAN] ❌ Gagal verifikasi struk! Hasil parsing tidak menemukan nominal atau struk tidak terbaca:', JSON.stringify(parsed));
       return NextResponse.json({
         success: false,
         message: 'Struk tidak terbaca. Coba foto ulang dengan pencahayaan yang lebih baik.',
       }, { status: 422 });
     }
 
+    const responseData = {
+      merchant: parsed.merchant || 'Tidak diketahui',
+      amount: parsed.totalAmount,
+      date: parsed.date || new Date().toISOString().split('T')[0],
+      items: parsed.items || [],
+      category: parsed.category || 'Lainnya',
+      confidence: parsed.confidence || 'MEDIUM',
+    };
+
+    console.log('[SCAN] ✅ Sukses membaca struk! Data didapat:', JSON.stringify(responseData));
+
     return NextResponse.json({
       success: true,
       message: 'Struk berhasil dibaca',
-      data: {
-        merchant: parsed.merchant || 'Tidak diketahui',
-        amount: parsed.totalAmount,
-        date: parsed.date || new Date().toISOString().split('T')[0],
-        items: parsed.items || [],
-        category: parsed.category || 'Lainnya',
-        confidence: parsed.confidence || 'MEDIUM',
-      },
+      data: responseData,
     });
   } catch (error: any) {
     console.error('Scan receipt error:', error.message);

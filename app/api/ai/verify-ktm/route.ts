@@ -164,6 +164,8 @@ Kembalikan HANYA JSON ini tanpa teks lain:
 
     const ktmToken = generateKtmToken(extractedNim, extractedName);
 
+    console.log('[ai/verify-ktm] ✅ Verifikasi Sukses! Data terdeteksi:', JSON.stringify({ name: extractedName, nim: extractedNim, university: extractedUniv }));
+
     return NextResponse.json({
       success: true,
       message: 'KTM berhasil diverifikasi',
