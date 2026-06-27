@@ -18,6 +18,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, message: 'Image is required' }, { status: 400 });
     }
 
+    // Bersihkan prefix data:image/...;base64, jika ada dari frontend
+    const cleanBase64 = imageBase64.replace(/^data:image\/\w+;base64,/, '');
+
     const validMimeTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/heic'];
     const finalMimeType = validMimeTypes.includes(mimeType) ? mimeType : 'image/jpeg';
     const extension = finalMimeType === 'image/heic' ? 'jpg' : finalMimeType.split('/')[1];
@@ -33,7 +36,7 @@ export async function POST(request: NextRequest) {
 
     if (ocrBackendUrl) {
       try {
-        const buffer = Buffer.from(imageBase64, 'base64');
+        const buffer = Buffer.from(cleanBase64, 'base64');
         const blob = new Blob([buffer], { type: finalMimeType });
         const formData = new FormData();
         formData.append('file', blob, `ktm.${extension}`);
@@ -79,7 +82,7 @@ Kembalikan HANYA JSON ini tanpa teks lain:
       try {
         const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
         const result = await model.generateContent([
-          { inlineData: { data: imageBase64, mimeType: finalMimeType as any } },
+          { inlineData: { data: cleanBase64, mimeType: finalMimeType as any } },
           prompt,
         ]);
         const responseText = result.response.text();
@@ -103,7 +106,7 @@ Kembalikan HANYA JSON ini tanpa teks lain:
                   { type: 'text', text: prompt },
                   {
                     type: 'image_url',
-                    image_url: { url: `data:${finalMimeType};base64,${imageBase64}` },
+                    image_url: { url: `data:${finalMimeType};base64,${cleanBase64}` },
                   },
                 ],
               },
