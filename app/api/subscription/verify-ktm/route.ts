@@ -60,9 +60,27 @@ export async function POST(request: NextRequest) {
           console.log('[KTM] Hasil ekstraksi FastAPI OCR:', JSON.stringify(data));
 
           const detectedUniv = detectUniversity(data?.raw_text || data?.study_program || data?.faculty || '');
+          let detectedName = data?.name || '';
+
+          // Fallback ekstraksi nama dari raw_text jika data.name kosong
+          if (!detectedName && data?.nim && data?.raw_text) {
+            const lines = data.raw_text.split('\n').map((l: string) => l.trim()).filter(Boolean);
+            const nimIdx = lines.findIndex((l: string) => l.includes(data.nim));
+            if (nimIdx !== -1) {
+              const ignore = ['politeknik', 'universitas', 'institut', 'sekolah', 'tinggi', 'negeri', 'teknik', 'informatika', 'fakultas', 'prodi', 'program', 'studi', 'kartu', 'tanda', 'mahasiswa', 'month', 'year', 'valid', 'berlaku', 'bni', 'bri', 'bca', 'mandiri', 'bank', 'd-i', 'd-ii', 'd-iii', 'd-iv', 's1', 's2', 's3', 'hru', 'ialid'];
+              const cands = [lines[nimIdx + 1], lines[nimIdx - 1]].filter(Boolean);
+              for (const c of cands) {
+                if (c.length >= 3 && !/\d/.test(c) && !ignore.some(iw => c.toLowerCase().includes(iw))) {
+                  detectedName = c;
+                  break;
+                }
+              }
+            }
+          }
+
           // Cek ketat: harus ada NIM, Nama, dan Kampus terdeteksi
-          if (ocrResult.success && data?.nim && data?.name && detectedUniv !== 'Universitas Terdeteksi') {
-            extractedName = data.name;
+          if (ocrResult.success && data?.nim && detectedName && detectedUniv !== 'Universitas Terdeteksi') {
+            extractedName = detectedName;
             extractedNim = data.nim;
             extractedUniv = detectedUniv;
             isOcrSuccessful = true;
@@ -236,6 +254,7 @@ function detectUniversity(text: string): string {
   if (t.includes('itb') || t.includes('teknologi bandung')) return 'Institut Teknologi Bandung';
   if (t.includes('its') || t.includes('sepuluh nopember')) return 'Institut Teknologi Sepuluh Nopember';
   if (t.includes('ipb')) return 'Institut Pertanian Bogor';
+  if (t.includes('polinema') || (t.includes('politeknik') && (t.includes('malang') || t.includes('negeri'))) || t.includes('negerimalang')) return 'Politeknik Negeri Malang';
 
   const match = text.match(/(universitas|institut|politeknik|sekolah tinggi)\s+[a-zA-Z\s]{3,}/i);
   return match ? match[0].trim() : 'Universitas Terdeteksi';
