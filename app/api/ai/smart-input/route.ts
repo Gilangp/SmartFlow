@@ -3,6 +3,7 @@ import { verifyToken, extractTokenFromHeader } from '@/lib/auth';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import OpenAI from 'openai';
 import { prisma } from '@/lib/db';
+import { callHuggingFace } from '@/lib/huggingface';
 
 const genAI = new GoogleGenerativeAI(
   process.env.GEMINI_API_KEY || process.env.GOOGLE_AI_API_KEY || ''
@@ -143,62 +144,71 @@ Input:
 "${text}"
 `;
 
-    try {
-      let rawText = '';
-      try {
-        const model = genAI.getGenerativeModel({
-          model: 'gemini-2.0-flash',
-        });
+    let rawText = '';
 
-        const result = await model.generateContent(prompt);
-        const response = await result.response;
-        rawText = response.text();
-      } catch (geminiError: any) {
-        console.warn('Gemini error on smart input, falling back to OpenAI...', geminiError.message);
+    // ── 1. GEMINI 2.0 FLASH (UTAMA) ──────────────────────────────────────────
+    try {
+      const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
+      const result = await model.generateContent(prompt);
+      const response = await result.response;
+      rawText = response.text();
+      console.log('[SMART INPUT] ✅ Berhasil via Gemini 2.0 Flash.');
+    } catch (geminiError: any) {
+      console.warn('[SMART INPUT] Gemini gagal, beralih ke Hugging Face...', geminiError.message);
+
+      // ── 2. HUGGING FACE (FALLBACK GRATIS) ──────────────────────────────────
+      try {
+        rawText = await callHuggingFace(prompt, {
+          maxNewTokens: 256,
+          temperature: 0.1, // Suhu rendah untuk JSON yang konsisten
+        });
+        console.log('[SMART INPUT] ✅ Berhasil via Hugging Face.');
+      } catch (hfError: any) {
+        console.warn('[SMART INPUT] Hugging Face gagal, beralih ke OpenAI...', hfError.message);
+
+        // ── 3. OPENAI GPT-4O-MINI (FALLBACK BERBAYAR) ──────────────────────
         try {
           const openaiResponse = await openai.chat.completions.create({
             model: 'gpt-4o-mini',
             messages: [{ role: 'user', content: prompt }],
           });
           rawText = openaiResponse.choices[0]?.message?.content || '';
+          console.log('[SMART INPUT] ✅ Berhasil via OpenAI gpt-4o-mini.');
         } catch (openaiError: any) {
-          throw new Error('Both AI providers failed');
+          console.warn('[SMART INPUT] OpenAI juga gagal. Menggunakan regex fallback.', openaiError.message);
+          // ── 4. REGEX LOKAL (SAFETY NET) ──────────────────────────────────
+          const fallback = fallbackParser(text);
+          return NextResponse.json({
+            success: true,
+            message: 'Fallback regex mode used',
+            data: {
+              amount: fallback.totalAmount,
+              category: fallback.category,
+              notes: fallback.notes,
+            },
+          });
         }
       }
-
-      const cleaned = cleanAIResponse(rawText);
-      let parsed = safeParseJSON(cleaned);
-
-      // 🔥 FALLBACK kalau AI gagal
-      if (!parsed || !parsed.totalAmount) {
-        parsed = fallbackParser(text);
-      }
-
-      return NextResponse.json({
-        success: true,
-        message: 'Text processed successfully',
-        data: {
-          amount: parsed.totalAmount,
-          category: parsed.category || 'Lainnya',
-          notes: parsed.notes || text,
-        },
-      });
-    } catch (aiError) {
-      console.error('AI Processing Error:', aiError);
-
-      // 🔥 FULL FALLBACK (no AI)
-      const fallback = fallbackParser(text);
-
-      return NextResponse.json({
-        success: true,
-        message: 'Fallback mode used',
-        data: {
-          amount: fallback.totalAmount,
-          category: fallback.category,
-          notes: fallback.notes,
-        },
-      });
     }
+
+    // ── PARSE & RETURN HASIL AI ───────────────────────────────────────────────
+    const cleaned = cleanAIResponse(rawText);
+    let parsed = safeParseJSON(cleaned);
+
+    // 🔥 FALLBACK kalau semua AI berhasil dipanggil tapi JSON tidak valid
+    if (!parsed || !parsed.totalAmount) {
+      parsed = fallbackParser(text);
+    }
+
+    return NextResponse.json({
+      success: true,
+      message: 'Text processed successfully',
+      data: {
+        amount: parsed.totalAmount,
+        category: parsed.category || 'Lainnya',
+        notes: parsed.notes || text,
+      },
+    });
   } catch (error) {
     console.error('Smart Input error:', error);
 

@@ -3,15 +3,16 @@ import { verifyToken, extractTokenFromHeader } from '@/lib/auth';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import OpenAI from 'openai';
 import { getUserSubscription } from '@/lib/subscription';
+import { callHuggingFace, extractJsonFromHfOutput } from '@/lib/huggingface';
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY || '' });
 
 // POST /api/ai/scan-receipt
-// Strategi Hybrid:
-//   1. Gambar dikirim ke FastAPI OCR untuk mendapatkan raw text (gratis, cepat)
-//   2. Raw text dikirim ke Gemini 1.5 Flash TEXT (bukan Vision) untuk diparsing
-//      → Jauh lebih murah dari mengirim gambar ke Gemini Vision
+// Strategi Hybrid Bertingkat:
+//   1. Gambar → FastAPI OCR (gratis, cepat) → dapat raw text
+//   2. Raw text → Gemini Text → Hugging Face Text → OpenAI Text (hemat, urutan biaya naik)
+//   3. Jika tidak ada raw text sama sekali → Vision Fallback (Gemini Vision → OpenAI Vision)
 export async function POST(request: NextRequest) {
   try {
     // ── 1. AUTH ──────────────────────────────────────────────────────────────
@@ -72,7 +73,7 @@ export async function POST(request: NextRequest) {
           method: 'POST',
           body: formData,
           headers: ocrApiKey ? { 'X-API-Key': ocrApiKey } : {},
-          signal: AbortSignal.timeout(20000), // timeout 20 detik
+          signal: AbortSignal.timeout(20000),
         });
 
         if (ocrResponse.ok) {
@@ -92,6 +93,7 @@ export async function POST(request: NextRequest) {
           }
 
           if (totalAmount > 0) {
+            // FastAPI OCR berhasil penuh — tidak butuh AI sama sekali!
             parsed = {
               merchant: data?.merchant || 'Toko Terdeteksi',
               totalAmount: totalAmount,
@@ -104,7 +106,7 @@ export async function POST(request: NextRequest) {
             console.log('[SCAN] ✅ Berhasil diekstrak lengkap via FastAPI OCR lokal tanpa AI eksternal.');
           } else if (rawText.trim().length > 20) {
             rawOcrSuccess = true;
-            console.log('[SCAN] Raw text diekstrak via FastAPI OCR:', rawText.length, 'karakter, lanjut ke AI...');
+            console.log('[SCAN] Raw text diekstrak via FastAPI OCR:', rawText.length, 'karakter, lanjut ke AI Text Mode...');
           }
         } else {
           console.warn(`[SCAN] FastAPI OCR HTTP ${ocrResponse.status}.`);
@@ -116,8 +118,9 @@ export async function POST(request: NextRequest) {
       console.warn('[SCAN] OCR_BACKEND_URL tidak dikonfigurasi, langsung menggunakan Gemini Vision.');
     }
 
-    // ── 5. TAHAP 2A: PARSING DENGAN GEMINI TEXT (JIKA FASTAPI OCR BERHASIL) ──
-    // Hemat token: kirim teks biasa, bukan gambar
+    // ── 5. TAHAP 2A: PARSING TEKS (JIKA FASTAPI OCR DAPAT RAW TEXT) ──────────
+    // Urutan: Gemini Text → Hugging Face Text → OpenAI Text
+    // Hemat: kirim teks biasa, bukan gambar
     if (!parsed && rawOcrSuccess && rawText) {
       const textPrompt = `
 Kamu adalah parser struk/kwitansi Indonesia yang sangat akurat.
@@ -147,57 +150,77 @@ Rules:
 - confidence: HIGH jika teks jelas, MEDIUM jika agak berantakan, LOW jika tidak yakin
       `.trim();
 
+      // ── 5a. GEMINI TEXT ─────────────────────────────────────────────────────
       try {
-        console.log('[SCAN] Memproses raw text dengan Gemini 1.5 Flash (Text Mode)...');
+        console.log('[SCAN] Memproses raw text dengan Gemini 2.0 Flash (Text Mode)...');
         const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
         const result = await model.generateContent(textPrompt);
         const responseText = result.response.text();
         const cleaned = responseText.replace(/```json/g, '').replace(/```/g, '').trim();
 
-        try {
-          parsed = JSON.parse(cleaned);
-        } catch {
+        try { parsed = JSON.parse(cleaned); } catch {
           const match = cleaned.match(/\{[\s\S]*\}/);
           if (match) parsed = JSON.parse(match[0]);
         }
 
         if (parsed?.totalAmount) {
-          console.log('[SCAN] Parsing berhasil via Gemini Text (Hybrid Mode).');
+          console.log('[SCAN] ✅ Parsing berhasil via Gemini Text (Hybrid Mode).');
         } else {
-          console.warn('[SCAN] Gemini Text tidak menghasilkan data valid, beralih ke Gemini Vision...');
           parsed = null;
+          throw new Error('Gemini Text tidak menghasilkan totalAmount yang valid');
         }
       } catch (textParseErr: any) {
-        console.warn('[SCAN] Gemini Text parsing gagal:', textParseErr.message);
-        if (process.env.OPENAI_API_KEY) {
-          try {
-            console.log('[SCAN] Beralih ke OpenAI gpt-4o-mini (Text Mode)...');
-            const completion = await openai.chat.completions.create({
-              model: 'gpt-4o-mini',
-              messages: [{ role: 'user', content: textPrompt }],
-              response_format: { type: 'json_object' },
-            });
-            const content = completion.choices[0]?.message?.content || '{}';
-            parsed = JSON.parse(content);
-            if (parsed?.totalAmount) {
-              console.log('[SCAN] Berhasil diproses via OpenAI gpt-4o-mini (Text Mode).');
-            } else {
-              parsed = null;
-            }
-          } catch (openaiErr: any) {
-            console.warn('[SCAN] OpenAI Text fallback juga gagal:', openaiErr.message);
+        console.warn('[SCAN] Gemini Text gagal:', textParseErr.message);
+      }
+
+      // ── 5b. HUGGING FACE TEXT (jika Gemini Text gagal) ─────────────────────
+      if (!parsed) {
+        try {
+          console.log('[SCAN] Memproses raw text dengan Hugging Face (Text Mode)...');
+          const hfOutput = await callHuggingFace(textPrompt, {
+            maxNewTokens: 400,
+            temperature: 0.1,
+          });
+          parsed = extractJsonFromHfOutput(hfOutput);
+
+          if (parsed?.totalAmount) {
+            console.log('[SCAN] ✅ Parsing berhasil via Hugging Face Text (Hybrid Mode).');
+          } else {
+            parsed = null;
+            throw new Error('Hugging Face tidak menghasilkan totalAmount yang valid');
+          }
+        } catch (hfErr: any) {
+          console.warn('[SCAN] Hugging Face Text gagal:', hfErr.message);
+        }
+      }
+
+      // ── 5c. OPENAI TEXT (jika HF juga gagal) ───────────────────────────────
+      if (!parsed && process.env.OPENAI_API_KEY) {
+        try {
+          console.log('[SCAN] Beralih ke OpenAI gpt-4o-mini (Text Mode)...');
+          const completion = await openai.chat.completions.create({
+            model: 'gpt-4o-mini',
+            messages: [{ role: 'user', content: textPrompt }],
+            response_format: { type: 'json_object' },
+          });
+          const content = completion.choices[0]?.message?.content || '{}';
+          parsed = JSON.parse(content);
+          if (parsed?.totalAmount) {
+            console.log('[SCAN] ✅ Berhasil diproses via OpenAI gpt-4o-mini (Text Mode).');
+          } else {
             parsed = null;
           }
-        } else {
+        } catch (openaiErr: any) {
+          console.warn('[SCAN] OpenAI Text fallback juga gagal:', openaiErr.message);
           parsed = null;
         }
       }
     }
 
-    // ── 6. TAHAP 2B: FALLBACK KE GEMINI VISION (JIKA HYBRID GAGAL) ──────────
-    // Digunakan jika FastAPI tidak tersedia ATAU raw text tidak cukup baik
+    // ── 6. TAHAP 2B: FALLBACK VISION (JIKA TIDAK ADA RAW TEXT SAMA SEKALI) ───
+    // Hanya digunakan jika FastAPI OCR tidak bisa menghasilkan teks apapun
     if (!parsed) {
-      console.log('[SCAN] Menggunakan Gemini Vision sebagai fallback langsung...');
+      console.log('[SCAN] Tidak ada raw text dari OCR. Menggunakan Vision fallback...');
 
       const visionPrompt = `
 Kamu adalah OCR cerdas untuk struk/kwitansi Indonesia.
@@ -222,6 +245,7 @@ Rules:
 - confidence: HIGH jika struk jelas, MEDIUM jika agak buram, LOW jika tidak yakin
       `.trim();
 
+      // ── 6a. GEMINI VISION ───────────────────────────────────────────────────
       try {
         const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
         const result = await model.generateContent([
@@ -237,16 +261,16 @@ Rules:
         const responseText = result.response.text();
         const cleaned = responseText.replace(/```json/g, '').replace(/```/g, '').trim();
 
-        try {
-          parsed = JSON.parse(cleaned);
-        } catch {
+        try { parsed = JSON.parse(cleaned); } catch {
           const match = cleaned.match(/\{[\s\S]*\}/);
           if (match) parsed = JSON.parse(match[0]);
         }
 
-        console.log('[SCAN] Berhasil diproses via Gemini Vision Fallback.');
+        console.log('[SCAN] ✅ Berhasil diproses via Gemini Vision Fallback.');
       } catch (visionErr: any) {
         console.warn('[SCAN] Gemini Vision fallback gagal:', visionErr.message);
+
+        // ── 6b. OPENAI VISION ─────────────────────────────────────────────────
         if (process.env.OPENAI_API_KEY) {
           try {
             console.log('[SCAN] Beralih ke OpenAI gpt-4o-mini (Vision Mode)...');
@@ -266,7 +290,7 @@ Rules:
             const content = completion.choices[0]?.message?.content || '{}';
             parsed = JSON.parse(content);
             if (parsed?.totalAmount) {
-              console.log('[SCAN] Berhasil diproses via OpenAI gpt-4o-mini (Vision Mode).');
+              console.log('[SCAN] ✅ Berhasil diproses via OpenAI gpt-4o-mini (Vision Mode).');
             } else {
               parsed = null;
             }
@@ -288,7 +312,7 @@ Rules:
 
     // ── 7. VALIDASI DATA HASIL PARSING ────────────────────────────────────────
     if (!parsed || !parsed.totalAmount) {
-      console.warn('[SCAN] ❌ Gagal verifikasi struk! Hasil parsing tidak menemukan nominal atau struk tidak terbaca:', JSON.stringify(parsed));
+      console.warn('[SCAN] ❌ Gagal verifikasi struk! Hasil parsing tidak menemukan nominal:', JSON.stringify(parsed));
       return NextResponse.json({
         success: false,
         message: 'Struk tidak terbaca. Coba foto ulang dengan pencahayaan yang lebih baik.',

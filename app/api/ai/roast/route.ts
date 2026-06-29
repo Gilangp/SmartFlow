@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { verifyToken, extractTokenFromHeader } from '@/lib/auth';
 import { prisma } from '@/lib/db';
 import { GoogleGenerativeAI } from '@google/generative-ai';
+import { callHuggingFace } from '@/lib/huggingface';
 
 export const dynamic = 'force-dynamic';
 
@@ -61,7 +62,7 @@ Langsung roasting (tanpa tanda kutip, tanpa penjelasan)
 `;
 }
 
-// Helper: fallback roast
+// Helper: static fallback roast (safety net terakhir jika semua AI gagal)
 function fallbackRoast(totalIncome: number, totalExpense: number, balance: number) {
   const overspending = [
     'Gaya hidup sultan, pemasukan rakyat jelata. Konsisten... bikin minus.',
@@ -210,38 +211,51 @@ export async function GET(request: NextRequest) {
     });
 
     // =====================
-    // AI CALL
+    // AI CALL — BERTINGKAT
     // =====================
-    try {
-      const model = genAI.getGenerativeModel({
-        model: 'gemini-2.0-flash',
-      });
 
+    // ── 1. GEMINI 2.0 FLASH (UTAMA) ──────────────────────────────────────────
+    try {
+      const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
       const result = await model.generateContent(prompt);
       const response = await result.response;
       let text = response.text().trim();
-
-      // clean weird formatting
       text = text.replace(/^["']|["']$/g, '');
 
-      if (!text || text.length < 10) {
-        throw new Error('AI returned weak response');
+      if (!text || text.length < 10) throw new Error('Gemini returned weak response');
+
+      console.log('[ROAST] ✅ Berhasil via Gemini 2.0 Flash.');
+      return NextResponse.json({ success: true, data: { message: text } });
+    } catch (geminiError: any) {
+      console.warn('[ROAST] Gemini gagal, beralih ke Hugging Face...', geminiError.message);
+    }
+
+    // ── 2. HUGGING FACE QWEN 2.5 (FALLBACK GRATIS) ───────────────────────────
+    try {
+      const hfText = await callHuggingFace(prompt, {
+        maxNewTokens: 200,
+        temperature: 0.75, // Suhu lebih tinggi agar roasting lebih kreatif & variatif
+      });
+
+      const cleaned = hfText.replace(/^["']|["']$/g, '').trim();
+
+      if (cleaned && cleaned.length >= 10) {
+        console.log('[ROAST] ✅ Berhasil via Hugging Face.');
+        return NextResponse.json({ success: true, data: { message: cleaned } });
       }
 
-      return NextResponse.json({
-        success: true,
-        data: { message: text },
-      });
-    } catch (aiError) {
-      console.error('AI ERROR:', aiError);
-
-      return NextResponse.json({
-        success: true,
-        data: {
-          message: fallbackRoast(totalIncome, totalExpense, balance),
-        },
-      });
+      throw new Error('Hugging Face returned weak response');
+    } catch (hfError: any) {
+      console.warn('[ROAST] Hugging Face gagal, beralih ke static fallback...', hfError.message);
     }
+
+    // ── 3. STATIC ROAST POOL (SAFETY NET TERAKHIR) ────────────────────────────
+    console.log('[ROAST] Menggunakan static roast pool sebagai safety net.');
+    return NextResponse.json({
+      success: true,
+      data: { message: fallbackRoast(totalIncome, totalExpense, balance) },
+    });
+
   } catch (error) {
     console.error('ROAST ERROR:', error);
 
