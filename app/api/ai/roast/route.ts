@@ -25,12 +25,22 @@ function buildRoastPrompt({
   totalIncome,
   totalExpense,
   balance,
+  dailyAllowance,
+  daysLeftInMonth,
+  todayExpense,
+  yesterdayExpense,
+  spendingAlert,
   expenses,
   tone,
 }: {
   totalIncome: number;
   totalExpense: number;
   balance: number;
+  dailyAllowance: number;
+  daysLeftInMonth: number;
+  todayExpense: number;
+  yesterdayExpense: number;
+  spendingAlert?: string;
   expenses: string[];
   tone: string;
 }) {
@@ -43,30 +53,35 @@ Tugas:
 - Harus relevan dari data
 - Maksimal 2-3 baris (WAJIB singkat)
 
-Data:
-- Pemasukan: Rp ${totalIncome}
-- Pengeluaran: Rp ${totalExpense}
-- Sisa saldo: Rp ${balance}
+Data Keuangan Terkini:
+- Sisa Saldo Dompet Utama: Rp ${balance}
+- Sisa Hari Bulan Ini: ${daysLeftInMonth} hari lagi
+- Jatah Harian Ideal: Rp ${dailyAllowance}/hari
+- Pengeluaran Hari Ini: Rp ${todayExpense} (Kemarin: Rp ${yesterdayExpense})
+- Total Pemasukan 7 Hari: Rp ${totalIncome}
+- Total Pengeluaran 7 Hari: Rp ${totalExpense}
+${spendingAlert ? `\n⚠️ PERINGATAN SISTEM: ${spendingAlert}\n(Gunakan info peringatan ini untuk menyindir kelakuan borosnya secara menohok!)` : ''}
 
-Rincian:
-${expenses.join('\n')}
+Rincian Transaksi Pengeluaran Terakhir:
+${expenses.slice(-15).join('\n')}
 
 Aturan:
 - Jangan terlalu panjang
 - Jangan generik
-- Harus spesifik dari data
-- Gunakan bahasa santai Indonesia
+- Harus spesifik menyindir dari data di atas (bandingkan saldo/jatah harian dengan jajanannya atau lonjakan hari ini)
+- Gunakan bahasa santai Indonesia ala anak muda
 
 Output:
 Langsung roasting (tanpa tanda kutip, tanpa penjelasan)
-`;
+`.trim();
 }
 
 // Helper: static fallback roast (safety net terakhir jika semua AI gagal)
-function fallbackRoast(totalIncome: number, totalExpense: number, balance: number) {
+function fallbackRoast(totalIncome: number, totalExpense: number, balance: number, dailyAllowance: number) {
   const overspending = [
     'Gaya hidup sultan, pemasukan rakyat jelata. Konsisten... bikin minus.',
     'Dompet menangis lihat mutasi rekeningmu. Udah miskin, maksa gaya.',
+    `Jatah harianmu cuma Rp ${dailyAllowance.toLocaleString('id-ID')}/hari. Jangan sok-sokan jajan elit kalau akhir bulan makan promag.`,
     'Pengeluaranmu lebih cepat dari kecepatan cahaya. Sabar, bentar lagi ngutang temen.',
     'Definisi "healing" yang kebablasan sampai bikin kantong butuh ICU.',
     'Sisa saldo: Rp ' + balance + '. Mending puasa aja mulai besok, serius deh.'
@@ -84,15 +99,15 @@ function fallbackRoast(totalIncome: number, totalExpense: number, balance: numbe
     'Saldo Rp ' + balance + ' mau dipakai buat apa? Beli cilok aja kurang.',
     'Mending cek lowongan kerja lagi. Saldo segitu nggak cukup buat pura-pura kaya.',
     'Tarik nafas... hembuskan... karena cuma itu yang gratis sekarang.',
-    'Lihat saldo segitu mending langsung tidur aja. Nggak usah mikirin jajan.',
+    `Sisa hari masih panjang tapi saldo tinggal Rp ${balance}. Selamat menikmati air putih dan puasa senin-kamis.`,
     'Saldo Rp ' + balance + '. ATM-mu pasti ngetawain kamu pas masukin pin tadi.'
   ];
 
-  if (balance <= 10000) {
+  if (balance <= 15000) {
     return broke[Math.floor(Math.random() * broke.length)];
   }
 
-  if (totalExpense > totalIncome) {
+  if (totalExpense > totalIncome || dailyAllowance < 25000) {
     return overspending[Math.floor(Math.random() * overspending.length)];
   }
   
@@ -174,18 +189,36 @@ export async function GET(request: NextRequest) {
     }
 
     // =====================
-    // AGGREGATION
+    // KALKULASI JATAH HARIAN & LONJAKAN HARI INI
     // =====================
+    const now = new Date();
+    const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+    const currentDay = now.getDate();
+    const daysLeftInMonth = Math.max(1, daysInMonth - currentDay + 1);
+    const dailyAllowance = Math.round(balance / daysLeftInMonth);
+
+    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const startOfYesterday = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1);
+
     let totalExpense = 0;
     let totalIncome = 0;
+    let todayExpense = 0;
+    let yesterdayExpense = 0;
 
     const expenseList: string[] = [];
 
     for (const t of transactions) {
       const amount = Number(t.amount);
+      const txDate = new Date(t.date);
 
       if (t.type === 'EXPENSE') {
         totalExpense += amount;
+
+        if (txDate >= startOfToday) {
+          todayExpense += amount;
+        } else if (txDate >= startOfYesterday && txDate < startOfToday) {
+          yesterdayExpense += amount;
+        }
 
         expenseList.push(
           `- ${t.category?.name || 'Lainnya'} (${t.category?.type === 'WANT' ? 'Keinginan' : 'Kebutuhan'}): Rp ${amount}`
@@ -197,6 +230,14 @@ export async function GET(request: NextRequest) {
       }
     }
 
+    // Deteksi lonjakan boros (Opsi 4)
+    let spendingAlert = '';
+    if (todayExpense > dailyAllowance * 1.5 && dailyAllowance > 0) {
+      spendingAlert = `[ALERT: Pengeluaran hari ini (Rp ${todayExpense}) sudah melebihi 150% dari jatah harian ideal (Rp ${dailyAllowance})!]`;
+    } else if (todayExpense > yesterdayExpense * 2 && yesterdayExpense > 15000) {
+      spendingAlert = `[ALERT: Lonjakan boros! Hari ini habis Rp ${todayExpense}, padahal kemarin cuma Rp ${yesterdayExpense}.]`;
+    }
+
     // =====================
     // PROMPT
     // =====================
@@ -206,6 +247,11 @@ export async function GET(request: NextRequest) {
       totalIncome,
       totalExpense,
       balance,
+      dailyAllowance,
+      daysLeftInMonth,
+      todayExpense,
+      yesterdayExpense,
+      spendingAlert,
       expenses: expenseList,
       tone: randomTone,
     });
@@ -230,11 +276,11 @@ export async function GET(request: NextRequest) {
       console.warn('[ROAST] Gemini gagal, beralih ke Hugging Face...', geminiError.message);
     }
 
-    // ── 2. HUGGING FACE QWEN 2.5 (FALLBACK GRATIS) ───────────────────────────
+    // ── 2. HUGGING FACE ROUTER V1 (FALLBACK GRATIS) ──────────────────────────
     try {
       const hfText = await callHuggingFace(prompt, {
         maxNewTokens: 200,
-        temperature: 0.75, // Suhu lebih tinggi agar roasting lebih kreatif & variatif
+        temperature: 0.75, // Suhu kreatif agar roasting variatif
       });
 
       const cleaned = hfText.replace(/^["']|["']$/g, '').trim();
@@ -253,7 +299,7 @@ export async function GET(request: NextRequest) {
     console.log('[ROAST] Menggunakan static roast pool sebagai safety net.');
     return NextResponse.json({
       success: true,
-      data: { message: fallbackRoast(totalIncome, totalExpense, balance) },
+      data: { message: fallbackRoast(totalIncome, totalExpense, balance, dailyAllowance) },
     });
 
   } catch (error) {
