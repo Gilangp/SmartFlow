@@ -3,7 +3,7 @@ import { verifyToken, extractTokenFromHeader } from '@/lib/auth';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import OpenAI from 'openai';
 import { getUserSubscription } from '@/lib/subscription';
-import { callHuggingFace, extractJsonFromHfOutput } from '@/lib/huggingface';
+import { callHuggingFace, callHuggingFaceVision, extractJsonFromHfOutput } from '@/lib/huggingface';
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY || '' });
@@ -270,8 +270,25 @@ Rules:
       } catch (visionErr: any) {
         console.warn('[SCAN] Gemini Vision fallback gagal:', visionErr.message);
 
-        // ── 6b. OPENAI VISION ─────────────────────────────────────────────────
-        if (process.env.OPENAI_API_KEY) {
+        // ── 6b. HUGGING FACE VISION (jika Gemini Vision gagal) ────────────────
+        if (!parsed) {
+          try {
+            console.log('[SCAN] Mencoba Hugging Face Vision...');
+            const hfVisionOutput = await callHuggingFaceVision(visionPrompt, cleanBase64, finalMimeType);
+            parsed = extractJsonFromHfOutput(hfVisionOutput);
+            if (parsed?.totalAmount) {
+              console.log('[SCAN] ✅ Berhasil diproses via Hugging Face Vision.');
+            } else {
+              parsed = null;
+              throw new Error('HF Vision tidak menghasilkan totalAmount yang valid');
+            }
+          } catch (hfVisionErr: any) {
+            console.warn('[SCAN] Hugging Face Vision gagal:', hfVisionErr.message);
+          }
+        }
+
+        // ── 6c. OPENAI VISION ─────────────────────────────────────────────────
+        if (!parsed && process.env.OPENAI_API_KEY) {
           try {
             console.log('[SCAN] Beralih ke OpenAI gpt-4o-mini (Vision Mode)...');
             const completion = await openai.chat.completions.create({

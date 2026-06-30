@@ -60,7 +60,7 @@ Data Keuangan Terkini:
 - Pengeluaran Hari Ini: Rp ${todayExpense} (Kemarin: Rp ${yesterdayExpense})
 - Total Pemasukan 7 Hari: Rp ${totalIncome}
 - Total Pengeluaran 7 Hari: Rp ${totalExpense}
-${spendingAlert ? `\n⚠️ PERINGATAN SISTEM: ${spendingAlert}\n(Gunakan info peringatan ini untuk menyindir kelakuan borosnya secara menohok!)` : ''}
+${spendingAlert ? `\nPERINGATAN SISTEM: ${spendingAlert}\n(Gunakan info peringatan ini untuk menyindir kelakuan borosnya secara menohok!)` : ''}
 
 Rincian Transaksi Pengeluaran Terakhir:
 ${expenses.slice(-15).join('\n')}
@@ -70,6 +70,7 @@ Aturan:
 - Jangan generik
 - Harus spesifik menyindir dari data di atas (bandingkan saldo/jatah harian dengan jajanannya atau lonjakan hari ini)
 - Gunakan bahasa santai Indonesia ala anak muda
+- JANGAN gunakan emoji sama sekali dalam output roasting
 
 Output:
 Langsung roasting (tanpa tanda kutip, tanpa penjelasan)
@@ -183,7 +184,7 @@ export async function GET(request: NextRequest) {
         success: true,
         data: {
           message:
-            '7 hari terakhir jatah harian kosong. Antara disiplin... atau denial finansial 😌',
+            '7 hari terakhir jatah harian kosong. Antara disiplin... atau denial finansial.',
         },
       });
     }

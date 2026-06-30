@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { TransactionRecord } from '@/types';
 import { PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend } from 'recharts';
-import { Lock } from 'lucide-react';
+import { Lock, Sparkles } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 
 interface AnalyticsViewProps {
@@ -23,6 +23,8 @@ function formatCurrency(amount: number): string {
 export default function AnalyticsView({ transactions, canUseAnalytics, checkingSub }: AnalyticsViewProps) {
   const router = useRouter();
   const [trendData, setTrendData] = useState<any[]>([]);
+  const [aiSummary, setAiSummary] = useState<string[] | null>(null);
+  const [aiLoading, setAiLoading] = useState(false);
 
   useEffect(() => {
     if (canUseAnalytics) {
@@ -33,6 +35,17 @@ export default function AnalyticsView({ transactions, canUseAnalytics, checkingS
            .then(d => {
              if (d.success && d.data?.trend) setTrendData(d.data.trend);
            });
+
+         setAiLoading(true);
+         fetch('/api/ai/analytics-summary', { headers: { Authorization: `Bearer ${t}` } })
+           .then(r => r.json())
+           .then(d => {
+             if (d.success && Array.isArray(d.data?.summary)) {
+               setAiSummary(d.data.summary);
+             }
+           })
+           .catch(() => {})
+           .finally(() => setAiLoading(false));
        }
     }
   }, [canUseAnalytics]);
@@ -165,27 +178,47 @@ export default function AnalyticsView({ transactions, canUseAnalytics, checkingS
       </div>
 
       {/* AI Deep Insight */}
-      <div className="bg-indigo-50 dark:bg-indigo-500/10 rounded-2xl p-5 border border-indigo-100 dark:border-indigo-500/20 shadow-sm">
-        <div className="flex items-center gap-3 mb-3">
-          <div className="w-8 h-8 rounded-full bg-indigo-600 flex items-center justify-center text-white text-xs font-bold">AI</div>
-          <h3 className="font-semibold text-indigo-900 dark:text-indigo-300">Executive Summary</h3>
+      <div className="bg-indigo-50 dark:bg-indigo-500/10 rounded-2xl p-5 border border-indigo-100 dark:border-indigo-500/20 shadow-sm relative overflow-hidden">
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-full bg-indigo-600 flex items-center justify-center text-white shadow-sm">
+              <Sparkles className="w-4 h-4 text-white" />
+            </div>
+            <h3 className="font-semibold text-indigo-900 dark:text-indigo-300">Executive Summary</h3>
+          </div>
+          {aiLoading && (
+            <span className="flex items-center gap-1.5 text-xs bg-indigo-100 dark:bg-indigo-900/50 text-indigo-600 dark:text-indigo-300 px-2.5 py-1 rounded-full animate-pulse font-medium">
+              <Sparkles className="w-3.5 h-3.5 animate-spin" /> Sedang menganalisis data...
+            </span>
+          )}
         </div>
         <ul className="space-y-2.5">
-          <li className="flex gap-2 items-start text-sm text-gray-700 dark:text-gray-300 leading-relaxed">
-            <span className="text-indigo-500 mt-0.5">•</span>
-            <span>{netFlow >= 0 ? <strong className="text-emerald-600 dark:text-emerald-400">Cash flow sangat sehat!</strong> : <strong className="text-rose-600 dark:text-rose-400">Peringatan Defisit.</strong>} Pemasukanmu {netFlow >= 0 ? 'lebih besar' : 'lebih kecil'} dari pengeluaran sejauh ini.</span>
-          </li>
-          {highestCategory !== '-' && (
-            <li className="flex gap-2 items-start text-sm text-gray-700 dark:text-gray-300 leading-relaxed">
-              <span className="text-indigo-500 mt-0.5">•</span>
-              <span>Kategori dengan pengeluaran paling boros adalah <strong className="text-indigo-600 dark:text-indigo-400 bg-indigo-100/50 dark:bg-indigo-900/30 px-1.5 py-0.5 rounded">{highestCategory}</strong>. Cobalah untuk merem pengeluaran di kategori ini.</span>
-            </li>
-          )}
-          {topExpenses.length > 0 && (
-            <li className="flex gap-2 items-start text-sm text-gray-700 dark:text-gray-300 leading-relaxed">
-              <span className="text-indigo-500 mt-0.5">•</span>
-              <span>Transaksi terbesar tunggalmu adalah <strong className="text-rose-600 dark:text-rose-400">{topExpenses[0].notes || topExpenses[0].category} ({formatCurrency(topExpenses[0].amount)})</strong>.</span>
-            </li>
+          {aiSummary ? (
+            aiSummary.map((point, idx) => (
+              <li key={idx} className="flex gap-2 items-start text-sm text-gray-700 dark:text-gray-300 leading-relaxed animate-fadeIn">
+                <span className="text-indigo-500 mt-0.5 font-bold">•</span>
+                <span>{point}</span>
+              </li>
+            ))
+          ) : (
+            <>
+              <li className="flex gap-2 items-start text-sm text-gray-700 dark:text-gray-300 leading-relaxed">
+                <span className="text-indigo-500 mt-0.5">•</span>
+                <span>{netFlow >= 0 ? <strong className="text-emerald-600 dark:text-emerald-400">Cash flow sangat sehat!</strong> : <strong className="text-rose-600 dark:text-rose-400">Peringatan Defisit.</strong>} Pemasukanmu {netFlow >= 0 ? 'lebih besar' : 'lebih kecil'} dari pengeluaran sejauh ini.</span>
+              </li>
+              {highestCategory !== '-' && (
+                <li className="flex gap-2 items-start text-sm text-gray-700 dark:text-gray-300 leading-relaxed">
+                  <span className="text-indigo-500 mt-0.5">•</span>
+                  <span>Kategori dengan pengeluaran paling boros adalah <strong className="text-indigo-600 dark:text-indigo-400 bg-indigo-100/50 dark:bg-indigo-900/30 px-1.5 py-0.5 rounded inline-block">{highestCategory}</strong>. Cobalah untuk merem pengeluaran di kategori ini.</span>
+                </li>
+              )}
+              {topExpenses.length > 0 && (
+                <li className="flex gap-2 items-start text-sm text-gray-700 dark:text-gray-300 leading-relaxed">
+                  <span className="text-indigo-500 mt-0.5">•</span>
+                  <span>Transaksi terbesar tunggalmu adalah <strong className="text-rose-600 dark:text-rose-400">{topExpenses[0].notes || topExpenses[0].category} ({formatCurrency(topExpenses[0].amount)})</strong>.</span>
+                </li>
+              )}
+            </>
           )}
         </ul>
       </div>

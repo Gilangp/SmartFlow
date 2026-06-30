@@ -3,7 +3,7 @@ import { verifyToken, extractTokenFromHeader } from '@/lib/auth';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import OpenAI from 'openai';
 import { prisma } from '@/lib/db';
-import { callHuggingFace, extractJsonFromHfOutput } from '@/lib/huggingface';
+import { callHuggingFace, callHuggingFaceVision, extractJsonFromHfOutput } from '@/lib/huggingface';
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY || '' });
@@ -233,13 +233,32 @@ Kembalikan HANYA JSON ini tanpa teks lain:
         }
         console.log('[KTM] Berhasil diverifikasi via Gemini Vision Fallback.');
       } catch (geminiErr: any) {
-        console.warn('[KTM] Gemini Vision gagal, beralih ke OpenAI Vision...', geminiErr.message);
+        console.warn('[KTM] Gemini Vision gagal, beralih ke Hugging Face Vision...', geminiErr.message);
 
-        // ── 4b. OPENAI VISION ──────────────────────────────────────────────
-        try {
-          const openaiResponse = await openai.chat.completions.create({
-            model: 'gpt-4o-mini',
-            messages: [
+        // ── 4b. HUGGING FACE VISION ──────────────────────────────────────────
+        if (!parsed) {
+          try {
+            console.log('[KTM] Mencoba Hugging Face Vision Mode...');
+            const hfVisionOutput = await callHuggingFaceVision(visionPrompt, cleanBase64, finalMimeType);
+            parsed = extractJsonFromHfOutput(hfVisionOutput);
+            if (parsed?.valid && parsed?.nim && parsed?.name && parsed?.university) {
+              console.log('[KTM] Berhasil diverifikasi via Hugging Face Vision.');
+            } else {
+              parsed = null;
+              throw new Error('HF Vision tidak menghasilkan data KTM yang valid');
+            }
+          } catch (hfVisionErr: any) {
+            console.warn('[KTM] Hugging Face Vision gagal:', hfVisionErr.message);
+          }
+        }
+
+        // ── 4c. OPENAI VISION ──────────────────────────────────────────────
+        if (!parsed && process.env.OPENAI_API_KEY) {
+          try {
+            console.log('[KTM] Beralih ke OpenAI gpt-4o-mini (Vision Mode)...');
+            const openaiResponse = await openai.chat.completions.create({
+              model: 'gpt-4o-mini',
+              messages: [
               {
                 role: 'user',
                 content: [
@@ -260,6 +279,7 @@ Kembalikan HANYA JSON ini tanpa teks lain:
             message: 'Sistem AI tidak dapat memproses gambar saat ini. Coba lagi nanti.',
           }, { status: 503 });
         }
+      }
       }
 
       if (!parsed || !parsed.valid || !parsed.nim || !parsed.name || !parsed.university || parsed.university === 'Universitas Terdeteksi') {

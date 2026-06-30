@@ -184,3 +184,88 @@ export function extractJsonFromHfOutput(rawText: string): Record<string, any> | 
     return null;
   }
 }
+
+/**
+ * Memanggil Hugging Face Router API untuk analisis Vision (multimodal image -> text).
+ * Mendukung model open-source vision seperti Qwen2-VL.
+ */
+export async function callHuggingFaceVision(
+  prompt: string,
+  imageBase64: string,
+  mimeType: string = 'image/jpeg',
+  options: HfTextOptions = {}
+): Promise<string> {
+  const VISION_MODELS = [
+    'Qwen/Qwen2-VL-7B-Instruct',
+    'meta-llama/Llama-3.2-11B-Vision-Instruct',
+  ];
+
+  const tokens = [
+    { key: process.env.HF_TOKEN_PRIMARY, label: 'PRIMARY' },
+    { key: process.env.HF_TOKEN_SECONDARY, label: 'SECONDARY' },
+  ].filter((t): t is { key: string; label: string } => Boolean(t.key));
+
+  if (tokens.length === 0) {
+    throw new Error('[HuggingFace Vision] Token HF tidak dikonfigurasi.');
+  }
+
+  const cleanBase64 = imageBase64.includes(',') ? imageBase64.split(',')[1] : imageBase64;
+  const dataUrl = `data:${mimeType};base64,${cleanBase64}`;
+
+  let lastError: Error | null = null;
+
+  for (const model of VISION_MODELS) {
+    for (let i = 0; i < tokens.length; i++) {
+      const { key: token, label: tokenLabel } = tokens[i];
+      try {
+        console.log(`[HuggingFace Vision] Memanggil model "${model}" menggunakan token ${tokenLabel}...`);
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 9000);
+
+        const response = await fetch(HF_API_BASE, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            model: model,
+            messages: [
+              {
+                role: 'user',
+                content: [
+                  { type: 'text', text: prompt },
+                  { type: 'image_url', image_url: { url: dataUrl } },
+                ],
+              },
+            ],
+            max_tokens: options.maxNewTokens || 300,
+            temperature: options.temperature || 0.1,
+          }),
+          signal: controller.signal,
+        });
+
+        clearTimeout(timeoutId);
+
+        if (!response.ok) {
+          const errText = await response.text();
+          throw new Error(`HF HTTP ${response.status}: ${errText.slice(0, 200)}`);
+        }
+
+        const result = await response.json();
+        const outputText = result?.choices?.[0]?.message?.content;
+        if (!outputText) {
+          throw new Error('Format respons HF Vision tidak valid');
+        }
+
+        console.log(`[HuggingFace Vision] Berhasil via ${model}!`);
+        return outputText.trim();
+      } catch (err: any) {
+        lastError = err;
+        console.warn(`[HuggingFace Vision] Error pada "${model}":`, err.message);
+      }
+    }
+  }
+
+  throw lastError ?? new Error('[HuggingFace Vision] Semua model vision gagal.');
+}
