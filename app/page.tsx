@@ -25,6 +25,7 @@ import {
 export default function Home() {
   const router = useRouter();
   const [mounted, setMounted] = useState(false);
+  const [isRedirecting, setIsRedirecting] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [showBackToTop, setShowBackToTop] = useState(false);
   const [openFaq, setOpenFaq] = useState<number | null>(null);
@@ -32,14 +33,10 @@ export default function Home() {
   const [theme, setTheme] = useState<'light' | 'dark'>('dark');
 
   useEffect(() => {
-    setMounted(true);
-    const storedTheme = (localStorage.getItem('sf-theme') || 'dark') as 'light' | 'dark';
-    setTheme(storedTheme);
-    document.documentElement.classList.toggle('dark', storedTheme === 'dark');
-
     // Cek jika user sudah login -> langsung ke dashboard
     const token = localStorage.getItem('token');
     if (token) {
+      setIsRedirecting(true);
       router.replace('/dashboard');
       return;
     }
@@ -49,8 +46,15 @@ export default function Home() {
                          (window.navigator as any).standalone === true ||
                          window.location.search.includes('source=pwa');
     if (isStandalone) {
+      setIsRedirecting(true);
       router.replace('/login');
+      return;
     }
+
+    setMounted(true);
+    const storedTheme = (localStorage.getItem('sf-theme') || 'dark') as 'light' | 'dark';
+    setTheme(storedTheme);
+    document.documentElement.classList.toggle('dark', storedTheme === 'dark');
   }, [router]);
 
   useEffect(() => {
@@ -208,7 +212,7 @@ export default function Home() {
     }
   ];
 
-  if (!mounted) {
+  if (!mounted || isRedirecting) {
     return (
       <div className="min-h-screen bg-white dark:bg-gray-950 flex items-center justify-center">
         <Loader2 className="w-10 h-10 animate-spin text-indigo-600" />
