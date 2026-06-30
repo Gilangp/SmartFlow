@@ -2,7 +2,7 @@
   "name": "Finto - Student Financial Companion",
   "short_name": "Finto",
   "description": "Kelola keuangan mahasiswa Anda dengan pendekatan inovatif: Fokus pada Jatah Harian, bukan Total Saldo",
-  "start_url": "/",
+  "start_url": "/login?source=pwa",
   "scope": "/",
   "display": "standalone",
   "orientation": "portrait",

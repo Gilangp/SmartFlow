@@ -23,6 +23,7 @@ import {
 } from 'lucide-react';
 
 export default function Home() {
+  const router = useRouter();
   const [mounted, setMounted] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [showBackToTop, setShowBackToTop] = useState(false);
@@ -35,7 +36,22 @@ export default function Home() {
     const storedTheme = (localStorage.getItem('sf-theme') || 'dark') as 'light' | 'dark';
     setTheme(storedTheme);
     document.documentElement.classList.toggle('dark', storedTheme === 'dark');
-  }, []);
+
+    // Cek jika user sudah login -> langsung ke dashboard
+    const token = localStorage.getItem('token');
+    if (token) {
+      router.replace('/dashboard');
+      return;
+    }
+
+    // Cek jika dibuka sebagai PWA Standalone app -> langsung ke login
+    const isStandalone = window.matchMedia('(display-mode: standalone)').matches ||
+                         (window.navigator as any).standalone === true ||
+                         window.location.search.includes('source=pwa');
+    if (isStandalone) {
+      router.replace('/login');
+    }
+  }, [router]);
 
   useEffect(() => {
     const handleScroll = () => {
