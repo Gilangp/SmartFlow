@@ -69,11 +69,12 @@ Aturan:
 - Jangan terlalu panjang
 - Jangan generik
 - Harus spesifik menyindir dari data di atas (bandingkan saldo/jatah harian dengan jajanannya atau lonjakan hari ini)
-- Gunakan bahasa santai Indonesia ala anak muda
+- WAJIB gunakan bahasa santai Indonesia ala anak muda yang rapi tanpa typo
+- DILARANG KERAS menggunakan bahasa Mandarin / China / Inggris ataupun huruf Hanzi/karakter asing
 - JANGAN gunakan emoji sama sekali dalam output roasting
 
 Output:
-Langsung roasting (tanpa tanda kutip, tanpa penjelasan)
+Langsung roasting dalam bahasa Indonesia (tanpa tanda kutip, tanpa penjelasan)
 `.trim();
 }
 
@@ -270,6 +271,7 @@ export async function GET(request: NextRequest) {
       text = text.replace(/^["']|["']$/g, '');
 
       if (!text || text.length < 10) throw new Error('Gemini returned weak response');
+      if (/[\u4E00-\u9FFF]/.test(text)) throw new Error('Gemini returned Chinese characters');
 
       console.log('[ROAST] ✅ Berhasil via Gemini 2.0 Flash.');
       return NextResponse.json({ success: true, data: { message: text } });
@@ -281,12 +283,12 @@ export async function GET(request: NextRequest) {
     try {
       const hfText = await callHuggingFace(prompt, {
         maxNewTokens: 200,
-        temperature: 0.75, // Suhu kreatif agar roasting variatif
+        temperature: 0.65, // Suhu lebih rendah agar bahasa rapi & tidak typo
       });
 
       const cleaned = hfText.replace(/^["']|["']$/g, '').trim();
 
-      if (cleaned && cleaned.length >= 10) {
+      if (cleaned && cleaned.length >= 10 && !/[\u4E00-\u9FFF]/.test(cleaned)) {
         console.log('[ROAST] ✅ Berhasil via Hugging Face.');
         return NextResponse.json({ success: true, data: { message: cleaned } });
       }
