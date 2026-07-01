@@ -41,13 +41,13 @@ export default function DashboardPage() {
   const runGuidedTour = useCallback(() => {
     const driverObj = driver({
       showProgress: true,
-      nextBtnText: 'Lanjut →',
-      prevBtnText: '← Kembali',
-      doneBtnText: 'Selesai 🎉',
+      nextBtnText: 'Lanjut',
+      prevBtnText: 'Kembali',
+      doneBtnText: 'Selesai',
       steps: [
         {
           popover: {
-            title: 'Selamat Datang di Finto! 🚀',
+            title: 'Selamat Datang di Finto!',
             description: 'Mari kita berkeliling sebentar untuk mengetahui cara mengelola keuangan mahasiswa secara cerdas.',
             side: 'bottom' as const,
             align: 'start' as const
@@ -56,7 +56,7 @@ export default function DashboardPage() {
         {
           element: '#tour-daily-allowance',
           popover: {
-            title: 'Jatah Harian Pintar 💰',
+            title: 'Jatah Harian Pintar',
             description: 'Ini adalah jatah harian kamu hari ini. Sistem menghitungnya otomatis agar pengeluaran kamu tetap terjaga sampai akhir siklus gajian.',
             side: 'bottom' as const,
             align: 'start' as const
@@ -65,7 +65,7 @@ export default function DashboardPage() {
         ...(document.querySelector('#tour-ai-roast') ? [{
           element: '#tour-ai-roast',
           popover: {
-            title: 'AI Financial Roaster 🤖',
+            title: 'AI Financial Roaster',
             description: 'Saran finansial julid tapi jujur dari AI! Dia akan menganalisis pengeluaran kamu selama 7 hari terakhir dan memberikan roasting pedas.',
             side: 'bottom' as const,
             align: 'start' as const
@@ -74,7 +74,7 @@ export default function DashboardPage() {
         {
           element: '#tour-add-transaction',
           popover: {
-            title: 'Catat Transaksi Cepat 📝',
+            title: 'Catat Transaksi Cepat',
             description: 'Catat pengeluaran atau pemasukan baru kamu di sini secara cepat.',
             side: 'bottom' as const,
             align: 'start' as const
@@ -83,7 +83,7 @@ export default function DashboardPage() {
         {
           element: '#tour-pockets',
           popover: {
-            title: 'Sistem 4 Kantong 🗂️',
+            title: 'Sistem 4 Kantong',
             description: 'Keuangan kamu dibagi ke dalam 4 kantong: Utama, Darurat, Tabungan, dan Wishlist. Ini membantu alokasi keuangan yang lebih disiplin.',
             side: 'top' as const,
             align: 'start' as const
@@ -92,7 +92,7 @@ export default function DashboardPage() {
         {
           element: '#tour-transactions',
           popover: {
-            title: 'Transaksi Terbaru 🕒',
+            title: 'Transaksi Terbaru',
             description: 'Semua daftar transaksi pengeluaran dan pemasukan terbaru kamu akan muncul di sini.',
             side: 'top' as const,
             align: 'start' as const

@@ -3,6 +3,7 @@ import { verifyToken, extractTokenFromHeader } from '@/lib/auth';
 import { prisma } from '@/lib/db';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { callHuggingFace } from '@/lib/huggingface';
+import { getDaysLeftInCycle } from '@/lib/financial-calculations';
 
 export const dynamic = 'force-dynamic';
 
@@ -10,15 +11,6 @@ export const dynamic = 'force-dynamic';
 const genAI = new GoogleGenerativeAI(
   process.env.GEMINI_API_KEY || process.env.GOOGLE_AI_API_KEY || ''
 );
-
-// Tone pool (dipisah biar reusable)
-const TONES = [
-  'lucu tapi nyelekit',
-  'pedas dan jujur',
-  'sarkas tapi relate',
-  'dark humor ringan',
-  'kayak temen yang nyindir halus tapi nyakitin',
-];
 
 // Helper: generate prompt
 function buildRoastPrompt({
@@ -32,6 +24,8 @@ function buildRoastPrompt({
   spendingAlert,
   expenses,
   tone,
+  isGoodSpendingStatus,
+  todayDateStr,
 }: {
   totalIncome: number;
   totalExpense: number;
@@ -43,73 +37,85 @@ function buildRoastPrompt({
   spendingAlert?: string;
   expenses: string[];
   tone: string;
+  isGoodSpendingStatus: boolean;
+  todayDateStr: string;
 }) {
   return `
-Kamu adalah AI financial advisor yang JULID tapi pintar.
+Kamu adalah Finto, asisten finansial sekaligus sahabat dekat user yang asyik, ceplas-ceplos, peduli, dan jujur.
+
+Gaya Komunikasi:
+- Bersikaplah seperti teman dekat yang sangat akrab (gunakan bahasa santai Indonesia sehari-hari seperti 'bro', 'sis', 'lu', 'gue' secara natural).
+- Nada bicara saat ini: ${tone}.
+${isGoodSpendingStatus 
+  ? '- Meskipun kondisi keuangan user sedang AMAN/HEMAT hari ini, berikan pujian santai atau motivasi hangat, namun tetap selipkan sedikit godaan/candaan santai khas teman dekat agar dia tidak cepat puas (misalnya menyindir kebiasaan borosnya di masa lalu atau mengingatkan agar besok tidak khilaf belanja lagi). Jangan biarkan pesan menjadi terlalu manis, membosankan, atau kehilangan karakter humor.' 
+  : '- Karena kondisi keuangan user sedang BOROS/TIGHT, berikan sindiran halus/gemas (roasting pas) khas sahabat dekat yang peduli agar dia sadar dan tidak kebablasan, namun akhiri dengan tips penyemangat atau pengingat yang baik.'}
+- Perhatikan baik-baik bagian "(Catatan: ...)" pada transaksi pengeluaran. JANGAN me-roast atau menyindir jika pengeluaran besar tersebut ditujukan untuk keperluan penting, mendesak, atau kebaikan (seperti kesehatan, keluarga, pendidikan, ortu, sedekah, obat, ukt). Sebaliknya, berikan kata-kata empati, bangga, atau saran hemat yang lembut. Kamu boleh menyindir jika catatan menunjukkan belanja konsumtif/keinginan (seperti kopi, jajan, game, boba, checkout online shop, dll).
+- SANGAT PENTING: Perhatikan tanggal masing-masing transaksi di bawah. Hari ini adalah tanggal ${todayDateStr}. Bedakan dengan jelas mana transaksi yang baru dicatat HARI INI dan mana transaksi dari hari-hari sebelumnya. Jangan sampai menuduh user berbelanja barang/makanan tertentu hari ini jika transaksi tersebut sebenarnya tercatat di hari kemarin atau hari sebelumnya!
 
 Tugas:
-- Berikan roasting dengan gaya: ${tone}
-- Fokus ke kebiasaan finansial user
-- Harus relevan dari data
-- Maksimal 2-3 baris (WAJIB singkat)
+- Berikan pesan singkat (maksimal 2-3 baris, WAJIB singkat).
+- Harus relevan dari data pengeluaran aktual user.
+- Jangan gunakan template generik.
 
 Data Keuangan Terkini:
-- Sisa Saldo Dompet Utama: Rp ${balance}
-- Sisa Hari Bulan Ini: ${daysLeftInMonth} hari lagi
-- Jatah Harian Ideal: Rp ${dailyAllowance}/hari
-- Pengeluaran Hari Ini: Rp ${todayExpense} (Kemarin: Rp ${yesterdayExpense})
-- Total Pemasukan 7 Hari: Rp ${totalIncome}
-- Total Pengeluaran 7 Hari: Rp ${totalExpense}
-${spendingAlert ? `\nPERINGATAN SISTEM: ${spendingAlert}\n(Gunakan info peringatan ini untuk menyindir kelakuan borosnya secara menohok!)` : ''}
+- Sisa Saldo Dompet Utama saat ini: Rp ${balance} (Uang yang saat ini tersisa di dompet utama user untuk dibelanjakan)
+- Sisa Hari Siklus Gajian: ${daysLeftInMonth} hari lagi (Jumlah hari tersisa menuju gajian berikutnya, termasuk hari ini)
+- Jatah Harian Ideal: Rp ${dailyAllowance}/hari (Batas anggaran belanja harian agar uang cukup sampai gajian berikutnya. Dihitung dari Sisa Saldo Dompet Utama dibagi Sisa Hari Siklus)
+- Pengeluaran Hari Ini Saja: Rp ${todayExpense} (Total uang yang dibelanjakan HARI INI saja)
+- Pengeluaran Kemarin: Rp ${yesterdayExpense} (Total pengeluaran kemarin sebagai data pembanding)
+- Total Pemasukan 7 Hari Terakhir: Rp ${totalIncome} (Total seluruh pemasukan rutin & non-rutin dalam seminggu terakhir)
+- Total Pengeluaran 7 Hari Terakhir: Rp ${totalExpense} (Total seluruh pengeluaran dalam seminggu terakhir, bukan hari ini saja)
+${spendingAlert ? `\nPERINGATAN SISTEM: ${spendingAlert}\n(Gunakan peringatan ini untuk memahami jika terjadi kebocoran anggaran yang serius)` : ''}
 
 Rincian Transaksi Pengeluaran Terakhir:
 ${expenses.slice(-15).join('\n')}
 
 Aturan:
-- Jangan terlalu panjang
-- Jangan generik
-- Harus spesifik menyindir dari data di atas (bandingkan saldo/jatah harian dengan jajanannya atau lonjakan hari ini)
-- WAJIB gunakan bahasa santai Indonesia ala anak muda yang rapi tanpa typo
-- DILARANG KERAS menggunakan bahasa Mandarin / China / Inggris ataupun huruf Hanzi/karakter asing
-- JANGAN gunakan emoji sama sekali dalam output roasting
+- WAJIB gunakan bahasa santai Indonesia ala anak muda yang akrab dan rapi tanpa typo.
+- JANGAN gunakan emoji sama sekali dalam output.
+- DILARANG KERAS menggunakan bahasa Mandarin / China / Inggris ataupun huruf Hanzi/karakter asing.
+- WAJIB memformat semua nominal uang/nominal finansial yang kamu sebutkan menggunakan titik sebagai pemisah ribuan (contoh: Rp 15.000, Rp 500.000, Rp 1.200.000). JANGAN menulis nominal tanpa pemisah (seperti Rp 15000 atau Rp 500000).
+- Hindari memanggil user dengan kata "bestie" secara berulang-ulang di setiap kalimat. Gunakan panggilan alami seperti "lu/gue", "bro", atau "sis". Buat percakapan mengalir alami seperti dua orang teman nongkrong, bukan bot pencari muka yang lebay.
 
 Output:
-Langsung roasting dalam bahasa Indonesia (tanpa tanda kutip, tanpa penjelasan)
+Langsung pesanmu sebagai sahabat dalam bahasa Indonesia (tanpa tanda kutip, tanpa penjelasan).
 `.trim();
 }
 
 // Helper: static fallback roast (safety net terakhir jika semua AI gagal)
-function fallbackRoast(totalIncome: number, totalExpense: number, balance: number, dailyAllowance: number) {
+function fallbackRoast(
+  totalIncome: number,
+  totalExpense: number,
+  balance: number,
+  dailyAllowance: number,
+  todayExpense: number
+) {
   const overspending = [
-    'Gaya hidup sultan, pemasukan rakyat jelata. Konsisten... bikin minus.',
-    'Dompet menangis lihat mutasi rekeningmu. Udah miskin, maksa gaya.',
-    `Jatah harianmu cuma Rp ${dailyAllowance.toLocaleString('id-ID')}/hari. Jangan sok-sokan jajan elit kalau akhir bulan makan promag.`,
-    'Pengeluaranmu lebih cepat dari kecepatan cahaya. Sabar, bentar lagi ngutang temen.',
-    'Definisi "healing" yang kebablasan sampai bikin kantong butuh ICU.',
-    'Sisa saldo: Rp ' + balance + '. Mending puasa aja mulai besok, serius deh.'
+    'Eh bro, hari ini agak kebablasan ya? Pengeluaranmu lebih cepet dari biasanya nih. Yuk, ngerem dikit besok!',
+    'Jatah harianmu tinggal dikit nih. Kurang-kurangin jajan elit dulu ya biar akhir bulan ga makan promag.',
+    'Waduh sis, dompet udah mulai ngos-ngosan nih. Tahan diri dulu ya, kita kan mau hemat bulan ini!',
+    'Pengeluaran hari ini agak di luar rencana. Santai, besok kita mulai rapihin lagi anggarannya ya.',
   ];
 
   const goodButBoring = [
-    'Keuangan aman sih... tapi bukan karena hemat, kayaknya karena belum sempet keluar rumah aja.',
-    'Saldo masih sisa, tumben? Pasti lagi sakit atau emang lagi ga ada temen ngajak main.',
-    'Aman sih, tapi lihat tuh history-nya. Hemat atau pelit ke diri sendiri nih?',
-    'Pemasukan lebih besar dari pengeluaran. Tumben waras?',
-    'Sisa saldo Rp ' + balance + '. Lumayan lah buat modal numpang hidup sampai akhir bulan.'
+    'Wah, keren banget! Keuanganmu hari ini aman terkendali. Pertahanin konsistensi kayak gini ya!',
+    'Hari ini hemat banget, bangga gue. Dompetmu juga pasti senyum lebar ngeliat ini.',
+    'Saldo masih sisa aman nih. Bagus, pertahanin ritme hemat ini sampai gajian berikutnya ya!',
+    'Mantap, hari ini disiplin belanjanya top! Besok kita jaga lagi ya bareng-bareng.',
   ];
 
   const broke = [
-    'Saldo Rp ' + balance + ' mau dipakai buat apa? Beli cilok aja kurang.',
-    'Mending cek lowongan kerja lagi. Saldo segitu nggak cukup buat pura-pura kaya.',
-    'Tarik nafas... hembuskan... karena cuma itu yang gratis sekarang.',
-    `Sisa hari masih panjang tapi saldo tinggal Rp ${balance}. Selamat menikmati air putih dan puasa senin-kamis.`,
-    'Saldo Rp ' + balance + '. ATM-mu pasti ngetawain kamu pas masukin pin tadi.'
+    'Sisa saldo udah tipis banget nih bro. Semangat ya, mari kita survive bareng-bareng minggu ini!',
+    'Waduh, saldo lagi kritis. Kurangin nongkrong dulu ya, mending masak mie instan di rumah aja dulu.',
+    'Tenang, ini cuma fase tanggal tua. Yang penting tetep semangat dan jangan tergoda paylater ya!',
+    'Sisa hari masih panjang tapi saldo tinggal dikit. Yuk semangat cari tambahan atau super hemat dulu!',
   ];
 
-  if (balance <= 15000) {
+  if (balance <= 50000 || dailyAllowance < 15000) {
     return broke[Math.floor(Math.random() * broke.length)];
   }
 
-  if (totalExpense > totalIncome || dailyAllowance < 25000) {
+  if (todayExpense > dailyAllowance || totalExpense > totalIncome) {
     return overspending[Math.floor(Math.random() * overspending.length)];
   }
   
@@ -194,9 +200,34 @@ export async function GET(request: NextRequest) {
     // KALKULASI JATAH HARIAN & LONJAKAN HARI INI
     // =====================
     const now = new Date();
-    const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
-    const currentDay = now.getDate();
-    const daysLeftInMonth = Math.max(1, daysInMonth - currentDay + 1);
+    let hasReceivedEarlySalary = false;
+    const paydayDate = user.paydayDate;
+
+    if (paydayDate && paydayDate > 1) {
+      const currentDay = now.getDate();
+      if (currentDay < paydayDate) {
+        const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+        const todayEnd = new Date(now.getFullYear(), now.getMonth(), currentDay + 1);
+
+        const earlyIncome = await prisma.transaction.findFirst({
+          where: {
+            userId: user.id,
+            type: 'INCOME_ROUTINE',
+            status: 'COMPLETED',
+            date: {
+              gte: startOfMonth,
+              lt: todayEnd,
+            },
+          },
+        });
+
+        if (earlyIncome) {
+          hasReceivedEarlySalary = true;
+        }
+      }
+    }
+
+    const daysLeftInMonth = getDaysLeftInCycle(now, paydayDate, hasReceivedEarlySalary);
     const dailyAllowance = Math.round(balance / daysLeftInMonth);
 
     const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
@@ -222,8 +253,10 @@ export async function GET(request: NextRequest) {
           yesterdayExpense += amount;
         }
 
+        const dateStr = t.date.toISOString().split('T')[0];
+        const notesStr = t.notes ? ` (Catatan: "${t.notes}")` : '';
         expenseList.push(
-          `- ${t.category?.name || 'Lainnya'} (${t.category?.type === 'WANT' ? 'Keinginan' : 'Kebutuhan'}): Rp ${amount}`
+          `- [Tanggal: ${dateStr}] ${t.category?.name || 'Lainnya'} (${t.category?.type === 'WANT' ? 'Keinginan' : 'Kebutuhan'}): Rp ${amount}${notesStr}`
         );
       }
 
@@ -241,9 +274,39 @@ export async function GET(request: NextRequest) {
     }
 
     // =====================
-    // PROMPT
+    // TONE & PROMPT SELECTION
     // =====================
-    const randomTone = TONES[Math.floor(Math.random() * TONES.length)];
+    const isGoodSpendingStatus = todayExpense <= dailyAllowance * 0.8 && balance > 50000;
+    const isBrokeStatus = balance <= 50000 || dailyAllowance < 15000;
+
+    let selectedTone = '';
+    if (isBrokeStatus) {
+      const brokeTones = [
+        'prihatin tapi memotivasi',
+        'empati dan memberikan pelukan virtual hangat',
+        'caring friend yang menyemangati di masa krisis keuangan',
+        'teman curhat yang ikut prihatin tapi tetap optimis dan support',
+      ];
+      selectedTone = brokeTones[Math.floor(Math.random() * brokeTones.length)];
+    } else if (isGoodSpendingStatus) {
+      const goodTones = [
+        'bangga, suportif, dan penuh apresiasi',
+        'teman baik yang senang melihat kedisiplinan keuanganmu',
+        'santai, ceria, dan memberikan tepuk tangan virtual',
+        'suportif, memotivasi agar konsisten hemat dengan gaya kasual',
+      ];
+      selectedTone = goodTones[Math.floor(Math.random() * goodTones.length)];
+    } else {
+      const roastTones = [
+        'nyindir lucu tapi tujuannya baik biar ga bangkrut',
+        'gemas karena kamu mulai boros tapi tetap peduli',
+        'sarkas ringan ala teman akrab tapi mengingatkan konsekuensinya',
+        'teman dekat yang geleng-geleng kepala melihat belanjamu tapi tetap menyemangati',
+      ];
+      selectedTone = roastTones[Math.floor(Math.random() * roastTones.length)];
+    }
+
+    const todayDateStr = now.toLocaleDateString('en-CA', { timeZone: 'Asia/Jakarta' }); // YYYY-MM-DD format in Jakarta time
 
     const prompt = buildRoastPrompt({
       totalIncome,
@@ -255,7 +318,9 @@ export async function GET(request: NextRequest) {
       yesterdayExpense,
       spendingAlert,
       expenses: expenseList,
-      tone: randomTone,
+      tone: selectedTone,
+      isGoodSpendingStatus,
+      todayDateStr,
     });
 
     // =====================
@@ -302,7 +367,7 @@ export async function GET(request: NextRequest) {
     console.log('[ROAST] Menggunakan static roast pool sebagai safety net.');
     return NextResponse.json({
       success: true,
-      data: { message: fallbackRoast(totalIncome, totalExpense, balance, dailyAllowance) },
+      data: { message: fallbackRoast(totalIncome, totalExpense, balance, dailyAllowance, todayExpense) },
     });
 
   } catch (error) {

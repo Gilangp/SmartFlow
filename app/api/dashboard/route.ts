@@ -5,7 +5,7 @@ import {
   calculateDailyAllowance,
   calculateSpendingPercentage,
   determineSpendingStatus,
-  getDaysLeftInMonth,
+  getDaysLeftInCycle,
 } from '@/lib/financial-calculations';
 
 export const dynamic = 'force-dynamic';
@@ -76,8 +76,39 @@ export async function GET(request: NextRequest) {
     // Saldo Dompet Utama di awal hari sebelum dipotong pengeluaran hari ini (namun tetap bertambah jika ada pemasukan baru)
     const startOfDayMainBalance = mainBalance + totalMainSpentToday;
 
+    // Check for early routine income (INCOME_ROUTINE) if today is before paydayDate
+    let hasReceivedEarlySalary = false;
+    const paydayDate = user.paydayDate;
+
+    if (paydayDate && paydayDate > 1) {
+      const todayLocal = new Date();
+      const currentDay = todayLocal.getDate();
+
+      if (currentDay < paydayDate) {
+        // Find INCOME_ROUTINE transactions from the 1st of the current month to today
+        const startOfMonth = new Date(todayLocal.getFullYear(), todayLocal.getMonth(), 1);
+        const todayEnd = new Date(todayLocal.getFullYear(), todayLocal.getMonth(), currentDay + 1);
+
+        const earlyIncome = await prisma.transaction.findFirst({
+          where: {
+            userId: decoded.userId,
+            type: 'INCOME_ROUTINE',
+            status: 'COMPLETED',
+            date: {
+              gte: startOfMonth,
+              lt: todayEnd,
+            },
+          },
+        });
+
+        if (earlyIncome) {
+          hasReceivedEarlySalary = true;
+        }
+      }
+    }
+
     // Calculate daily allowance using start of day balance (FR-DASH-01)
-    const daysLeft = getDaysLeftInMonth(today);
+    const daysLeft = getDaysLeftInCycle(today, paydayDate, hasReceivedEarlySalary);
     const dailyAllowance = calculateDailyAllowance(startOfDayMainBalance, 0, daysLeft);
 
     const percentageUsed = calculateSpendingPercentage(totalSpent, dailyAllowance);

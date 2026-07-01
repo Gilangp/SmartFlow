@@ -43,15 +43,44 @@ export function determineSpendingStatus(
 }
 
 /**
- * Get remaining days in current month (inclusive of today)
+ * Get remaining days in current financial cycle (inclusive of today)
  */
-export function getDaysLeftInMonth(date: Date = new Date()): number {
+export function getDaysLeftInCycle(
+  date: Date = new Date(),
+  paydayDate?: number | null,
+  hasReceivedEarlySalary: boolean = false
+): number {
   const now = new Date(date);
   const year = now.getUTCFullYear();
   const month = now.getUTCMonth();
   const day = now.getUTCDate();
-  const lastDayOfMonth = new Date(Date.UTC(year, month + 1, 0));
-  const daysLeft = lastDayOfMonth.getUTCDate() - day + 1; // +1 to include today
+
+  // Jika payday tidak diset atau <= 1, gunakan siklus bulan kalender standar
+  if (!paydayDate || paydayDate <= 1) {
+    const lastDayOfMonth = new Date(Date.UTC(year, month + 1, 0));
+    const daysLeft = lastDayOfMonth.getUTCDate() - day + 1; // +1 to include today
+    return Math.max(1, daysLeft);
+  }
+
+  let cycleEndDate: Date;
+
+  if (day < paydayDate) {
+    if (hasReceivedEarlySalary) {
+      // Gaji masuk lebih awal -> akhir siklus adalah tanggal payday bulan DEPAN
+      cycleEndDate = new Date(Date.UTC(year, month + 1, paydayDate));
+    } else {
+      // Belum gajian -> akhir siklus adalah tanggal payday bulan INI
+      cycleEndDate = new Date(Date.UTC(year, month, paydayDate));
+    }
+  } else {
+    // Sudah melewati tanggal gajian -> akhir siklus adalah tanggal payday bulan DEPAN
+    cycleEndDate = new Date(Date.UTC(year, month + 1, paydayDate));
+  }
+
+  // Hitung selisih hari inklusif (+1)
+  const diffTime = cycleEndDate.getTime() - Date.UTC(year, month, day);
+  const daysLeft = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
+
   return Math.max(1, daysLeft);
 }
 

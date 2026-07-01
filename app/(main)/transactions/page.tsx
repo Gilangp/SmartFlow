@@ -8,8 +8,10 @@ import AddIncomeModal from '@/components/AddIncomeModal';
 import ScanReceiptModal from '@/components/ScanReceiptModal';
 import { showInterstitial } from '@/lib/admob';
 import { TransactionRecord } from '@/types';
-import { ScanLine, Lock, Download, TrendingDown, TrendingUp } from 'lucide-react';
+import { ScanLine, Lock, Download, TrendingDown, TrendingUp, HelpCircle } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { driver } from 'driver.js';
+import 'driver.js/dist/driver.css';
 
 import AnalyticsView from '@/components/AnalyticsView';
 
@@ -37,7 +39,88 @@ export default function TransactionsPage() {
   const [checkingSub, setCheckingSub] = useState(true);
   const [viewMode, setViewMode] = useState<'list' | 'analytics'>('list');
 
+  const runTransactionsTour = useCallback(() => {
+    setViewMode('list');
+    setTimeout(() => {
+      const driverObj = driver({
+        showProgress: true,
+        nextBtnText: 'Lanjut',
+        prevBtnText: 'Kembali',
+        doneBtnText: 'Selesai',
+        steps: [
+          {
+            popover: {
+              title: 'Kelola Transaksi & Analitik',
+              description: 'Di halaman ini, kamu bisa memantau semua riwayat transaksi, melakukan pencatatan cepat, serta melihat laporan keuangan terperinci.',
+              side: 'bottom' as const,
+              align: 'start' as const
+            }
+          },
+          {
+            element: '#tour-tx-tabs',
+            popover: {
+              title: 'Dua Mode Tampilan',
+              description: 'Gunakan tab "Daftar" untuk melihat & mencatat pengeluaran, dan tab "Analitik" untuk melihat grafik visual serta audit AI.',
+              side: 'bottom' as const,
+              align: 'start' as const
+            }
+          },
+          ...(document.querySelector('#tour-tx-add-expense') ? [{
+            element: '#tour-tx-add-expense',
+            popover: {
+              title: 'Catat Pengeluaran Cepat',
+              description: 'Catat belanjaan harianmu di sini secara instan. Saldo akan otomatis memotong Dompet Utama.',
+              side: 'bottom' as const,
+              align: 'start' as const
+            }
+          }] : []),
+          ...(document.querySelector('#tour-tx-scan-receipt') ? [{
+            element: '#tour-tx-scan-receipt',
+            popover: {
+              title: 'Scan Struk AI',
+              description: 'Malas ngetik nominal dan tanggal? Foto struk atau nota belanjamu, AI kami akan otomatis memprosesnya untukmu!',
+              side: 'bottom' as const,
+              align: 'start' as const
+            }
+          }] : []),
+          ...(document.querySelector('#tour-tx-search') ? [{
+            element: '#tour-tx-search',
+            popover: {
+              title: 'Pencarian & Filter Transaksi',
+              description: 'Gunakan kolom pencarian ini untuk mencari transaksi lama berdasarkan kategori, nama kantong, atau catatan.',
+              side: 'bottom' as const,
+              align: 'start' as const
+            }
+          }] : []),
+          ...(document.querySelector('#tour-tx-export') ? [{
+            element: '#tour-tx-export',
+            popover: {
+              title: 'Ekspor Data',
+              description: 'Download semua laporan riwayat transaksi keuanganmu ke dalam format file CSV/Excel secara instan.',
+              side: 'bottom' as const,
+              align: 'start' as const
+            }
+          }] : [])
+        ],
+        onDestroyed: () => {
+          localStorage.setItem('sf-tour-transactions-completed', 'true');
+        }
+      });
+      driverObj.drive();
+    }, 150);
+  }, []);
 
+  useEffect(() => {
+    if (!isLoading) {
+      const tourCompleted = localStorage.getItem('sf-tour-transactions-completed');
+      if (!tourCompleted) {
+        const timer = setTimeout(() => {
+          runTransactionsTour();
+        }, 1500);
+        return () => clearTimeout(timer);
+      }
+    }
+  }, [isLoading, runTransactionsTour]);
 
   const getToken = useCallback(() => localStorage.getItem('sf-token'), []);
 
@@ -148,7 +231,7 @@ export default function TransactionsPage() {
       <header className="sticky top-0 z-40 bg-white/80 dark:bg-gray-950/80 backdrop-blur-xl border-b border-gray-200 dark:border-gray-800 pt-safe">
         <div className="max-w-7xl mx-auto px-5 py-4">
           <div className="flex items-center justify-between mb-4">
-            <div className="bg-gray-100 dark:bg-gray-800 p-1 rounded-xl inline-flex">
+            <div id="tour-tx-tabs" className="bg-gray-100 dark:bg-gray-800 p-1 rounded-xl inline-flex">
               <button 
                 onClick={() => setViewMode('list')}
                 className={`px-4 py-1.5 rounded-lg text-sm font-medium transition ${viewMode === 'list' ? 'bg-white dark:bg-gray-700 shadow-sm text-gray-900 dark:text-white' : 'text-gray-500 hover:text-gray-700 dark:text-gray-400'}`}
@@ -163,22 +246,34 @@ export default function TransactionsPage() {
                 {!canExportExcel && !checkingSub && <Lock className="w-3 h-3 text-indigo-400" />}
               </button>
             </div>
-            <button 
-              onClick={handleExport}
-              disabled={checkingSub}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition ${
-                canExportExcel 
-                  ? 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100 dark:bg-emerald-900/30 dark:text-emerald-400 dark:hover:bg-emerald-900/50' 
-                  : 'bg-gray-100 text-gray-500 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-400'
-              }`}
-            >
-              {!canExportExcel && !checkingSub ? <Lock className="w-3.5 h-3.5" /> : <Download className="w-3.5 h-3.5" />}
-              <span>Export CSV</span>
-            </button>
+            <div className="flex items-center gap-2">
+              <button 
+                id="tour-tx-export"
+                onClick={handleExport}
+                disabled={checkingSub}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition ${
+                  canExportExcel 
+                    ? 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100 dark:bg-emerald-900/30 dark:text-emerald-400 dark:hover:bg-emerald-900/50' 
+                    : 'bg-gray-100 text-gray-500 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-400'
+                }`}
+              >
+                {!canExportExcel && !checkingSub ? <Lock className="w-3.5 h-3.5" /> : <Download className="w-3.5 h-3.5" />}
+                <span className="hidden sm:inline">Export CSV</span>
+              </button>
+              <button
+                onClick={runTransactionsTour}
+                className="w-9 h-9 rounded-lg bg-gray-100 dark:bg-gray-800 flex items-center justify-center text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700 transition active:scale-95"
+                title="Panduan Pengguna"
+                aria-label="Tampilkan Panduan"
+              >
+                <HelpCircle className="w-4.5 h-4.5" />
+              </button>
+            </div>
           </div>
           {viewMode === 'list' && (
             <div className="relative">
               <input
+                id="tour-tx-search"
                 type="text"
                 placeholder="Cari transaksi..."
                 value={searchQuery}
@@ -236,6 +331,7 @@ export default function TransactionsPage() {
              {/* Action Buttons */}
              <div className="grid grid-cols-2 gap-3 mb-4">
                <button
+                 id="tour-tx-add-expense"
                  onClick={() => setAddModalType('EXPENSE')}
                  className="py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-medium text-sm transition shadow-sm shadow-indigo-600/20 active:scale-[0.98] flex items-center justify-center gap-2"
                >
@@ -253,6 +349,7 @@ export default function TransactionsPage() {
 
             {/* Scan Struk Button */}
             <button
+              id="tour-tx-scan-receipt"
               onClick={() => {
                 if (!canScanReceipt) {
                   toast.error('Fitur Scan Struk hanya untuk paket Student & Premium. Silakan verifikasi KTM atau upgrade!');

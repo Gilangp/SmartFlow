@@ -25,6 +25,19 @@ export default function AnalyticsView({ transactions, canUseAnalytics, checkingS
   const [trendData, setTrendData] = useState<any[]>([]);
   const [aiSummary, setAiSummary] = useState<string[] | null>(null);
   const [aiLoading, setAiLoading] = useState(false);
+  const [isDark, setIsDark] = useState(true);
+
+  useEffect(() => {
+    setIsDark(document.documentElement.classList.contains('dark'));
+    const observer = new MutationObserver(() => {
+      setIsDark(document.documentElement.classList.contains('dark'));
+    });
+    observer.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ['class'],
+    });
+    return () => observer.disconnect();
+  }, []);
 
   useEffect(() => {
     if (canUseAnalytics) {
@@ -58,12 +71,30 @@ export default function AnalyticsView({ transactions, canUseAnalytics, checkingS
     totalIncomeAll, 
     netFlow, 
     topExpenses,
-    pocketPieData 
+    pocketPieData,
+    totalNeedExpense,
+    totalWantExpense,
+    needPercentage,
+    wantPercentage
   } = useMemo(() => {
     // Basic Totals
     const totalIncomeAll = transactions.filter(t => t.type.startsWith('INCOME')).reduce((s,t) => s + t.amount, 0);
     const totalExpense = transactions.filter(t => t.type === 'EXPENSE').reduce((s,t) => s + t.amount, 0);
     const netFlow = totalIncomeAll - totalExpense;
+
+    // Needs vs Wants calculation
+    let totalNeedExpense = 0;
+    let totalWantExpense = 0;
+    transactions.filter(t => t.type === 'EXPENSE').forEach(t => {
+      if (t.categoryType === 'WANT') {
+        totalWantExpense += t.amount;
+      } else {
+        totalNeedExpense += t.amount;
+      }
+    });
+    const totalExpenseSum = totalNeedExpense + totalWantExpense;
+    const needPercentage = totalExpenseSum > 0 ? Math.round((totalNeedExpense / totalExpenseSum) * 100) : 0;
+    const wantPercentage = totalExpenseSum > 0 ? Math.round((totalWantExpense / totalExpenseSum) * 100) : 0;
 
     // Top 5 Single Expenses
     const topExpenses = [...transactions]
@@ -118,7 +149,7 @@ export default function AnalyticsView({ transactions, canUseAnalytics, checkingS
       };
     });
 
-    return { pieData, barData, highestCategory, totalExpense, totalIncomeAll, netFlow, topExpenses, pocketPieData };
+    return { pieData, barData, highestCategory, totalExpense, totalIncomeAll, netFlow, topExpenses, pocketPieData, totalNeedExpense, totalWantExpense, needPercentage, wantPercentage };
   }, [transactions]);
 
   if (checkingSub) {
@@ -172,7 +203,7 @@ export default function AnalyticsView({ transactions, canUseAnalytics, checkingS
             Arus Kas (Net)
           </p>
           <p className={`text-xl font-bold ${netFlow >= 0 ? 'text-emerald-700 dark:text-emerald-400' : 'text-rose-700 dark:text-rose-400'}`}>
-            {netFlow > 0 ? '+' : ''}{formatCurrency(netFlow)}
+            {netFlow > 0 ? '' : ''}{formatCurrency(netFlow)}
           </p>
         </div>
       </div>
@@ -193,7 +224,13 @@ export default function AnalyticsView({ transactions, canUseAnalytics, checkingS
           )}
         </div>
         <ul className="space-y-2.5">
-          {aiSummary ? (
+          {aiLoading ? (
+            <div className="py-2 space-y-3">
+              <div className="h-4 bg-indigo-150 dark:bg-indigo-500/20 rounded w-11/12 animate-pulse"></div>
+              <div className="h-4 bg-indigo-150 dark:bg-indigo-500/20 rounded w-10/12 animate-pulse"></div>
+              <div className="h-4 bg-indigo-150 dark:bg-indigo-500/20 rounded w-8/12 animate-pulse"></div>
+            </div>
+          ) : aiSummary ? (
             aiSummary.map((point, idx) => (
               <li key={idx} className="flex gap-2 items-start text-sm text-gray-700 dark:text-gray-300 leading-relaxed animate-fadeIn">
                 <span className="text-indigo-500 mt-0.5 font-bold">•</span>
@@ -249,8 +286,13 @@ export default function AnalyticsView({ transactions, canUseAnalytics, checkingS
                   </Pie>
                   <Tooltip 
                     formatter={(value: any) => formatCurrency(value)}
-                    contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)', backgroundColor: 'var(--fallback-b1, #ffffff)' }}
-                    itemStyle={{ color: '#1f2937' }}
+                    contentStyle={{ 
+                      borderRadius: '12px', 
+                      border: isDark ? '1px solid #374151' : '1px solid #e5e7eb', 
+                      boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)', 
+                      backgroundColor: isDark ? '#1f2937' : '#ffffff' 
+                    }}
+                    itemStyle={{ color: isDark ? '#f3f4f6' : '#1f2937' }}
                   />
                   <Legend 
                     layout="vertical" 
@@ -274,20 +316,114 @@ export default function AnalyticsView({ transactions, canUseAnalytics, checkingS
           <div className="h-64">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={barData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#374151" opacity={0.1} />
-                <XAxis dataKey="date" tick={{ fontSize: 10 }} axisLine={false} tickLine={false} dy={10} />
-                <YAxis tickFormatter={(val) => `Rp${val/1000}k`} tick={{ fontSize: 10 }} axisLine={false} tickLine={false} />
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={isDark ? '#4b5563' : '#374151'} opacity={0.15} />
+                <XAxis dataKey="date" tick={{ fontSize: 10, fill: isDark ? '#9ca3af' : '#6b7280' }} axisLine={false} tickLine={false} dy={10} />
+                <YAxis tickFormatter={(val) => `Rp${val/1000}k`} tick={{ fontSize: 10, fill: isDark ? '#9ca3af' : '#6b7280' }} axisLine={false} tickLine={false} />
                 <Tooltip 
                   formatter={(value: any) => formatCurrency(value)}
-                  cursor={{ fill: '#f3f4f6', opacity: 0.1 }}
-                  contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)', backgroundColor: '#ffffff' }}
-                  itemStyle={{ color: '#1f2937' }}
+                  cursor={{ fill: isDark ? '#374151' : '#f3f4f6', opacity: 0.1 }}
+                  contentStyle={{ 
+                    borderRadius: '12px', 
+                    border: isDark ? '1px solid #374151' : '1px solid #e5e7eb', 
+                    boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)', 
+                    backgroundColor: isDark ? '#1f2937' : '#ffffff' 
+                  }}
+                  itemStyle={{ color: isDark ? '#f3f4f6' : '#1f2937' }}
                 />
                 <Legend wrapperStyle={{ fontSize: '12px', paddingTop: '10px' }} iconType="circle" />
                 <Bar dataKey="Pemasukan" fill="#10b981" radius={[4, 4, 0, 0]} maxBarSize={30} />
                 <Bar dataKey="Pengeluaran" fill="#f43f5e" radius={[4, 4, 0, 0]} maxBarSize={30} />
               </BarChart>
             </ResponsiveContainer>
+          </div>
+        </div>
+
+        {/* Rasio Kebutuhan vs Keinginan */}
+        <div className="bg-white dark:bg-gray-900 rounded-2xl p-5 border border-gray-100 dark:border-gray-800 shadow-sm flex flex-col justify-between">
+          <div>
+            <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-1">Rasio Kebutuhan vs Keinginan</h3>
+            <p className="text-xs text-gray-500 mb-4">Menganalisis jenis pengeluaran berdasarkan prinsip 50/30/20</p>
+          </div>
+          
+          <div className="space-y-4 my-auto">
+            <div className="flex justify-between text-xs font-medium">
+              <span className="text-indigo-600 dark:text-indigo-400">Kebutuhan (Needs)</span>
+              <span className="text-rose-500">Keinginan (Wants)</span>
+            </div>
+            
+            <div className="h-4 w-full bg-gray-100 dark:bg-gray-800 rounded-full overflow-hidden flex">
+              <div 
+                className="h-full bg-indigo-500 transition-all duration-500" 
+                style={{ width: `${totalExpense > 0 ? needPercentage : 50}%` }}
+                title={`Kebutuhan: ${needPercentage}%`}
+              />
+              <div 
+                className="h-full bg-rose-500 transition-all duration-500" 
+                style={{ width: `${totalExpense > 0 ? wantPercentage : 50}%` }}
+                title={`Keinginan: ${wantPercentage}%`}
+              />
+            </div>
+            
+            <div className="grid grid-cols-2 gap-4 pt-2">
+              <div className="bg-indigo-50/50 dark:bg-indigo-500/5 p-3 rounded-xl border border-indigo-100/50 dark:border-indigo-500/10">
+                <p className="text-[10px] text-gray-400 dark:text-gray-500 uppercase font-bold">Total Kebutuhan</p>
+                <p className="text-base font-bold text-indigo-600 dark:text-indigo-400">{formatCurrency(totalNeedExpense)}</p>
+                <p className="text-[11px] text-gray-500 mt-0.5">{needPercentage}% dari pengeluaran</p>
+              </div>
+              <div className="bg-rose-50/50 dark:bg-rose-500/5 p-3 rounded-xl border border-rose-100/50 dark:border-rose-500/10">
+                <p className="text-[10px] text-gray-400 dark:text-gray-500 uppercase font-bold">Total Keinginan</p>
+                <p className="text-base font-bold text-rose-600 dark:text-rose-400">{formatCurrency(totalWantExpense)}</p>
+                <p className="text-[11px] text-gray-500 mt-0.5">{wantPercentage}% dari pengeluaran</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Pie Chart: Pockets */}
+        <div className="bg-white dark:bg-gray-900 rounded-2xl p-5 border border-gray-100 dark:border-gray-800 shadow-sm">
+          <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-1">Pengeluaran per Kantong</h3>
+          <p className="text-xs text-gray-500 mb-4">Melihat dari kantong mana uangmu keluar</p>
+          
+          <div className="h-64">
+            {pocketPieData.length > 0 ? (
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={pocketPieData}
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={60}
+                    outerRadius={80}
+                    paddingAngle={3}
+                    dataKey="value"
+                    stroke="none"
+                  >
+                    {pocketPieData.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={COLORS[(index + 3) % COLORS.length]} />
+                    ))}
+                  </Pie>
+                  <Tooltip 
+                    formatter={(value: any) => formatCurrency(value)}
+                    contentStyle={{ 
+                      borderRadius: '12px', 
+                      border: isDark ? '1px solid #374151' : '1px solid #e5e7eb', 
+                      boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)', 
+                      backgroundColor: isDark ? '#1f2937' : '#ffffff' 
+                    }}
+                    itemStyle={{ color: isDark ? '#f3f4f6' : '#1f2937' }}
+                  />
+                  <Legend 
+                    layout="vertical" 
+                    verticalAlign="middle" 
+                    align="right"
+                    wrapperStyle={{ fontSize: '12px' }}
+                    iconType="circle"
+                  />
+                </PieChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="h-full flex items-center justify-center text-gray-400 text-sm">Belum ada data pengeluaran</div>
+            )}
           </div>
         </div>
 
@@ -299,18 +435,24 @@ export default function AnalyticsView({ transactions, canUseAnalytics, checkingS
             <div className="h-72 w-full">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={trendData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#374151" opacity={0.1} />
-                  <XAxis dataKey="month" axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: '#6b7280' }} dy={10} />
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={isDark ? '#4b5563' : '#374151'} opacity={0.15} />
+                  <XAxis dataKey="month" axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: isDark ? '#9ca3af' : '#6b7280' }} dy={10} />
                   <YAxis 
                     axisLine={false} 
                     tickLine={false} 
-                    tick={{ fontSize: 11, fill: '#6b7280' }}
+                    tick={{ fontSize: 11, fill: isDark ? '#9ca3af' : '#6b7280' }}
                     tickFormatter={(value) => `Rp ${value / 1000000}jt`}
                     width={50}
                   />
                   <Tooltip 
-                    cursor={{ fill: 'rgba(99, 102, 241, 0.05)' }}
-                    contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)', backgroundColor: 'rgba(255, 255, 255, 0.95)', color: '#111827' }}
+                    cursor={{ fill: isDark ? 'rgba(255, 255, 255, 0.05)' : 'rgba(99, 102, 241, 0.05)' }}
+                    contentStyle={{ 
+                      borderRadius: '12px', 
+                      border: isDark ? '1px solid #374151' : '1px solid #e5e7eb', 
+                      boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)', 
+                      backgroundColor: isDark ? '#1f2937' : '#ffffff',
+                      color: isDark ? '#f3f4f6' : '#111827'
+                    }}
                     formatter={(value: any) => formatCurrency(Number(value))}
                   />
                   <Legend iconType="circle" wrapperStyle={{ paddingTop: '20px', fontSize: '12px' }} />

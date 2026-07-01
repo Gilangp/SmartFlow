@@ -44,7 +44,10 @@ export async function GET(request: NextRequest) {
     // Hitung agregasi dasar
     let totalIncome = 0;
     let totalExpense = 0;
+    let totalNeedExpense = 0;
+    let totalWantExpense = 0;
     const catMap: Record<string, number> = {};
+    const expenseTransactions = [];
 
     for (const t of transactions) {
       const amount = Number(t.amount);
@@ -52,32 +55,54 @@ export async function GET(request: NextRequest) {
         totalIncome += amount;
       } else if (t.type === 'EXPENSE') {
         totalExpense += amount;
+        expenseTransactions.push(t);
         const cat = t.category?.name || 'Lainnya';
         catMap[cat] = (catMap[cat] || 0) + amount;
+
+        if (t.category?.type === 'WANT') {
+          totalWantExpense += amount;
+        } else {
+          // Default/NEED
+          totalNeedExpense += amount;
+        }
       }
     }
 
     const netFlow = totalIncome - totalExpense;
+    const savingRate = totalIncome > 0 ? Math.round((netFlow / totalIncome) * 100) : 0;
+    const wantPercentage = totalExpense > 0 ? Math.round((totalWantExpense / totalExpense) * 100) : 0;
+    const needPercentage = totalExpense > 0 ? Math.round((totalNeedExpense / totalExpense) * 100) : 0;
 
     // Cari top category & largest single transaction
     const sortedCats = Object.entries(catMap).sort((a, b) => b[1] - a[1]);
     const topCategory = sortedCats.length > 0 ? sortedCats[0][0] : '-';
     const topCatAmount = sortedCats.length > 0 ? sortedCats[0][1] : 0;
 
-    const largestExpenseTx = transactions.find((t) => t.type === 'EXPENSE');
+    // Ambil 8 transaksi pengeluaran terbesar untuk dikirim ke AI beserta notesnya
+    const top8Expenses = expenseTransactions
+      .sort((a, b) => Number(b.amount) - Number(a.amount))
+      .slice(0, 8);
+
+    const largestExpensesText = top8Expenses.map(t => {
+      const dateStr = t.date.toISOString().split('T')[0];
+      const noteStr = t.notes ? ` (Catatan: "${t.notes}")` : '';
+      return `- [Tanggal: ${dateStr}] ${t.category?.name || 'Lainnya'} (${t.category?.type === 'WANT' ? 'Keinginan' : 'Kebutuhan'}): Rp ${Number(t.amount)}${noteStr}`;
+    }).join('\n');
+
+    const largestExpenseTx = top8Expenses.length > 0 ? top8Expenses[0] : null;
     const largestTxName = largestExpenseTx ? (largestExpenseTx.notes || largestExpenseTx.category?.name || 'Pengeluaran') : '-';
     const largestTxAmount = largestExpenseTx ? Number(largestExpenseTx.amount) : 0;
 
     // Rule-based fallback (jika AI gagal atau belum ada cukup transaksi)
     const fallbackSummary = [
       netFlow >= 0
-        ? `Cash flow sangat sehat! Total pemasukanmu (${formatRp(totalIncome)}) melebihi pengeluaran (${formatRp(totalExpense)}) dalam 30 hari terakhir.`
-        : `Peringatan defisit likuiditas. Pengeluaranmu (${formatRp(totalExpense)}) telah melampaui pemasukan (${formatRp(totalIncome)}).`,
+        ? `Cash flow sangat sehat! Total pemasukanmu (${formatRp(totalIncome)}) melebihi pengeluaran (${formatRp(totalExpense)}) dalam 30 hari terakhir dengan rasio menabung ${savingRate}%.`
+        : `Peringatan defisit likuiditas. Pengeluaranmu (${formatRp(totalExpense)}) telah melampaui pemasukan (${formatRp(totalIncome)}) sebesar ${formatRp(Math.abs(netFlow))}.`,
       topCategory !== '-'
-        ? `Pengeluaran terbesar terkonsentrasi pada kategori "${topCategory}" (${formatRp(topCatAmount)}). Disarankan melakukan efisiensi pada sektor ini.`
+        ? `Pengeluaran terbesar terkonsentrasi pada kategori "${topCategory}" (${formatRp(topCatAmount)}) yang menyerap ${needPercentage}% kebutuhan dan ${wantPercentage}% keinginan.`
         : `Belum tercatat pola pengeluaran kategori yang dominan bulan ini.`,
       largestTxName !== '-'
-        ? `Pengeluaran tunggal terbesar adalah "${largestTxName}" sebesar ${formatRp(largestTxAmount)}.`
+        ? `Pengeluaran tunggal terbesar adalah "${largestTxName}" sebesar ${formatRp(largestTxAmount)}. Pastikan pengeluaran besar ini direncanakan dari pos anggaran khusus.`
         : `Pengeluaran harian terpantau cukup merata tanpa lonjakan transaksi tunggal.`
     ];
 
@@ -87,27 +112,44 @@ export async function GET(request: NextRequest) {
 
     // Bangun Prompt AI
     const prompt = `Kamu adalah AI Executive Financial Analyst tingkat tinggi di aplikasi Finto SmartFlow.
-Berdasarkan data keuangan user selama 30 hari terakhir berikut:
+Tugas Anda adalah melakukan audit finansial dan analisis kesehatan keuangan secara mendalam, objektif, dan profesional berdasarkan data keuangan user selama 30 hari terakhir berikut:
+
+METRIK UTAMA:
 - Total Pemasukan: Rp ${totalIncome}
 - Total Pengeluaran: Rp ${totalExpense}
-- Arus Kas Netto (Surplus/Defisit): Rp ${netFlow}
-- Kategori Terboros: "${topCategory}" sebesar Rp ${topCatAmount}
-- Transaksi Tunggal Terbesar: "${largestTxName}" sebesar Rp ${largestTxAmount}
+- Arus Kas Bersih (Net Flow): Rp ${netFlow}
+- Rasio Tabungan (Savings Rate): ${savingRate}% dari pemasukan
+- Pengeluaran Kebutuhan (Needs): Rp ${totalNeedExpense} (${needPercentage}% dari total pengeluaran)
+- Pengeluaran Keinginan (Wants): Rp ${totalWantExpense} (${wantPercentage}% dari total pengeluaran)
+- Kategori Terboros: "${topCategory}" dengan akumulasi Rp ${topCatAmount}
 
-Buatlah persis 3 poin analisis Executive Summary yang cerdas, tajam, objektif, dan memberi pandangan profesional (jangan kaku, gunakan bahasa Indonesia yang elegan namun mudah dipahami).
-Poin 1: Evaluasi kondisi cash flow dan kesehatan likuiditas.
-Poin 2: Analisis konsentrasi pengeluaran pada kategori terboros & sarannya.
-Poin 3: Pandangan atas efisiensi transaksi tunggal terbesar atau kebiasaan finansial secara umum.
-PENTING: JANGAN gunakan emoji sama sekali dalam teks output.
+DAFTAR TRANSAKSI PENGELUARAN TERBESAR (Dengan Catatan):
+${largestExpensesText || 'Tidak ada transaksi pengeluaran.'}
 
-KEMBALIKAN HANYA DAN EKCLUSIF DALAM FORMAT JSON ARRAY berisi persis 3 string.
+PANDUAN AUDIT FINANSIAL PROFESIONAL:
+1. Poin 1 (Analisis Likuiditas & Rasio Tabungan):
+   - Lakukan evaluasi cash flow secara ketat. Jika Net Flow negatif, identifikasi sebagai "Defisit Likuiditas" dan hitung tingkat kerentanan keuangan.
+   - Evaluasi Savings Rate berdasarkan benchmark profesional: >= 20% (Sehat/Sangat Baik), 10-19% (Cukup/Rentan), < 10% (Lemah/Vulnerable), < 0% (Kritis). Berikan rekomendasi pembentukan Dana Darurat yang konkret dan realistis (misal target akumulasi 3-6 kali pengeluaran bulanan).
+2. Poin 2 (Audit Alokasi Anggaran - Needs vs Wants):
+   - Gunakan kerangka kerja penganggaran 50/30/20. Bandingkan rasio pengeluaran user (Needs ${needPercentage}% vs Wants ${wantPercentage}%) dengan rasio ideal (maksimal 50% Needs, 30% Wants, 20% Savings).
+   - Soroti jika pengeluaran Keinginan (Wants) melampaui 30% atau jika kategori terboros ("${topCategory}") menyerap porsi anggaran yang tidak sehat. Berikan instruksi pembatasan anggaran atau teknik penganggaran amplop yang spesifik.
+3. Poin 3 (Analisis Transaksi Terbesar & Rekomendasi Taktis):
+   - Bedah daftar transaksi terbesar beserta CATATAN-nya secara detail. 
+   - Klasifikasikan dengan tepat mana pengeluaran besar bersifat Investasi/Kewajiban Produktif (seperti: "bayar kos", "biaya kuliah/ukt", "obat/kesehatan", "angsuran") dan mana yang bersifat Konsumsi Diskresioner/Keinginan (seperti: "jajan", "kopi", "game", "gadget non-esensial").
+   - Jika didominasi pengeluaran produktif/investasi, berikan validasi logis atas keputusan tersebut lalu sarankan cara mitigasi likuiditas. Jika didominasi konsumsi diskresioner, berikan kritik profesional konstruktif dan taktik menahan diri (misal aturan menunda pembelian 30 hari).
+
+ATURAN OUTPUT:
+- JANGAN gunakan emoji sama sekali dalam teks output.
+- KEMBALIKAN HANYA DAN EKSKLUSIF DALAM FORMAT JSON ARRAY berisi persis 3 string.
+- Jangan tulis teks markdown atau awalan/akhiran apapun selain JSON array tersebut.
+- WAJIB memformat setiap nominal uang menggunakan titik sebagai pemisah ribuan (contoh: Rp 50.000, Rp 1.500.000, dst). JANGAN menulis angka tanpa pemisah (seperti Rp 50000 atau Rp 1500000).
+
 Contoh format output JSON yang sah:
 [
-  "Arus kas mencatatkan surplus sehat sebesar Rp X, menunjukkan kedisiplinan likuiditas yang sangat baik bulan ini.",
-  "Sektor pengeluaran didominasi oleh kategori X sebesar Rp Y. Alokasikan batas anggaran bulanan agar tidak membebani tabungan.",
-  "Transaksi tunggal X senilai Rp Y menjadi penyerap terbesar. Pastikan pengeluaran bernilai besar telah direncanakan dari dana khusus."
-]
-Jangan tulis teks markdown atau awalan apapun selain JSON array tersebut.`;
+  "Analisis likuiditas mendeteksi defisit arus kas sebesar Rp 750.000 dengan rasio tabungan minus 15%, menunjukkan kerentanan tinggi terhadap pengeluaran darurat sehingga pembentukan dana cadangan minimal 3 bulan pengeluaran menjadi prioritas utama.",
+  "Proporsi pengeluaran keinginan (Wants) mencapai 42% yang melampaui batas aman 30%, dipicu oleh akumulasi kategori Belanja sebesar Rp 1.200.000. Perlu dilakukan restrukturisasi anggaran dengan memangkas pos non-esensial dan menerapkan limitasi harian.",
+  "Transaksi terbesar tunggal tercatat pada pos produktif yaitu UKT Kuliah senilai Rp 5.000.000, namun terdapat celah efisiensi pada transaksi konsumtif ngopi sore sebesar Rp 150.000 yang dapat dialokasikan kembali untuk memperkuat likuiditas."
+]`;
 
     // 1. Coba Gemini 2.0 Flash
     try {

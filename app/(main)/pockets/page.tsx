@@ -2,11 +2,13 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { Plus, ArrowRightLeft, Trash2, Percent, Wallet, ShieldAlert, PiggyBank, Target, Car, Plane, Home, GraduationCap, Laptop, Gift, Heart, ShoppingBag, Coffee, Coins, X, Info } from 'lucide-react';
+import { Plus, ArrowRightLeft, Trash2, Percent, Wallet, ShieldAlert, PiggyBank, Target, Car, Plane, Home, GraduationCap, Laptop, Gift, Heart, ShoppingBag, Coffee, Coins, X, Info, HelpCircle } from 'lucide-react';
 import AddPocketModal from '@/components/AddPocketModal';
 import TransferPocketModal from '@/components/TransferPocketModal';
 import AllocationModal from '@/components/AllocationModal';
 import { formatNominalInput, cleanNominalInput } from '@/lib/utils';
+import { driver } from 'driver.js';
+import 'driver.js/dist/driver.css';
 
 interface Pocket {
   id: string;
@@ -102,6 +104,105 @@ export default function PocketsPage() {
   const [showAllocationModal, setShowAllocationModal] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
+  const runPocketsTour = useCallback(() => {
+    const driverObj = driver({
+      showProgress: true,
+      nextBtnText: 'Lanjut',
+      prevBtnText: 'Kembali',
+      doneBtnText: 'Selesai',
+      steps: [
+        {
+          popover: {
+            title: 'Sistem 4 Kantong Keuangan',
+            description: 'Di halaman ini, kamu bisa membagi uangmu ke dalam kantong-kantong khusus untuk kedisiplinan finansial yang lebih baik.',
+            side: 'bottom' as const,
+            align: 'start' as const
+          }
+        },
+        ...(document.querySelector('#tour-pocket-MAIN') ? [{
+          element: '#tour-pocket-MAIN',
+          popover: {
+            title: 'Dompet Utama',
+            description: 'Ini saldo jajan harianmu. Pengeluaran rutin harian dipotong dari sini, dan jatah harianmu dihitung murni dari saldo ini.',
+            side: 'bottom' as const,
+            align: 'start' as const
+          }
+        }] : []),
+        ...(document.querySelector('#tour-pocket-EMERGENCY') ? [{
+          element: '#tour-pocket-EMERGENCY',
+          popover: {
+            title: 'Dana Darurat',
+            description: 'Tabungan khusus untuk musibah atau kebutuhan mendesak. Tarik dana ini hanya saat keadaan benar-benar darurat ya!',
+            side: 'bottom' as const,
+            align: 'start' as const
+          }
+        }] : []),
+        ...(document.querySelector('#tour-pocket-SAVINGS') ? [{
+          element: '#tour-pocket-SAVINGS',
+          popover: {
+            title: 'Tabungan Masa Depan',
+            description: 'Simpan uang dinginmu di sini agar bertumbuh tanpa terganggu pengeluaran harian.',
+            side: 'bottom' as const,
+            align: 'start' as const
+          }
+        }] : []),
+        ...(document.querySelector('#tour-pocket-WISHLIST') ? [{
+          element: '#tour-pocket-WISHLIST',
+          popover: {
+            title: 'Wishlist / Target Impian',
+            description: 'Kumpulkan uang untuk barang idamanmu di sini. Tentukan target nominal dan pantau progress bar-nya hingga 100%!',
+            side: 'bottom' as const,
+            align: 'start' as const
+          }
+        }] : []),
+        ...(document.querySelector('#tour-allocation-btn') ? [{
+          element: '#tour-allocation-btn',
+          popover: {
+            title: 'Alokasi Pemasukan Otomatis',
+            description: 'Atur persentase di sini agar setiap uang masuk otomatis dibagi ke masing-masing kantong (misal 50% Utama, 20% Tabungan, 30% Wishlist).',
+            side: 'bottom' as const,
+            align: 'start' as const
+          }
+        }] : []),
+        ...(document.querySelector('#tour-transfer-btn') ? [{
+          element: '#tour-transfer-btn',
+          popover: {
+            title: 'Transfer Antar Kantong',
+            description: 'Ingin memindahkan uang dari Dompet Utama ke Tabungan atau sebaliknya secara instan? Gunakan menu transfer ini.',
+            side: 'bottom' as const,
+            align: 'start' as const
+          }
+        }] : []),
+        ...(document.querySelector('#tour-add-pocket-btn') ? [{
+          element: '#tour-add-pocket-btn',
+          popover: {
+            title: 'Tambah Kantong Kustom',
+            description: 'Butuh kantong tambahan diluar 4 kantong default? Buat kantong kustom barumu sendiri di sini.',
+            side: 'bottom' as const,
+            align: 'start' as const
+          }
+        }] : [])
+      ],
+      onDestroyed: () => {
+        localStorage.setItem('sf-tour-pockets-completed', 'true');
+      }
+    });
+
+    driverObj.drive();
+  }, []);
+
+  useEffect(() => {
+    if (!isLoading && pockets.length > 0) {
+      const tourCompleted = localStorage.getItem('sf-tour-pockets-completed');
+      if (!tourCompleted) {
+        const timer = setTimeout(() => {
+          runPocketsTour();
+        }, 1500);
+        return () => clearTimeout(timer);
+      }
+    }
+  }, [isLoading, pockets, runPocketsTour]);
+
   const getToken = useCallback(() => localStorage.getItem('sf-token'), []);
 
   const fetchPockets = useCallback(async () => {
@@ -175,14 +276,26 @@ export default function PocketsPage() {
       <header className="sticky top-0 z-40 bg-white/80 dark:bg-gray-950/80 backdrop-blur-xl border-b border-gray-200 dark:border-gray-800 pt-safe">
         <div className="max-w-7xl mx-auto px-5 py-4">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            <div>
-              <h1 className="text-xl font-semibold text-gray-900 dark:text-white">Kantong</h1>
-              <p className="text-xs text-gray-500 dark:text-gray-500 mt-0.5">
-                Total: <span className="font-semibold text-indigo-600 dark:text-indigo-400">{formatCurrency(totalWealth)}</span>
-              </p>
+            <div className="flex items-center justify-between w-full sm:w-auto">
+              <div>
+                <h1 className="text-xl font-semibold text-gray-900 dark:text-white">Kantong</h1>
+                <p className="text-xs text-gray-500 dark:text-gray-500 mt-0.5">
+                  Total: <span className="font-semibold text-indigo-600 dark:text-indigo-400">{formatCurrency(totalWealth)}</span>
+                </p>
+              </div>
+              {/* Help Button (Mobile only) */}
+              <button
+                onClick={runPocketsTour}
+                className="sm:hidden w-9 h-9 rounded-lg bg-gray-100 dark:bg-gray-800 flex items-center justify-center text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700 transition active:scale-95"
+                title="Panduan Pengguna"
+                aria-label="Tampilkan Panduan"
+              >
+                <HelpCircle className="w-4.5 h-4.5" />
+              </button>
             </div>
             <div className="flex flex-wrap items-center gap-2">
               <button
+                id="tour-allocation-btn"
                 onClick={() => setShowAllocationModal(true)}
                 className="flex items-center gap-1.5 px-3 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-xs font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition active:scale-[0.98]"
               >
@@ -190,6 +303,7 @@ export default function PocketsPage() {
                 Alokasi
               </button>
               <button
+                id="tour-transfer-btn"
                 onClick={() => setShowTransferModal(true)}
                 className="flex items-center gap-1.5 px-3 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-xs font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition active:scale-[0.98]"
               >
@@ -197,11 +311,21 @@ export default function PocketsPage() {
                 Transfer
               </button>
               <button
+                id="tour-add-pocket-btn"
                 onClick={() => setShowAddModal(true)}
                 className="flex items-center gap-1.5 px-3 py-2 bg-indigo-600 border border-indigo-600 rounded-lg text-xs font-medium text-white hover:bg-indigo-700 transition shadow-sm shadow-indigo-600/20 active:scale-[0.98]"
               >
                 <Plus className="w-4 h-4" />
                 Tambah Kantong
+              </button>
+              {/* Help Button (Desktop only) */}
+              <button
+                onClick={runPocketsTour}
+                className="hidden sm:flex w-9 h-9 rounded-lg bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 items-center justify-center text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700 transition-all active:scale-[0.98]"
+                aria-label="Tampilkan Panduan"
+                title="Panduan Pengguna"
+              >
+                <HelpCircle className="w-4.5 h-4.5" />
               </button>
             </div>
           </div>
@@ -227,18 +351,19 @@ export default function PocketsPage() {
                 canSetTarget: true,
                 withdrawWarning: 'Pastikan penarikan sesuai dengan tujuan kantong ini.',
               };
-
+ 
               const hasTarget = pocket.targetAmount && meta.canSetTarget;
               const isCompleted = pocket.status === 'completed';
               const progress = Math.min(pocket.progressPercentage || 0, 100);
               const canWithdraw = meta.canWithdraw && pocket.balance > 0;
-
+ 
               const isCustomGradient = pocket.color?.startsWith('from-');
               const gradientClass = meta.gradient || (isCustomGradient ? pocket.color : '');
-
+ 
               return (
                 <div
                   key={pocket.id}
+                  id={`tour-pocket-${pocket.type}`}
                   className={`relative overflow-hidden rounded-2xl p-5 text-white shadow-xl shadow-indigo-900/10 dark:shadow-none transition-transform hover:-translate-y-1 duration-300 ${gradientClass ? `bg-gradient-to-br ${gradientClass}` : ''}`}
                   style={!gradientClass ? { backgroundColor: pocket.color || '#6366f1' } : undefined}
                 >
