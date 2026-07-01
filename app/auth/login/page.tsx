@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { AlertCircle, Eye, EyeOff, Loader2 } from 'lucide-react';
@@ -9,9 +9,18 @@ export default function LoginPage() {
   const router = useRouter();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [rememberEmail, setRememberEmail] = useState(true);
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
+
+  useEffect(() => {
+    const savedEmail = localStorage.getItem('sf-saved-email');
+    if (savedEmail) {
+      setEmail(savedEmail);
+      setRememberEmail(true);
+    }
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -30,6 +39,11 @@ export default function LoginPage() {
       if (data.success) {
         localStorage.setItem('sf-token', data.token);
         localStorage.setItem('sf-user', JSON.stringify(data.user));
+        if (rememberEmail) {
+          localStorage.setItem('sf-saved-email', email);
+        } else {
+          localStorage.removeItem('sf-saved-email');
+        }
         router.push('/dashboard');
       } else {
         setError(data.message || 'Email atau password salah');
@@ -109,8 +123,18 @@ export default function LoginPage() {
               </div>
             </div>
 
-            {/* Lupa password link */}
-            <div className="flex justify-end -mt-2">
+            {/* Remember me & Lupa password */}
+            <div className="flex items-center justify-between -mt-2">
+              <label className="flex items-center gap-2 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={rememberEmail}
+                  onChange={(e) => setRememberEmail(e.target.checked)}
+                  className="w-4.5 h-4.5 rounded border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-indigo-600 focus:ring-indigo-500/50 cursor-pointer"
+                />
+                <span className="text-xs text-slate-600 dark:text-slate-400 font-medium">Ingat Email Saya</span>
+              </label>
+              
               <Link
                 href="/auth/lupa-password"
                 className="text-xs text-indigo-600 dark:text-indigo-400 hover:text-indigo-500 dark:hover:text-indigo-300 transition-colors font-medium"
