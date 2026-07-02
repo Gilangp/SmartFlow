@@ -126,35 +126,47 @@ METRIK UTAMA:
 DAFTAR TRANSAKSI PENGELUARAN TERBESAR (Dengan Catatan):
 ${largestExpensesText || 'Tidak ada transaksi pengeluaran.'}
 
-PANDUAN AUDIT FINANSIAL PROFESIONAL:
-1. Poin 1 (Analisis Likuiditas & Rasio Tabungan):
-   - Lakukan evaluasi cash flow secara ketat. Jika Net Flow negatif, identifikasi sebagai "Defisit Likuiditas" dan hitung tingkat kerentanan keuangan.
-   - Evaluasi Savings Rate berdasarkan benchmark profesional: >= 20% (Sehat/Sangat Baik), 10-19% (Cukup/Rentan), < 10% (Lemah/Vulnerable), < 0% (Kritis). Berikan rekomendasi pembentukan Dana Darurat yang konkret dan realistis (misal target akumulasi 3-6 kali pengeluaran bulanan).
-2. Poin 2 (Audit Alokasi Anggaran - Needs vs Wants):
+PANDUAN AUDIT FINANSIAL & REKOMENDASI TACTICAL:
+Setiap poin dari 3 poin analisis di bawah ini WAJIB diakhiri dengan saran tindakan konkret (Actionable Advice) yang spesifik dan praktis agar user dapat langsung memperbaiki atau mempertahankan kondisi keuangan mereka.
+
+1. Poin 1 (Analisis Likuiditas, Rasio Tabungan & Saran Dana Darurat):
+   - Lakukan evaluasi cash flow secara ketat. Jika Net Flow negatif, identifikasi sebagai "Defisit Arus Kas" dan hitung tingkat kerentanan keuangan.
+   - Evaluasi Savings Rate berdasarkan benchmark profesional: >= 20% (Sehat/Sangat Baik), 10-19% (Cukup/Rentan), < 10% (Lemah/Vulnerable), < 0% (Kritis). 
+   - WAJIB berikan saran tindakan konkret untuk pembentukan Dana Darurat atau penyeimbangan arus kas (misal target tabungan otomatis nominal tertentu, memisahkan rekening, dsb).
+2. Poin 2 (Audit Alokasi Anggaran - Needs vs Wants & Saran Batasan Anggaran):
    - Gunakan kerangka kerja penganggaran 50/30/20. Bandingkan rasio pengeluaran user (Needs ${needPercentage}% vs Wants ${wantPercentage}%) dengan rasio ideal (maksimal 50% Needs, 30% Wants, 20% Savings).
-   - Soroti jika pengeluaran Keinginan (Wants) melampaui 30% atau jika kategori terboros ("${topCategory}") menyerap porsi anggaran yang tidak sehat. Berikan instruksi pembatasan anggaran atau teknik penganggaran amplop yang spesifik.
-3. Poin 3 (Analisis Transaksi Terbesar & Rekomendasi Taktis):
+   - Soroti jika pengeluaran Keinginan (Wants) melampaui 30% atau jika kategori terboros ("${topCategory}") menyerap porsi anggaran yang tidak sehat. 
+   - WAJIB berikan saran tindakan pembatasan anggaran atau teknik penganggaran (seperti limit nominal anggaran baru, teknik amplop digital, dll).
+3. Poin 3 (Analisis Transaksi Terbesar & Saran Penghematan Taktis):
    - Bedah daftar transaksi terbesar beserta CATATAN-nya secara detail. 
    - Klasifikasikan dengan tepat mana pengeluaran besar bersifat Investasi/Kewajiban Produktif (seperti: "bayar kos", "biaya kuliah/ukt", "obat/kesehatan", "angsuran") dan mana yang bersifat Konsumsi Diskresioner/Keinginan (seperti: "jajan", "kopi", "game", "gadget non-esensial").
-   - Jika didominasi pengeluaran produktif/investasi, berikan validasi logis atas keputusan tersebut lalu sarankan cara mitigasi likuiditas. Jika didominasi konsumsi diskresioner, berikan kritik profesional konstruktif dan taktik menahan diri (misal aturan menunda pembelian 30 hari).
+   - WAJIB berikan saran tindakan taktis untuk menekan biaya tersebut (misal menunda pembelian non-esensial 30 hari, menukar ke opsi alternatif yang lebih murah, membatasi frekuensi transaksi sejenis, dsb).
 
 ATURAN OUTPUT:
+- JANGAN menyalin secara verbal (baik struktur kalimat maupun pilihan kata) dari "Contoh format output JSON yang sah" di atas. Contoh tersebut HANYA untuk menunjukkan format JSON array berisi 3 string.
+- Gunakan struktur kalimat, gaya bahasa analitis yang bervariasi, dan kosakata yang beragam di setiap analisis. Hindari membuat kalimat template yang terulang-ulang.
+- Buat agar analisis terasa ditulis oleh auditor keuangan profesional yang berbeda setiap kalinya, dengan tetap mempertahankan objektivitas dan kedalaman analisis.
 - JANGAN gunakan emoji sama sekali dalam teks output.
 - KEMBALIKAN HANYA DAN EKSKLUSIF DALAM FORMAT JSON ARRAY berisi persis 3 string.
 - Jangan tulis teks markdown atau awalan/akhiran apapun selain JSON array tersebut.
 - WAJIB memformat setiap nominal uang menggunakan titik sebagai pemisah ribuan (contoh: Rp 50.000, Rp 1.500.000, dst). JANGAN menulis angka tanpa pemisah (seperti Rp 50000 atau Rp 1500000).
 
-Contoh format output JSON yang sah:
+Contoh format output JSON yang sah (Analisis + Saran Tindakan Konkret):
 [
-  "Analisis likuiditas mendeteksi defisit arus kas sebesar Rp 750.000 dengan rasio tabungan minus 15%, menunjukkan kerentanan tinggi terhadap pengeluaran darurat sehingga pembentukan dana cadangan minimal 3 bulan pengeluaran menjadi prioritas utama.",
-  "Proporsi pengeluaran keinginan (Wants) mencapai 42% yang melampaui batas aman 30%, dipicu oleh akumulasi kategori Belanja sebesar Rp 1.200.000. Perlu dilakukan restrukturisasi anggaran dengan memangkas pos non-esensial dan menerapkan limitasi harian.",
-  "Transaksi terbesar tunggal tercatat pada pos produktif yaitu UKT Kuliah senilai Rp 5.000.000, namun terdapat celah efisiensi pada transaksi konsumtif ngopi sore sebesar Rp 150.000 yang dapat dialokasikan kembali untuk memperkuat likuiditas."
+  "Analisis likuiditas mendeteksi defisit arus kas sebesar Rp 750.000 dengan rasio tabungan minus 15%. Saran tindakan: Segera buat rekening tabungan dana darurat terpisah, aktifkan fitur potong otomatis Rp 100.000 setiap kali menerima transfer gaji, dan tunda dahulu pengeluaran hiburan sampai arus kas kembali surplus.",
+  "Proporsi pengeluaran keinginan (Wants) Anda mencapai 42% yang melebihi batas aman 30%, terutama dipicu oleh akumulasi belanja kategori Belanja sebesar Rp 1.200.000. Saran tindakan: Batasi anggaran belanja Anda maksimal Rp 800.000 per bulan di aplikasi, serta gunakan aturan tunggu 48 jam sebelum melakukan checkout barang di toko online.",
+  "Transaksi tunggal terbesar adalah biaya UKT Kuliah senilai Rp 5.000.000 yang bersifat wajib, namun terdapat pengeluaran jajan kopi yang tidak efisien sebesar Rp 150.000. Saran tindakan: Alokasikan pengeluaran UKT dari pos tabungan jangka panjang yang terencana, dan pangkas frekuensi nongkrong beli kopi di kafe menjadi maksimal sekali seminggu."
 ]`;
 
     // 1. Coba Gemini 2.0 Flash
     try {
       const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
-      const result = await model.generateContent(prompt);
+      const result = await model.generateContent({
+        contents: [{ role: 'user', parts: [{ text: prompt }] }],
+        generationConfig: {
+          temperature: 0.75,
+        }
+      });
       const rawText = result.response.text();
       const parsed = extractJsonFromHfOutput(rawText);
 
@@ -168,7 +180,7 @@ Contoh format output JSON yang sah:
 
     // 2. Coba Hugging Face Qwen 2.5
     try {
-      const hfText = await callHuggingFace(prompt, { maxNewTokens: 350, temperature: 0.3 });
+      const hfText = await callHuggingFace(prompt, { maxNewTokens: 350, temperature: 0.75 });
       const parsed = extractJsonFromHfOutput(hfText);
 
       if (Array.isArray(parsed) && parsed.length >= 2 && typeof parsed[0] === 'string') {

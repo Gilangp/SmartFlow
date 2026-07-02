@@ -228,7 +228,7 @@ export async function GET(request: NextRequest) {
     }
 
     const daysLeftInMonth = getDaysLeftInCycle(now, paydayDate, hasReceivedEarlySalary);
-    const dailyAllowance = Math.round(balance / daysLeftInMonth);
+    const dailyAllowance = balance / daysLeftInMonth;
 
     const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     const startOfYesterday = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1);

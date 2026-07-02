@@ -182,7 +182,7 @@ export default function AddIncomeModal({ onClose, onSuccess, defaultType }: AddI
                     <div key={p.id} className="flex justify-between items-center text-xs">
                       <span className="text-gray-600 dark:text-gray-300">{p.name} ({p.allocation}%)</span>
                       <span className="font-mono font-semibold text-emerald-600 dark:text-emerald-400">
-                        +Rp {Math.round((amountNum * p.allocation) / 100).toLocaleString('id-ID')}
+                        +Rp {((amountNum * p.allocation) / 100).toLocaleString('id-ID', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}
                       </span>
                     </div>
                   ))}
@@ -190,7 +190,7 @@ export default function AddIncomeModal({ onClose, onSuccess, defaultType }: AddI
                     <div key={p.id} className="flex justify-between items-center text-xs border-t border-emerald-500/20 pt-1.5 mt-1">
                       <span className="text-emerald-700 dark:text-emerald-300 font-semibold">{p.name} (Sisa {mainRemainder}%)</span>
                       <span className="font-mono font-bold text-emerald-600 dark:text-emerald-400">
-                        +Rp {Math.round((amountNum * mainRemainder) / 100).toLocaleString('id-ID')}
+                        +Rp {((amountNum * mainRemainder) / 100).toLocaleString('id-ID', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}
                       </span>
                     </div>
                   ))}

@@ -64,7 +64,7 @@ function fallbackParser(text: string) {
   }
 
   return {
-    totalAmount: Math.round(total),
+    totalAmount: total,
     category: 'Lainnya',
     notes: text,
   };
