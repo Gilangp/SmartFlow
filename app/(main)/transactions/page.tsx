@@ -417,8 +417,8 @@ export default function TransactionsPage() {
                   </div>
                   <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 overflow-hidden">
                     {grouped[date].map((tx) => {
-                      const isTransferOut = tx.type === 'TRANSFER' && tx.notes?.toLowerCase().includes('transfer to');
-                      const isTransferIn = tx.type === 'TRANSFER' && tx.notes?.toLowerCase().includes('received from');
+                      const isTransferOut = tx.type === 'TRANSFER' && (tx.notes?.toLowerCase().includes('transfer to') || tx.notes?.toLowerCase().includes('transfer ke'));
+                      const isTransferIn = tx.type === 'TRANSFER' && (tx.notes?.toLowerCase().includes('received from') || tx.notes?.toLowerCase().includes('transfer dari'));
                       
                       const isExpenseStyle = tx.type === 'EXPENSE' || isTransferOut;
                       const isIncomeStyle = tx.type.startsWith('INCOME') || isTransferIn;

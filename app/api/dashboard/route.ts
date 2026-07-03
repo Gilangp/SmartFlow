@@ -63,15 +63,13 @@ export async function GET(request: NextRequest) {
       },
     });
 
-    // Calculate total spent today (expenses)
+    // Calculate total spent today specifically from the MAIN pocket against daily allowance
     const totalSpent = todayTransactions
-      .filter((t) => t.type === 'EXPENSE')
+      .filter((t) => t.type === 'EXPENSE' && t.pocketId === mainWallet?.id)
       .reduce((sum, t) => sum + t.amount.toNumber(), 0);
 
     // Calculate today's spending specifically for the MAIN pocket to find the starting balance of the day
-    const totalMainSpentToday = todayTransactions
-      .filter((t) => t.type === 'EXPENSE' && t.pocketId === mainWallet?.id)
-      .reduce((sum, t) => sum + t.amount.toNumber(), 0);
+    const totalMainSpentToday = totalSpent;
 
     // Saldo Dompet Utama di awal hari sebelum dipotong pengeluaran hari ini (namun tetap bertambah jika ada pemasukan baru)
     const startOfDayMainBalance = mainBalance + totalMainSpentToday;

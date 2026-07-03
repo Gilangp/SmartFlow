@@ -36,24 +36,24 @@ export async function POST(request: NextRequest) {
         throw new Error('Insufficient balance');
       }
 
-      // 1. Create expense from source
+      // 1. Create transfer out from source
       await tx.transaction.create({
         data: {
           userId: decoded.userId,
           pocketId: sourceId,
-          type: 'EXPENSE',
+          type: 'TRANSFER',
           amount,
           date: new Date(),
           notes: `Transfer ke ${target.name}`,
         }
       });
 
-      // 2. Create income to target
+      // 2. Create transfer in to target
       await tx.transaction.create({
         data: {
           userId: decoded.userId,
           pocketId: targetId,
-          type: 'INCOME_BONUS',
+          type: 'TRANSFER',
           amount,
           date: new Date(),
           notes: `Transfer dari ${source.name}`,
