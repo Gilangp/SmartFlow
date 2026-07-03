@@ -392,7 +392,13 @@ export default function DashboardPage() {
               </div>
               
               <div className="grid grid-cols-2 gap-4">
-                {dailyMetrics.pocketSummary.map((pocket) => (
+                {[...dailyMetrics.pocketSummary]
+                  .sort((a, b) => {
+                    const order = ['MAIN', 'EMERGENCY', 'SAVINGS', 'WISHLIST', 'CUSTOM'];
+                    return order.indexOf(a.type) - order.indexOf(b.type);
+                  })
+                  .slice(0, 4)
+                  .map((pocket) => (
                   <div
                     key={pocket.id}
                     onClick={() => router.push('/pockets')}
