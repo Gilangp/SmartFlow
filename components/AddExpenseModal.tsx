@@ -12,6 +12,7 @@ interface Pocket {
   name: string;
   type: string;
   allocation: number;
+  balance?: number;
 }
 
 interface AddExpenseModalProps {
@@ -392,7 +393,7 @@ export default function AddExpenseModal({ onClose, onSuccess, prefill }: AddExpe
                 >
                   <option value="">Pilih kantong</option>
                   {pockets.map((p) => (
-                    <option key={p.id} value={p.id}>{p.name} (Saldo: Rp {p.allocation ? p.allocation : 0})</option>
+                    <option key={p.id} value={p.id}>{p.name} (Saldo: Rp {(p.balance || 0).toLocaleString('id-ID')})</option>
                   ))}
                 </select>
               </div>

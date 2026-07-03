@@ -53,12 +53,15 @@ export function formatNominalInput(value: string | number): string {
   const parts = strValue.split('.');
   const integerPart = parts[0].replace(/\D/g, ''); // only digits
   
-  if (!integerPart) return '';
+  if (integerPart === '' && !parts[1]) return '';
   
-  const formattedInteger = Number(integerPart).toLocaleString('id-ID');
+  const formattedInteger = integerPart !== '' ? Number(integerPart).toLocaleString('id-ID') : '0';
   
   if (parts.length > 1) {
     const decimalPart = parts[1].replace(/\D/g, '');
+    if (strValue.endsWith('.')) {
+      return `${formattedInteger},`;
+    }
     return `${formattedInteger},${decimalPart}`;
   }
   
@@ -68,34 +71,19 @@ export function formatNominalInput(value: string | number): string {
 export function cleanNominalInput(value: string): string {
   if (!value) return '';
   
-  const separators = [...value.matchAll(/[.,]/g)];
-  if (separators.length === 0) {
-    return value.replace(/\D/g, '');
-  }
-  
-  if (separators.length > 1) {
-    const lastIndex = separators[separators.length - 1].index!;
-    const beforeLast = value.slice(0, lastIndex).replace(/[.,]/g, '');
-    const afterLast = value.slice(lastIndex + 1).replace(/[.,]/g, '');
-    return `${beforeLast.replace(/\D/g, '')}.${afterLast.replace(/\D/g, '')}`;
-  }
-  
-  const sep = separators[0];
-  const char = sep[0];
-  const index = sep.index!;
-  
-  const before = value.slice(0, index).replace(/\D/g, '');
-  const after = value.slice(index + 1).replace(/\D/g, '');
-  
-  if (char === ',') {
-    return `${before}.${after}`;
-  } else {
-    // Dot is decimal unless followed by exactly 3 digits (Indonesian thousands separator)
-    if (after.length === 3) {
-      return `${before}${after}`;
-    } else {
-      return `${before}.${after}`;
+  // Check if comma is used as Indonesian decimal separator
+  const commas = value.match(/,/g);
+  if (commas && commas.length === 1) {
+    const parts = value.split(',');
+    const before = parts[0].replace(/\D/g, '');
+    const after = parts[1].replace(/\D/g, '');
+    if (after.length === 0) {
+      return `${before}.`;
     }
+    return `${before}.${after}`;
   }
+  
+  // If multiple commas or no commas, treat any dots/commas as thousand separators and keep only digits
+  return value.replace(/\D/g, '');
 }
 

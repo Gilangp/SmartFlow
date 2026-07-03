@@ -10,6 +10,7 @@ interface Pocket {
   name: string;
   type: string;
   allocation: number;
+  balance?: number;
 }
 
 interface PendingIncome {
@@ -186,7 +187,7 @@ export default function AddIncomeRoutineModal({ onClose, onSuccess, paydayDate }
                 >
                   <option value="">Pilih kantong</option>
                   {pockets.map((p) => (
-                    <option key={p.id} value={p.id}>{p.name}</option>
+                    <option key={p.id} value={p.id}>{p.name} (Saldo: Rp {(p.balance || 0).toLocaleString('id-ID')})</option>
                   ))}
                 </select>
               </div>
