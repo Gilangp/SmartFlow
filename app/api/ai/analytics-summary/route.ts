@@ -266,6 +266,13 @@ export async function GET(request: NextRequest) {
       wishlist:  Math.round((balanceWishlist / totalWealth) * 100),
     } : { main: 0, emergency: 0, savings: 0, wishlist: 0 };
 
+    const actualPocketDistribution = user.pockets
+      .map(p => {
+        const pct = totalWealth > 0 ? Math.round((Number(p.balance) / totalWealth) * 100) : 0;
+        return `${p.name}: ${pct}%`;
+      })
+      .join(' | ');
+
     // ════════════════════════════════════════════════════
     // RULE-BASED FALLBACK (jika AI gagal, hasilnya masih
     // 100% akurat karena semua angka dari backend)
@@ -277,13 +284,13 @@ export async function GET(request: NextRequest) {
     const incomeNote = isIncomeAveraged ? ' (diperhitungkan dari rata-rata kiriman historis karena kiriman utama bulan ini belum masuk / bersifat sporadis)' : '';
 
     const fallbackSummary = [
-      `[LIKUIDITAS] Net Flow 30 hari: ${netFlow30 >= 0 ? '+' : ''}${rp(netFlow30)}. Savings Rate kamu ${savingRate}%${incomeNote} — klasifikasi: ${savingRateLabel}. Burn Rate harian ${rp(burnRate)}, Liquid Runway ${liquidRunway} hari. Dana Darurat saat ini ${rp(balanceEmergency)} mencukupi ${emergencyCoverMonths} bulan pengeluaran; ${emergencyStatusText}. ${!isEmergency2xMet ? `Rekomendasi: alokasikan minimal ${rp(Math.round(emergencyGap2x / 3))} per bulan selama 3 bulan ke depan untuk mencapai target ideal mahasiswa 2× pengeluaran bulanan.` : 'Rekomendasi: pertahankan disiplin dana darurat ini dan pertimbangkan alokasi surplus ke kantong Wishlist atau Tabungan.'}`,
+      `[LIKUIDITAS] Net Flow 30 hari: ${netFlow30 >= 0 ? '+' : ''}${rp(netFlow30)}. Savings Rate kamu ${savingRate}%${incomeNote} — klasifikasi: ${savingRateLabel}. Burn Rate harian ${rp(burnRate)}, Liquid Runway ${liquidRunway} hari. ${!emergencyPocket ? `Kamu belum membuat Kantong khusus Dana Darurat di Finto (saat ini baru punya ${user.pockets.length} kantong dasar). Rekomendasi: Segera buat Kantong Dana Darurat dan alokasikan minimal ${rp(Math.round(emergencyTarget2x / 3))} per bulan selama 3 bulan ke depan untuk mencapai target ideal mahasiswa 2× pengeluaran bulanan (${rp(emergencyTarget2x)}).` : `Dana Darurat saat ini ${rp(balanceEmergency)} mencukupi ${emergencyCoverMonths} bulan pengeluaran; ${emergencyStatusText}. ${!isEmergency2xMet ? `Rekomendasi: alokasikan minimal ${rp(Math.round(emergencyGap2x / 3))} per bulan selama 3 bulan ke depan untuk mencapai target ideal mahasiswa 2× pengeluaran bulanan.` : 'Rekomendasi: pertahankan disiplin dana darurat ini dan pertimbangkan alokasi surplus ke kantong Wishlist atau Tabungan.'}`}`,
 
       `[ALOKASI ANGGARAN] Rasio aktual: Kebutuhan ${needRatio}% (ideal ≤50%, deviasi ${needDeviation >= 0 ? '+' : ''}${needDeviation}%), Keinginan ${wantRatio}% (ideal ≤30%, deviasi ${wantDeviation >= 0 ? '+' : ''}${wantDeviation}%).\n${wantCapFallbackText}`,
 
       `[AUDIT TRANSAKSI] Dari 8 transaksi terbesar: ${productive.length} transaksi produktif/kewajiban (${rp(totalProductive)}) dan ${discretionary.length} transaksi diskresioner (${rp(totalDiscretionary)}). Potensi penghematan 30% dari pos diskresioner: ${rp(potentialSaving)}/bulan. ${discretionary[0] ? `Transaksi diskresioner terbesar: ${discretionary[0].category?.name || 'Lainnya'} sebesar ${rp(Number(discretionary[0].amount))}.` : ''}`,
 
-      `[KOMPOSISI KANTONG & ALOKASI] Total kekayaan bersihmu ${rp(totalWealth)} dengan distribusi aktual: Dompet Utama ${wealthDistribution.main}%, Dana Darurat ${wealthDistribution.emergency}%, Tabungan ${wealthDistribution.savings}%, dan Wishlist ${wealthDistribution.wishlist}%. Target persentase alokasi amplop yang kamu set di Finto adalah: ${pocketAllocations || 'Belum diatur'}. ${balanceEmergency >= emergencyTarget2x ? 'Dana daruratmu sudah berada di zona aman mahasiswa (≥2× pengeluaran bulanan), pertahankan disiplin alokasi kantongmu!' : `Agar keuangan mahasiswamu makin aman dari telat kiriman atau darurat mendadak, prioritaskan menyisihkan uang ke Dana Darurat hingga mencapai target ideal 2× pengeluaran bulanan (${rp(emergencyTarget2x)}).`}`,
+      `[KOMPOSISI KANTONG & ALOKASI] Total kekayaan bersihmu ${rp(totalWealth)} dengan distribusi aktual di kantong: ${actualPocketDistribution}. Target persentase alokasi amplop yang kamu set di Finto adalah: ${pocketAllocations || 'Belum diatur (masih 0%)'}. ${!emergencyPocket ? `Karena kamu baru memiliki ${user.pockets.length} kantong dasar dan belum ada kantong khusus Dana Darurat, sangat disarankan untuk membuat kantong Dana Darurat di Finto dan menyisihkan uang hingga mencapai target ideal mahasiswa (${rp(emergencyTarget2x)}).` : balanceEmergency >= emergencyTarget2x ? 'Dana daruratmu sudah berada di zona aman mahasiswa (≥2× pengeluaran bulanan), pertahankan disiplin alokasi kantongmu!' : `Agar keuangan mahasiswamu makin aman dari telat kiriman atau darurat mendadak, prioritaskan menyisihkan uang ke Dana Darurat hingga mencapai target ideal 2× pengeluaran bulanan (${rp(emergencyTarget2x)}).`}`,
     ];
 
     // ════════════════════════════════════════════════════
@@ -299,10 +306,14 @@ export async function GET(request: NextRequest) {
 - Savings Rate: ${savingRate}% → Klasifikasi: ${savingRateLabel}${incomeNote}
 - Burn Rate harian: ${rp(Math.round(burnRate))}
 - Liquid Runway: ${liquidRunway} hari
-- Dana Darurat saat ini: ${rp(balanceEmergency)} (setara ${emergencyCoverMonths} bulan pengeluaran)
+${emergencyPocket
+  ? `- Dana Darurat saat ini: ${rp(balanceEmergency)} (setara ${emergencyCoverMonths} bulan pengeluaran)
 - Target minimum mahasiswa 1× pengeluaran bulanan (darurat kecil): ${rp(emergencyTarget1x)} → Status: ${balanceEmergency >= emergencyTarget1x ? 'Sudah aman' : `Gap ${rp(emergencyGap1x)}`}
 - Target ideal mahasiswa 2× pengeluaran bulanan (antisipasi telat kiriman): ${rp(emergencyTarget2x)} → Status: ${isEmergency2xMet ? 'Sudah tercapai' : `Gap ${rp(emergencyGap2x)}`}
-- Kontribusi bulanan yang direkomendasikan (tutup gap 2× dalam 3 bulan ke depan): ${!isEmergency2xMet ? rp(Math.round(emergencyGap2x / 3)) : '0 (Target 2× sudah aman)'}
+- Kontribusi bulanan yang direkomendasikan (tutup gap 2× dalam 3 bulan ke depan): ${!isEmergency2xMet ? rp(Math.round(emergencyGap2x / 3)) : '0 (Target 2× sudah aman)'}`
+  : `- Kantong Dana Darurat: Belum dibuat di Finto (Saat ini baru memiliki ${user.pockets.length} kantong dasar: ${user.pockets.map(p => p.name).join(', ')})
+- Target ideal mahasiswa 2× pengeluaran bulanan (antisipasi telat kiriman/darurat mendadak): ${rp(emergencyTarget2x)}
+- Rekomendasi tindakan utama: Segera buat Kantong khusus 'Dana Darurat' di Finto dan alokasikan minimal ${rp(Math.round(emergencyTarget2x / 3))}/bulan selama 3 bulan ke depan.`}
 
 [POIN 2 — ALOKASI ANGGARAN]
 - Kebutuhan (NEED): ${rp(need30)} = ${needRatio}% dari total pengeluaran (ideal ≤50%, deviasi ${needDeviation >= 0 ? '+' : ''}${needDeviation}poin)
@@ -321,10 +332,12 @@ ${top8Lines}
 
 [POIN 4 — KOMPOSISI KANTONG & ALOKASI DINAMIS]
 - Total kekayaan bersih: ${rp(totalWealth)}
-- Distribusi saldo aktual di kantong: Dompet Utama ${wealthDistribution.main}% | Dana Darurat ${wealthDistribution.emergency}% | Tabungan ${wealthDistribution.savings}% | Wishlist ${wealthDistribution.wishlist}%
+- Jumlah & nama kantong saat ini: ${user.pockets.length} kantong (${user.pockets.map(p => p.name).join(', ')})
+- Distribusi saldo aktual per kantong: ${actualPocketDistribution}
 - Target persentase alokasi amplop yang kamu set sendiri di Finto: ${pocketAllocations || 'Belum diatur (masih 0%)'}
-${emergencyProgress !== null ? `- Dana Darurat: ${rp(balanceEmergency)} / target ${rp(emergencyTarget)} = ${emergencyProgress}%` : `- Dana Darurat: ${rp(balanceEmergency)} (target belum ditetapkan)`}
-${wishlistProgress !== null ? `- Wishlist: ${rp(balanceWishlist)} / target ${rp(wishlistTarget)} = ${wishlistProgress}%` : `- Wishlist: ${rp(balanceWishlist)} (target belum ditetapkan)`}
+- Status Kantong Dana Darurat: ${emergencyPocket ? `Sudah ada (saldo ${rp(balanceEmergency)})` : `Belum dibuat di Finto (Disarankan membuat kantong terpisah khusus Dana Darurat dengan target ${rp(emergencyTarget2x)})`}
+${emergencyProgress !== null ? `- Dana Darurat: ${rp(balanceEmergency)} / target ${rp(emergencyTarget)} = ${emergencyProgress}%` : `- Dana Darurat: ${emergencyPocket ? `${rp(balanceEmergency)} (target belum ditetapkan)` : 'Kantong belum dibuat'}`}
+${wishlistProgress !== null ? `- Wishlist: ${rp(balanceWishlist)} / target ${rp(wishlistTarget)} = ${wishlistProgress}%` : `- Wishlist: ${wishlistPocket ? `${rp(balanceWishlist)} (target belum ditetapkan)` : 'Kantong belum dibuat'}`}
 ${expenseGrowth !== null ? `- Tren pengeluaran bulan ini vs bulan lalu: ${expenseGrowth > 0 ? '+' : ''}${expenseGrowth}% (${rp(expenseLastMonth)} → ${rp(expenseThisMonth)})` : ''}
 ${incomeGrowth !== null ? `- Tren pemasukan bulan ini vs bulan lalu: ${incomeGrowth > 0 ? '+' : ''}${incomeGrowth}% (${rp(incomeLastMonth)} → ${rp(incomeThisMonth)})` : ''}
 
@@ -344,10 +357,10 @@ OUTPUT:`;
 
     // ── AI Call ─────────────────────────────────────────────────────────────
     const pointKeyNumbers = [
-      [rp(netFlow30), rp(balanceEmergency), rp(Math.round(burnRate)), `${savingRate}%`, rp(emergencyTarget2x)], // Poin 1: Likuiditas
+      [rp(netFlow30), emergencyPocket ? rp(balanceEmergency) : null, rp(Math.round(burnRate)), `${savingRate}%`, rp(emergencyTarget2x)].filter(Boolean) as string[], // Poin 1: Likuiditas
       [`${needRatio}%`, `${wantRatio}%`, rp(need30), rp(want30)],                         // Poin 2: Alokasi 50/30/20
       [rp(totalProductive), rp(totalDiscretionary), rp(potentialSaving)],                // Poin 3: Audit Transaksi
-      [rp(totalWealth), `${wealthDistribution.main}%`, `${wealthDistribution.emergency}%`] // Poin 4: Komposisi Aset
+      [rp(totalWealth), `${wealthDistribution.main}%`, emergencyPocket ? `${wealthDistribution.emergency}%` : null].filter(Boolean) as string[] // Poin 4: Komposisi Aset
     ];
 
     // 1. Gemini
