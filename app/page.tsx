@@ -33,23 +33,25 @@ export default function Home() {
   const [theme, setTheme] = useState<'light' | 'dark'>('dark');
 
   useEffect(() => {
-    // Cek jika user sudah login -> langsung ke dashboard
-    const token = localStorage.getItem('token');
-    if (token) {
-      setIsRedirecting(true);
-      router.replace('/dashboard');
-      return;
-    }
-
-    // Cek jika dibuka sebagai PWA Standalone app -> langsung ke login
+    // Cek apakah aplikasi dibuka sebagai PWA (Standalone / Installed App)
     const isStandalone = window.matchMedia('(display-mode: standalone)').matches ||
                          (window.navigator as any).standalone === true ||
                          window.location.search.includes('source=pwa');
+
+    // Smart Redirection KHUSUS PWA:
+    // Jika dibuka lewat PWA, lewati landing page dan langsung ke Dashboard (jika login) atau Login (jika belum)
     if (isStandalone) {
+      const token = localStorage.getItem('token') || localStorage.getItem('sf-token');
       setIsRedirecting(true);
-      router.replace('/login');
+      if (token) {
+        router.replace('/dashboard');
+      } else {
+        router.replace('/login');
+      }
       return;
     }
+
+    // Jika dibuka di browser biasa, izinkan user melihat Landing Page seutuhnya
 
     setMounted(true);
     const storedTheme = (localStorage.getItem('sf-theme') || 'dark') as 'light' | 'dark';
@@ -257,12 +259,12 @@ export default function Home() {
             </div>
 
             {/* Right Actions */}
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2.5">
               <div className="hidden sm:flex items-center gap-2">
-                <Link href="/login" className="text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white px-3 py-1.5 transition">
+                <Link href="/login" className="h-9 inline-flex items-center justify-center text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white px-3.5 transition rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800">
                   Masuk
                 </Link>
-                <Link href="/daftar" className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-1.5 rounded-lg text-sm font-medium transition">
+                <Link href="/daftar" className="h-9 inline-flex items-center justify-center bg-indigo-600 hover:bg-indigo-700 text-white px-4 rounded-xl text-sm font-medium transition shadow-sm">
                   Daftar
                 </Link>
               </div>
@@ -283,7 +285,7 @@ export default function Home() {
               {/* Mobile Menu Button */}
               <button
                 onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-                className="md:hidden p-2 rounded-lg text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 transition"
+                className="md:hidden w-9 h-9 rounded-xl flex items-center justify-center text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 transition"
               >
                 <span className="text-xl">{mobileMenuOpen ? '✕' : '☰'}</span>
               </button>
@@ -310,10 +312,10 @@ export default function Home() {
               </button>
             ))}
             <div className="border-t border-gray-100 dark:border-gray-800 mt-2 pt-3 px-4 space-y-2">
-              <Link href="/login" className="block w-full text-center border border-indigo-600 text-indigo-600 dark:text-indigo-400 px-4 py-2 rounded-lg font-medium">
+              <Link href="/login" className="block w-full text-center border border-indigo-600 text-indigo-600 dark:text-indigo-400 px-4 py-2.5 rounded-xl font-medium">
                 Masuk
               </Link>
-              <Link href="/daftar" className="block w-full text-center bg-indigo-600 text-white px-4 py-2 rounded-lg font-medium">
+              <Link href="/daftar" className="block w-full text-center bg-indigo-600 text-white px-4 py-2.5 rounded-xl font-medium">
                 Daftar Gratis
               </Link>
             </div>

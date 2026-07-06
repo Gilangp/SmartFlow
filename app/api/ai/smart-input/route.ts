@@ -103,20 +103,22 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 🔹 GET USER CATEGORIES
+    // 🔹 GET USER CATEGORIES (dengan tipe NEED vs WANT)
     const categories = await prisma.category.findMany({
       where: { userId: decoded.userId },
-      select: { name: true },
+      select: { name: true, type: true },
     });
 
-    const categoryNames = categories.map((c) => c.name).join(', ');
+    const categoryListFormatted = categories
+      .map((c) => `${c.name} (${c.type === 'NEED' ? 'NEED - Kebutuhan pokok/wajib/esensial' : 'WANT - Keinginan/gaya hidup/jajan/konsumtif'})`)
+      .join(', ');
 
-    // 🔹 PROMPT (lebih ketat)
+    // 🔹 PROMPT (lebih ketat & akurat untuk klasifikasi NEED vs WANT)
     const prompt = `
-Kamu adalah parser data keuangan.
+Kamu adalah parser data keuangan Indonesia yang sangat pintar dan akurat.
 
 Tugas:
-Ekstrak semua nominal dari teks dan hitung total.
+Ekstrak semua nominal dari teks, hitung total pengeluaran, tentukan kategori yang paling pas, dan rapihkan catatan (notes).
 
 Rules:
 - 3k = 3000
@@ -125,15 +127,17 @@ Rules:
 - 1.5jt = 1500000
 - 2M / 2 miliar = 2000000000
 - Dalam Indonesia: 'k'/'rb'/'ribu' = 1.000, 'jt'/'juta' = 1.000.000, 'm'/'M'/'miliar' = 1.000.000.000 (Miliar), 't' = Triliun.
+- PENTING UNTUK KATEGORI: Perhatikan tipe (NEED vs WANT) pada daftar kategori di bawah. Jangan masukkan belanja konsumtif/lifestyle/jajan (kopi kafe, boba, game, belanja online, nongkrong) ke kategori NEED! Belanja konsumtif HARUS masuk ke kategori bertipe WANT. Sebaliknya, pengeluaran wajib/pokok (makan utama sehari-hari, transportasi/bensin, tagihan, listrik, kesehatan/obat, pendidikan) masukkan ke kategori bertipe NEED.
+- Pada kolom "category" di JSON output, TULIS NAMA KATEGORI-NYA SAJA (tanpa tambahan keterangan NEED/WANT di dalam kurung, contoh: jika di daftar ada "Makanan & Dapur (NEED...)", maka tulis "Makanan & Dapur" saja). Jika tidak ada yang cocok, tulis "Lainnya".
 - Output HARUS JSON valid
 - Jangan gunakan markdown
 - Jangan tambahkan penjelasan
-- Gabungkan nama barang/kegiatan ke dalam 'notes' dengan rapi. Jika ada lebih dari satu kegiatan, pisahkan dengan koma dan spasi (, ) (contoh: "makan, isi bensin").
+- Gabungkan nama barang/kegiatan ke dalam 'notes' dengan rapi dan jelas. Jika ada lebih dari satu kegiatan/barang, pisahkan dengan koma dan spasi (, ) (contoh: "makan siang, isi bensin, beli pulsa").
 
-Kategori yang tersedia:
-[${categoryNames}]
+Daftar Kategori User yang Tersedia:
+[${categoryListFormatted || 'Lainnya'}]
 
-Format:
+Format JSON:
 {
   "totalAmount": number,
   "category": string,
@@ -200,12 +204,15 @@ Input:
       parsed = fallbackParser(text);
     }
 
+    const rawCat = parsed.category || 'Lainnya';
+    const cleanCat = rawCat.replace(/\s*\((NEED|WANT).*?\)/i, '').trim();
+
     return NextResponse.json({
       success: true,
       message: 'Text processed successfully',
       data: {
         amount: parsed.totalAmount,
-        category: parsed.category || 'Lainnya',
+        category: cleanCat || 'Lainnya',
         notes: parsed.notes || text,
       },
     });

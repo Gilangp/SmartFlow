@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { verifyToken, extractTokenFromHeader } from '@/lib/auth';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import OpenAI from 'openai';
+import { prisma } from '@/lib/db';
 import { getUserSubscription } from '@/lib/subscription';
 import { callHuggingFace, callHuggingFaceVision, extractJsonFromHfOutput } from '@/lib/huggingface';
 
@@ -30,6 +31,15 @@ export async function POST(request: NextRequest) {
         message: 'Fitur Scan Struk hanya tersedia untuk paket Student dan Premium.',
       }, { status: 403 });
     }
+
+    // ── 2b. AMBIL DAFTAR KATEGORI USER (NEED vs WANT) ───────────────────────
+    const userCategories = await prisma.category.findMany({
+      where: { userId: decoded.userId },
+      select: { name: true, type: true },
+    });
+    const categoryNamesList = userCategories.length > 0
+      ? userCategories.map((c) => `${c.name} (${c.type === 'NEED' ? 'NEED - Kebutuhan pokok/wajib' : 'WANT - Keinginan/lifestyle/jajan'})`).join(', ')
+      : 'Makan & Minum (NEED), Transportasi (NEED), Belanja (WANT), Hiburan (WANT), Kesehatan (NEED), Pendidikan (NEED), Tagihan (NEED), Lainnya';
 
     // ── 3. BACA BODY ─────────────────────────────────────────────────────────
     let imageBase64 = '';
@@ -139,7 +149,7 @@ Kembalikan HANYA JSON tanpa teks lain, dalam format berikut:
   "items": [
     { "name": "nama item/barang", "price": 0, "qty": 1 }
   ],
-  "category": "pilih SATU dari: Makan & Minum, Transportasi, Belanja, Hiburan, Kesehatan, Pendidikan, Tagihan, Lainnya",
+  "category": "pilih SATU dari daftar berikut (TULIS NAMANYA SAJA tanpa kurung NEED/WANT): [${categoryNamesList}]",
   "confidence": "HIGH/MEDIUM/LOW"
 }
 
@@ -147,6 +157,7 @@ Rules:
 - totalAmount adalah total akhir yang dibayar (integer, tanpa titik/koma)
 - Jika ada tulisan TOTAL, GRAND TOTAL, JUMLAH, gunakan nilai tersebut
 - Semua harga dalam Rupiah (integer)
+- PENTING UNTUK KATEGORI: Perhatikan tipe (NEED vs WANT) pada daftar kategori di atas. Jangan masukkan belanja konsumtif/lifestyle/jajan (kopi kafe, boba, game, belanja online, nongkrong) ke kategori NEED! Belanja konsumtif HARUS masuk ke kategori bertipe WANT. Sebaliknya, pengeluaran wajib/pokok (makan utama sehari-hari, transportasi/bensin, tagihan, listrik, kesehatan/obat, pendidikan) masukkan ke kategori bertipe NEED.
 - confidence: HIGH jika teks jelas, MEDIUM jika agak berantakan, LOW jika tidak yakin
       `.trim();
 
@@ -234,7 +245,7 @@ Jangan tambahkan teks lain, hanya JSON.
   "items": [
     { "name": "nama item", "price": 0, "qty": 1 }
   ],
-  "category": "pilih SATU dari: Makan & Minum, Transportasi, Belanja, Hiburan, Kesehatan, Pendidikan, Tagihan, Lainnya",
+  "category": "pilih SATU dari daftar berikut (TULIS NAMANYA SAJA tanpa kurung NEED/WANT): [${categoryNamesList}]",
   "confidence": "HIGH/MEDIUM/LOW"
 }
 
@@ -242,6 +253,7 @@ Rules:
 - totalAmount adalah total akhir yang dibayar (setelah diskon/pajak)
 - Jika ada tulisan TOTAL, GRAND TOTAL, JUMLAH, gunakan nilai itu
 - Semua harga dalam Rupiah (integer, tanpa titik/koma)
+- PENTING UNTUK KATEGORI: Perhatikan tipe (NEED vs WANT) pada daftar kategori di atas. Jangan masukkan belanja konsumtif/lifestyle/jajan (kopi kafe, boba, game, belanja online, nongkrong) ke kategori NEED! Belanja konsumtif HARUS masuk ke kategori bertipe WANT. Sebaliknya, pengeluaran wajib/pokok (makan utama sehari-hari, transportasi/bensin, tagihan, listrik, kesehatan/obat, pendidikan) masukkan ke kategori bertipe NEED.
 - confidence: HIGH jika struk jelas, MEDIUM jika agak buram, LOW jika tidak yakin
       `.trim();
 
@@ -336,12 +348,15 @@ Rules:
       }, { status: 422 });
     }
 
+    const rawCat = parsed.category || 'Lainnya';
+    const cleanCat = rawCat.replace(/\s*\((NEED|WANT).*?\)/i, '').trim();
+
     const responseData = {
       merchant: parsed.merchant || 'Tidak diketahui',
       amount: parsed.totalAmount,
       date: parsed.date || new Date().toISOString().split('T')[0],
       items: parsed.items || [],
-      category: parsed.category || 'Lainnya',
+      category: cleanCat || 'Lainnya',
       confidence: parsed.confidence || 'MEDIUM',
     };
 

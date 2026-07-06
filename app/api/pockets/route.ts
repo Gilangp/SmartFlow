@@ -217,18 +217,32 @@ export async function DELETE(request: NextRequest) {
     }
 
     if (pocket.balance.toNumber() > 0) {
-      return NextResponse.json({ success: false, message: 'Tidak bisa menghapus kantong yang masih bersaldo' }, { status: 400 });
+      return NextResponse.json({ success: false, message: 'Tidak bisa menghapus kantong yang masih bersaldo. Tarik dana terlebih dahulu.' }, { status: 400 });
     }
     
     if (pocket.type !== 'CUSTOM') {
        return NextResponse.json({ success: false, message: 'Tidak bisa menghapus kantong utama/bawaan' }, { status: 400 });
     }
 
-    await prisma.pocket.delete({ where: { id } });
+    // Hapus semua data terkait sebelum menghapus kantong
+    // (menghindari constraint Restrict dari Prisma/PostgreSQL)
+    await prisma.$transaction([
+      // 1. Lepaskan relasi kategori dari kantong ini (set pocketId → null)
+      prisma.category.updateMany({
+        where: { pocketId: id },
+        data: { pocketId: null },
+      }),
+      // 2. Hapus semua riwayat transaksi yang terhubung ke kantong ini
+      prisma.transaction.deleteMany({
+        where: { pocketId: id },
+      }),
+      // 3. Baru hapus kantongnya
+      prisma.pocket.delete({ where: { id } }),
+    ]);
 
-    return NextResponse.json({ success: true, message: 'Pocket deleted' });
+    return NextResponse.json({ success: true, message: 'Kantong berhasil dihapus beserta seluruh riwayat transaksinya.' });
   } catch (error) {
     console.error('Delete pocket error:', error);
-    return NextResponse.json({ success: false, message: 'Internal error' }, { status: 500 });
+    return NextResponse.json({ success: false, message: 'Gagal menghapus kantong. Coba lagi.' }, { status: 500 });
   }
 }

@@ -449,11 +449,16 @@ export default function PocketsPage() {
                         {pocket.type === 'CUSTOM' && pocket.balance === 0 && (
                           <button
                             onClick={async () => {
-                              if (!confirm('Yakin ingin menghapus kantong ini?')) return;
+                              if (!confirm(`Yakin ingin menghapus kantong "${pocket.name}"?\n\nSeluruh riwayat transaksi pada kantong ini juga akan dihapus secara permanen.`)) return;
                               const t = getToken();
                               if (!t) return;
-                              await fetch(`/api/pockets?id=${pocket.id}`, { method: 'DELETE', headers: { Authorization: `Bearer ${t}` } });
-                              fetchPockets();
+                              const res = await fetch(`/api/pockets?id=${pocket.id}`, { method: 'DELETE', headers: { Authorization: `Bearer ${t}` } });
+                              const data = await res.json();
+                              if (data.success) {
+                                fetchPockets();
+                              } else {
+                                alert(`Gagal menghapus: ${data.message}`);
+                              }
                             }}
                             className="w-10 h-8 bg-rose-500/80 hover:bg-rose-500 rounded-xl flex items-center justify-center transition-colors shadow-sm"
                           >

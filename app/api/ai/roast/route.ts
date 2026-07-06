@@ -7,171 +7,165 @@ import { getDaysLeftInCycle } from '@/lib/financial-calculations';
 
 export const dynamic = 'force-dynamic';
 
-// Init AI
 const genAI = new GoogleGenerativeAI(
   process.env.GEMINI_API_KEY || process.env.GOOGLE_AI_API_KEY || ''
 );
 
-// Helper: generate prompt
+// ─── PROMPT BUILDER ───────────────────────────────────────────────────────────
 function buildRoastPrompt({
-  totalIncome,
-  totalExpense,
+  userName,
   balance,
+  totalWealth,
   dailyAllowance,
   daysLeftInMonth,
   todayExpense,
   yesterdayExpense,
+  last7DayExpense,
+  last30DayExpense,
+  last30DayIncome,
+  avgDailySpend7Days,
+  wantSpend30Days,
+  needSpend30Days,
+  topWantCategories,
   spendingAlert,
   expenses,
   tone,
   isGoodSpendingStatus,
+  isBrokeStatus,
   todayDateStr,
 }: {
-  totalIncome: number;
-  totalExpense: number;
+  userName: string;
   balance: number;
+  totalWealth: number;
   dailyAllowance: number;
   daysLeftInMonth: number;
   todayExpense: number;
   yesterdayExpense: number;
+  last7DayExpense: number;
+  last30DayExpense: number;
+  last30DayIncome: number;
+  avgDailySpend7Days: number;
+  wantSpend30Days: number;
+  needSpend30Days: number;
+  topWantCategories: string[];
   spendingAlert?: string;
   expenses: string[];
   tone: string;
   isGoodSpendingStatus: boolean;
+  isBrokeStatus: boolean;
   todayDateStr: string;
 }) {
+  const wantRatio = last30DayExpense > 0 ? Math.round((wantSpend30Days / last30DayExpense) * 100) : 0;
+
   return `
-Kamu adalah Finto, asisten finansial sekaligus sahabat dekat user yang asyik, ceplas-ceplos, peduli, dan jujur.
+Kamu adalah Finto, asisten finansial sekaligus sahabat dekat user yang jujur, blak-blakan, dan ceplas-ceplos.
+
+Nama user: ${userName}
 
 Gaya Komunikasi:
-- Bersikaplah seperti teman dekat yang sangat akrab (gunakan bahasa santai Indonesia sehari-hari seperti 'bro', 'sis', 'lu', 'gue' secara natural).
+- WAJIB gunakan Bahasa Indonesia yang rapi dan benar. Boleh pakai bahasa gaul anak muda Indonesia (Gen-Z) seperti: "gue", "lu", "dong", "sih", "nih", "ngab", "kuy", "gaskeun", "cuan", "bocor", "boncos", "receh", "ngerem", "overthinking", "healing", "mager". Ini semua boleh karena sudah diserap jadi bahasa gaul Indonesia.
+- DILARANG KERAS menggunakan kata-kata bahasa Inggris murni yang bukan serapan resmi (seperti "bro" boleh, tapi jangan tiba-tiba menulis kalimat campuran Inggris-Indonesia seperti "which is...", "basically", "literally", "btw", "fyi", "anyway", "so yeah", dll).
+- DILARANG menggunakan karakter/huruf asing: Mandarin, Arab, Korea, Jepang, atau huruf non-latin apapun.
+- Boleh sedikit pedas/kasar ala sindiran teman dekat (misalnya: "ya ampun", "parah lu", "tobat deh", "gilaaa"), tapi JANGAN menggunakan kata-kata umpatan, makian berat, atau kata yang menyinggung SARA.
+- WAJIB nol typo. Tulis kata dengan benar: "dengan" bukan "dngan", "banget" bukan "bnget", "udah" boleh karena sudah umum, "gimana" boleh. Tapi jangan potong kata secara sembarangan.
 - Nada bicara saat ini: ${tone}.
-${isGoodSpendingStatus 
-  ? '- Meskipun kondisi keuangan user sedang AMAN/HEMAT hari ini, berikan pujian santai atau motivasi hangat, namun tetap selipkan sedikit godaan/candaan santai khas teman dekat agar dia tidak cepat puas (misalnya menyindir kebiasaan borosnya di masa lalu atau mengingatkan agar besok tidak khilaf belanja lagi). Jangan biarkan pesan menjadi terlalu manis, membosankan, atau kehilangan karakter humor.' 
-  : '- Karena kondisi keuangan user sedang BOROS/TIGHT, berikan sindiran halus/gemas (roasting pas) khas sahabat dekat yang peduli agar dia sadar dan tidak kebablasan, namun akhiri dengan tips penyemangat atau pengingat yang baik.'}
-- Perhatikan baik-baik bagian "(Catatan: ...)" pada transaksi pengeluaran. JANGAN me-roast atau menyindir jika pengeluaran besar tersebut ditujukan untuk keperluan penting, mendesak, atau kebaikan (seperti kesehatan, keluarga, pendidikan, ortu, sedekah, obat, ukt). Sebaliknya, berikan kata-kata empati, bangga, atau saran hemat yang lembut. Kamu boleh menyindir jika catatan menunjukkan belanja konsumtif/keinginan (seperti kopi, jajan, game, boba, checkout online shop, dll).
-- SANGAT PENTING: Perhatikan tanggal masing-masing transaksi di bawah. Hari ini adalah tanggal ${todayDateStr}. Bedakan dengan jelas mana transaksi yang baru dicatat HARI INI dan mana transaksi dari hari-hari sebelumnya. Jangan sampai menuduh user berbelanja barang/makanan tertentu hari ini jika transaksi tersebut sebenarnya tercatat di hari kemarin atau hari sebelumnya!
+- PERKETAT roasting: Kalau user boros, sindir SPESIFIK dengan menyebut nama kategori atau kebiasaan boros yang ada di data. Jangan pakai sindiran generik yang bisa berlaku untuk siapa saja.
+- Jika kondisi AMAN/HEMAT: berikan pujian TAPI selipkan peringatan spesifik dari tren data (rasio WANT, rata-rata harian, dll). Jangan terlalu manis.
+- Jika kondisi KRITIS: jangan basa-basi, langsung ke fakta, akhiri dengan 1 saran konkret yang actionable.
+- Perhatikan catatan transaksi: jika pengeluaran besar untuk hal penting (kesehatan, pendidikan, keluarga, obat, sedekah), JANGAN disindir. Berikan empati. Sindir hanya untuk pengeluaran WANT/konsumtif.
+- PENTING: Hari ini adalah ${todayDateStr}. Bedakan dengan tegas mana transaksi hari ini vs hari sebelumnya. Jangan salah tuduh!
 
-Tugas:
-- Berikan pesan singkat (maksimal 2-3 baris, WAJIB singkat).
-- Harus relevan dari data pengeluaran aktual user.
-- Jangan gunakan template generik.
+Data Keuangan Lengkap:
+- Nama: ${userName}
+- Sisa Saldo Dompet Utama: Rp ${balance.toLocaleString('id-ID')}
+- Total Kekayaan Semua Kantong: Rp ${totalWealth.toLocaleString('id-ID')}
+- Jatah Harian Ideal: Rp ${Math.round(dailyAllowance).toLocaleString('id-ID')}/hari
+- Sisa Hari ke Gajian: ${daysLeftInMonth} hari
+- Pengeluaran Hari Ini: Rp ${todayExpense.toLocaleString('id-ID')}
+- Pengeluaran Kemarin: Rp ${yesterdayExpense.toLocaleString('id-ID')}
+- Total Pengeluaran 7 Hari Terakhir: Rp ${last7DayExpense.toLocaleString('id-ID')}
+- Total Pengeluaran 30 Hari Terakhir: Rp ${last30DayExpense.toLocaleString('id-ID')}
+- Total Pemasukan 30 Hari Terakhir: Rp ${last30DayIncome.toLocaleString('id-ID')}
+- Rata-rata Pengeluaran Harian (7 hari): Rp ${Math.round(avgDailySpend7Days).toLocaleString('id-ID')}/hari
+- Pengeluaran WANT (Keinginan) 30 Hari: Rp ${wantSpend30Days.toLocaleString('id-ID')} (${wantRatio}% dari total belanja)
+- Pengeluaran NEED (Kebutuhan) 30 Hari: Rp ${needSpend30Days.toLocaleString('id-ID')}
+- Kategori Boros Teratas (WANT): ${topWantCategories.length > 0 ? topWantCategories.join(', ') : 'Tidak ada'}
+${spendingAlert ? `\nALERT SISTEM: ${spendingAlert}` : ''}
 
-Data Keuangan Terkini:
-- Sisa Saldo Dompet Utama saat ini: Rp ${balance} (Uang yang saat ini tersisa di dompet utama user untuk dibelanjakan)
-- Sisa Hari Siklus Gajian: ${daysLeftInMonth} hari lagi (Jumlah hari tersisa menuju gajian berikutnya, termasuk hari ini)
-- Jatah Harian Ideal: Rp ${dailyAllowance}/hari (Batas anggaran belanja harian agar uang cukup sampai gajian berikutnya. Dihitung dari Sisa Saldo Dompet Utama dibagi Sisa Hari Siklus)
-- Pengeluaran Hari Ini Saja: Rp ${todayExpense} (Total uang yang dibelanjakan HARI INI saja)
-- Pengeluaran Kemarin: Rp ${yesterdayExpense} (Total pengeluaran kemarin sebagai data pembanding)
-- Total Pemasukan 7 Hari Terakhir: Rp ${totalIncome} (Total seluruh pemasukan rutin & non-rutin dalam seminggu terakhir)
-- Total Pengeluaran 7 Hari Terakhir: Rp ${totalExpense} (Total seluruh pengeluaran dalam seminggu terakhir, bukan hari ini saja)
-${spendingAlert ? `\nPERINGATAN SISTEM: ${spendingAlert}\n(Gunakan peringatan ini untuk memahami jika terjadi kebocoran anggaran yang serius)` : ''}
-
-Rincian Transaksi Pengeluaran Terakhir:
+Rincian 15 Transaksi Pengeluaran Terbaru (semua kantong):
 ${expenses.slice(-15).join('\n')}
 
-Aturan:
-- WAJIB gunakan bahasa santai Indonesia ala anak muda yang akrab dan rapi tanpa typo.
-- JANGAN gunakan emoji sama sekali dalam output.
-- DILARANG KERAS menggunakan bahasa Mandarin / China / Inggris ataupun huruf Hanzi/karakter asing.
-- WAJIB memformat semua nominal uang/nominal finansial yang kamu sebutkan menggunakan titik sebagai pemisah ribuan (contoh: Rp 15.000, Rp 500.000, Rp 1.200.000). JANGAN menulis nominal tanpa pemisah (seperti Rp 15000 atau Rp 500000).
-- Hindari memanggil user dengan kata "bestie" secara berulang-ulang di setiap kalimat. Gunakan panggilan alami seperti "lu/gue", "bro", atau "sis". Buat percakapan mengalir alami seperti dua orang teman nongkrong, bukan bot pencari muka yang lebay.
-
-Output:
-Langsung pesanmu sebagai sahabat dalam bahasa Indonesia (tanpa tanda kutip, tanpa penjelasan).
+Aturan Output:
+- WAJIB singkat: maksimal 2-3 kalimat saja, padat, langsung ke inti.
+- Sebutkan angka/kategori SPESIFIK dari data — JANGAN pakai sindiran generik yang bisa berlaku untuk siapa saja.
+- WAJIB format nominal dengan titik sebagai pemisah ribuan (Rp 15.000, Rp 500.000, Rp 1.200.000). Jangan pernah tulis nominal tanpa pemisah.
+- JANGAN gunakan emoji apapun.
+- WAJIB bahasa Indonesia. Boleh pakai bahasa gaul Gen-Z Indonesia yang sudah umum (contoh: boncos, bocor, cuan, kuy, mager, ngerem, gaskeun, gue, lu, nih, sih, dong). DILARANG mencampurkan kata atau frasa bahasa Inggris murni yang bukan serapan (dilarang: basically, literally, btw, anyway, which is, so yeah, fyi, goals, vibes, dll).
+- WAJIB nol typo dan nol pemenggalan kata sembarangan. Kata harus ditulis dengan benar dan lengkap.
+- Jangan memanggil user dengan "bestie" — panggil dengan "lu", "kamu", atau nama user saja.
+- Boleh sedikit pedas/blak-blakan, tapi JANGAN menggunakan kata makian berat atau kata yang kasar berlebihan.
+- Output langsung — tanpa tanda kutip di awal/akhir, tanpa kata pengantar, tanpa penjelasan tambahan.
 `.trim();
 }
 
-// Helper: static fallback roast (safety net terakhir jika semua AI gagal)
+// ─── VALIDATION & STATIC FALLBACK ─────────────────────────────────────────────
+function isValidRoast(text: string): boolean {
+  if (!text || text.length < 15) return false;
+  // Dilarang karakter asing: Mandarin, Arab, Jepang, Korea, Sirilik, atau Emoji
+  const foreignScriptOrEmoji = /[\u0600-\u06FF|\u0400-\u04FF|\u3040-\u30FF|\uAC00-\uD7AF|\u4E00-\u9FFF]|\p{Emoji_Presentation}/u;
+  if (foreignScriptOrEmoji.test(text)) return false;
+  // Dilarang awalan bahasa Inggris atau kata pengantar yang umum keluar dari LLM
+  const englishOrIntro = /^(here is|sure,|as an ai|based on|basically|literally|btw|fyi|anyway)/i;
+  if (englishOrIntro.test(text)) return false;
+  return true;
+}
+
 function fallbackRoast(
-  totalIncome: number,
-  totalExpense: number,
+  userName: string,
   balance: number,
   dailyAllowance: number,
-  todayExpense: number
-) {
-  const overspending = [
-    'Eh bro, hari ini agak kebablasan ya? Pengeluaranmu lebih cepet dari biasanya nih. Yuk, ngerem dikit besok!',
-    'Jatah harianmu tinggal dikit nih. Kurang-kurangin jajan elit dulu ya biar akhir bulan ga makan promag.',
-    'Waduh sis, dompet udah mulai ngos-ngosan nih. Tahan diri dulu ya, kita kan mau hemat bulan ini!',
-    'Pengeluaran hari ini agak di luar rencana. Santai, besok kita mulai rapihin lagi anggarannya ya.',
-  ];
-
-  const goodButBoring = [
-    'Wah, keren banget! Keuanganmu hari ini aman terkendali. Pertahanin konsistensi kayak gini ya!',
-    'Hari ini hemat banget, bangga gue. Dompetmu juga pasti senyum lebar ngeliat ini.',
-    'Saldo masih sisa aman nih. Bagus, pertahanin ritme hemat ini sampai gajian berikutnya ya!',
-    'Mantap, hari ini disiplin belanjanya top! Besok kita jaga lagi ya bareng-bareng.',
-  ];
-
-  const broke = [
-    'Sisa saldo udah tipis banget nih bro. Semangat ya, mari kita survive bareng-bareng minggu ini!',
-    'Waduh, saldo lagi kritis. Kurangin nongkrong dulu ya, mending masak mie instan di rumah aja dulu.',
-    'Tenang, ini cuma fase tanggal tua. Yang penting tetep semangat dan jangan tergoda paylater ya!',
-    'Sisa hari masih panjang tapi saldo tinggal dikit. Yuk semangat cari tambahan atau super hemat dulu!',
-  ];
-
+  todayExpense: number,
+  wantRatio: number,
+  topWantCategories: string[]
+): string {
+  const topCat = topWantCategories.length > 0 ? topWantCategories[0] : 'belanja konsumtif';
   if (balance <= 50000 || dailyAllowance < 15000) {
-    return broke[Math.floor(Math.random() * broke.length)];
+    return `${userName}, saldo lu udah di titik kritis Rp ${balance.toLocaleString('id-ID')}. Saatnya full survival mode, ngerem total semua pengeluaran sampai gajian nanti.`;
   }
-
-  if (todayExpense > dailyAllowance || totalExpense > totalIncome) {
-    return overspending[Math.floor(Math.random() * overspending.length)];
+  if (todayExpense > dailyAllowance * 1.5 && dailyAllowance > 0) {
+    return `Parah lu ${userName}, hari ini aja udah habis Rp ${todayExpense.toLocaleString('id-ID')} yang melebihi 150% jatah harian lu. Besok wajib ngerem atau akhir bulan bakal boncos berat.`;
   }
-  
-  return goodButBoring[Math.floor(Math.random() * goodButBoring.length)];
+  if (wantRatio > 50) {
+    return `${userName}, ${wantRatio}% pengeluaran lu sebulan ini habis buat Keinginan, terutama di pos ${topCat}. Coba tinjau ulang mana yang bisa dikurangi dulu.`;
+  }
+  return `Keuangan lu hari ini masih cukup aman, ${userName}. Pertahankan ritme hemat ini dan jangan sampai lengah atau impulsif pas akhir pekan.`;
 }
 
 export async function GET(request: NextRequest) {
   try {
-    // =====================
-    // AUTH
-    // =====================
-    const token = extractTokenFromHeader(
-      request.headers.get('Authorization') || ''
-    );
-
-    if (!token) {
-      return NextResponse.json(
-        { success: false, message: 'No token provided' },
-        { status: 401 }
-      );
-    }
+    // ── AUTH ────────────────────────────────────────────────────────────────
+    const token = extractTokenFromHeader(request.headers.get('Authorization') || '');
+    if (!token) return NextResponse.json({ success: false, message: 'No token provided' }, { status: 401 });
 
     const decoded = verifyToken(token);
-    if (!decoded) {
-      return NextResponse.json(
-        { success: false, message: 'Invalid token' },
-        { status: 401 }
-      );
-    }
+    if (!decoded) return NextResponse.json({ success: false, message: 'Invalid token' }, { status: 401 });
 
-    // =====================
-    // USER
-    // =====================
+    // ── USER + ALL POCKETS ──────────────────────────────────────────────────
     const user = await prisma.user.findUnique({
       where: { id: decoded.userId },
       include: { pockets: true },
     });
+    if (!user) return NextResponse.json({ success: false, message: 'User not found' }, { status: 404 });
 
-    if (!user) {
-      return NextResponse.json(
-        { success: false, message: 'User not found' },
-        { status: 404 }
-      );
-    }
-
-    // =====================
-    // MAIN POCKET & TRANSACTIONS (7 DAYS)
-    // =====================
     const mainWallet = user.pockets.find((p) => p.type === 'MAIN');
-    if (!mainWallet) {
-      return NextResponse.json(
-        { success: false, message: 'Main pocket not found' },
-        { status: 404 }
-      );
-    }
+    if (!mainWallet) return NextResponse.json({ success: false, message: 'Main pocket not found' }, { status: 404 });
+
     const balance = Number(mainWallet.balance || 0);
+    const totalWealth = user.pockets.reduce((sum, p) => sum + Number(p.balance || 0), 0);
+
+    // ── TRANSACTIONS: 30 HARI SEMUA KANTONG ────────────────────────────────
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
     const sevenDaysAgo = new Date();
     sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
@@ -179,26 +173,24 @@ export async function GET(request: NextRequest) {
     const transactions = await prisma.transaction.findMany({
       where: {
         userId: user.id,
-        pocketId: mainWallet.id,
-        date: { gte: sevenDaysAgo },
+        date: { gte: thirtyDaysAgo },
+        // Semua kantong — bukan hanya MAIN
       },
-      include: { category: true },
+      include: {
+        category: true,
+        pocket: { select: { name: true } },
+      },
       orderBy: { date: 'asc' },
     });
 
     if (!transactions.length) {
       return NextResponse.json({
         success: true,
-        data: {
-          message:
-            '7 hari terakhir jatah harian kosong. Antara disiplin... atau denial finansial.',
-        },
+        data: { message: '30 hari terakhir kosong transaksi. Antara super disiplin, atau belum dicatat aja nih?' },
       });
     }
 
-    // =====================
-    // KALKULASI JATAH HARIAN & LONJAKAN HARI INI
-    // =====================
+    // ── KALKULASI JATAH HARIAN ──────────────────────────────────────────────
     const now = new Date();
     let hasReceivedEarlySalary = false;
     const paydayDate = user.paydayDate;
@@ -208,177 +200,190 @@ export async function GET(request: NextRequest) {
       if (currentDay < paydayDate) {
         const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
         const todayEnd = new Date(now.getFullYear(), now.getMonth(), currentDay + 1);
-
         const earlyIncome = await prisma.transaction.findFirst({
-          where: {
-            userId: user.id,
-            type: 'INCOME_ROUTINE',
-            status: 'COMPLETED',
-            date: {
-              gte: startOfMonth,
-              lt: todayEnd,
-            },
-          },
+          where: { userId: user.id, type: 'INCOME_ROUTINE', status: 'COMPLETED', date: { gte: startOfMonth, lt: todayEnd } },
         });
-
-        if (earlyIncome) {
-          hasReceivedEarlySalary = true;
-        }
+        if (earlyIncome) hasReceivedEarlySalary = true;
       }
     }
 
     const daysLeftInMonth = getDaysLeftInCycle(now, paydayDate, hasReceivedEarlySalary);
-    const dailyAllowance = balance / daysLeftInMonth;
+    const dailyAllowance = balance / Math.max(daysLeftInMonth, 1);
 
-    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    const startOfYesterday = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1);
+    // Helper untuk konsistensi zona waktu WIB (Asia/Jakarta)
+    const getWibDateStr = (d: Date) => d.toLocaleDateString('en-CA', { timeZone: 'Asia/Jakarta' });
+    const todayStr = getWibDateStr(now);
+    const yesterdayDate = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+    const yesterdayStr = getWibDateStr(yesterdayDate);
 
-    let totalExpense = 0;
-    let totalIncome = 0;
+    // ── AGREGASI DATA ────────────────────────────────────────────────────────
     let todayExpense = 0;
     let yesterdayExpense = 0;
+    let last7DayExpense = 0;
+    let last30DayExpense = 0;
+    let last30DayIncome = 0;
+    let wantSpend30Days = 0;
+    let needSpend30Days = 0;
 
+    const wantCategoryMap: Record<string, number> = {};
     const expenseList: string[] = [];
 
     for (const t of transactions) {
       const amount = Number(t.amount);
       const txDate = new Date(t.date);
+      const txDateStr = getWibDateStr(txDate);
 
       if (t.type === 'EXPENSE') {
-        totalExpense += amount;
+        last30DayExpense += amount;
 
-        if (txDate >= startOfToday) {
-          todayExpense += amount;
-        } else if (txDate >= startOfYesterday && txDate < startOfToday) {
-          yesterdayExpense += amount;
+        if (txDateStr === todayStr) todayExpense += amount;
+        if (txDateStr === yesterdayStr) yesterdayExpense += amount;
+        if (txDate >= sevenDaysAgo) last7DayExpense += amount;
+
+        const catType = t.category?.type;
+        const catName = t.category?.name || 'Lainnya';
+        const pocketName = (t as any).pocket?.name || 'Kantong';
+
+        if (catType === 'WANT') {
+          wantSpend30Days += amount;
+          wantCategoryMap[catName] = (wantCategoryMap[catName] || 0) + amount;
+        } else {
+          needSpend30Days += amount;
         }
 
-        const dateStr = t.date.toISOString().split('T')[0];
         const notesStr = t.notes ? ` (Catatan: "${t.notes}")` : '';
         expenseList.push(
-          `- [Tanggal: ${dateStr}] ${t.category?.name || 'Lainnya'} (${t.category?.type === 'WANT' ? 'Keinginan' : 'Kebutuhan'}): Rp ${amount}${notesStr}`
+          `- [${txDateStr}] [Kantong: ${pocketName}] ${catName} (${catType === 'WANT' ? 'Keinginan' : 'Kebutuhan'}): Rp ${amount.toLocaleString('id-ID')}${notesStr}`
         );
       }
 
       if (t.type.startsWith('INCOME')) {
-        totalIncome += amount;
+        last30DayIncome += amount;
       }
     }
 
-    // Deteksi lonjakan boros (Opsi 4)
+    const avgDailySpend7Days = last7DayExpense / 7;
+
+    // Top 3 kategori WANT terboros
+    const topWantCategories = Object.entries(wantCategoryMap)
+      .sort(([, a], [, b]) => b - a)
+      .slice(0, 3)
+      .map(([name, total]) => `${name} (Rp ${total.toLocaleString('id-ID')})`);
+
+    // ── SPENDING ALERT ───────────────────────────────────────────────────────
     let spendingAlert = '';
+    const wantRatio = last30DayExpense > 0 ? Math.round((wantSpend30Days / last30DayExpense) * 100) : 0;
+
     if (todayExpense > dailyAllowance * 1.5 && dailyAllowance > 0) {
-      spendingAlert = `[ALERT: Pengeluaran hari ini (Rp ${todayExpense}) sudah melebihi 150% dari jatah harian ideal (Rp ${dailyAllowance})!]`;
+      spendingAlert = `Pengeluaran hari ini (Rp ${todayExpense.toLocaleString('id-ID')}) melampaui 150% jatah harian ideal (Rp ${Math.round(dailyAllowance).toLocaleString('id-ID')})!`;
     } else if (todayExpense > yesterdayExpense * 2 && yesterdayExpense > 15000) {
-      spendingAlert = `[ALERT: Lonjakan boros! Hari ini habis Rp ${todayExpense}, padahal kemarin cuma Rp ${yesterdayExpense}.]`;
+      spendingAlert = `Lonjakan pengeluaran drastis! Hari ini Rp ${todayExpense.toLocaleString('id-ID')}, kemarin hanya Rp ${yesterdayExpense.toLocaleString('id-ID')}.`;
+    } else if (wantRatio > 60) {
+      spendingAlert = `${wantRatio}% pengeluaran 30 hari terakhir masuk kategori Keinginan (WANT) — rasio yang cukup mengkhawatirkan.`;
+    } else if (avgDailySpend7Days > dailyAllowance * 1.2 && dailyAllowance > 0) {
+      spendingAlert = `Rata-rata pengeluaran harian 7 hari terakhir (Rp ${Math.round(avgDailySpend7Days).toLocaleString('id-ID')}) sudah 20% di atas jatah harian ideal.`;
     }
 
-    // =====================
-    // TONE & PROMPT SELECTION
-    // =====================
-    const isGoodSpendingStatus = todayExpense <= dailyAllowance * 0.8 && balance > 50000;
+    // ── TONE SELECTION ───────────────────────────────────────────────────────
+    const isGoodSpendingStatus = todayExpense <= dailyAllowance * 0.8 && balance > 50000 && wantRatio <= 40;
     const isBrokeStatus = balance <= 50000 || dailyAllowance < 15000;
 
-    let selectedTone = '';
+    let selectedTone: string;
     if (isBrokeStatus) {
-      const brokeTones = [
-        'prihatin tapi memotivasi',
-        'empati dan memberikan pelukan virtual hangat',
-        'caring friend yang menyemangati di masa krisis keuangan',
-        'teman curhat yang ikut prihatin tapi tetap optimis dan support',
+      const tones = [
+        'jujur, prihatin, tapi tetap memotivasi dengan saran konkret',
+        'teman curhat yang ikut khawatir tapi memberikan langkah nyata untuk survive',
+        'serius dan tegas tapi hangat — karena kondisi memang butuh perhatian nyata',
       ];
-      selectedTone = brokeTones[Math.floor(Math.random() * brokeTones.length)];
+      selectedTone = tones[Math.floor(Math.random() * tones.length)];
     } else if (isGoodSpendingStatus) {
-      const goodTones = [
-        'bangga, suportif, dan penuh apresiasi',
-        'teman baik yang senang melihat kedisiplinan keuanganmu',
-        'santai, ceria, dan memberikan tepuk tangan virtual',
-        'suportif, memotivasi agar konsisten hemat dengan gaya kasual',
+      const tones = [
+        'bangga dan apresiasi — tapi selipkan peringatan spesifik dari tren data',
+        'suportif, namun tetap mengingatkan potensi kebocoran dari kebiasaan tertentu',
+        'senang melihat kedisiplinan, tapi minta user tidak lengah karena masih ada risiko dari pola tertentu',
       ];
-      selectedTone = goodTones[Math.floor(Math.random() * goodTones.length)];
+      selectedTone = tones[Math.floor(Math.random() * tones.length)];
     } else {
-      const roastTones = [
-        'nyindir lucu tapi tujuannya baik biar ga bangkrut',
-        'gemas karena kamu mulai boros tapi tetap peduli',
-        'sarkas ringan ala teman akrab tapi mengingatkan konsekuensinya',
-        'teman dekat yang geleng-geleng kepala melihat belanjamu tapi tetap menyemangati',
+      const tones = [
+        'blak-blakan dan spesifik — sebut langsung kategori atau kebiasaan boros yang nyata dari data',
+        'tegas dan lugas tapi tetap peduli — roast dengan fakta, bukan asumsi',
+        'sarkas tajam ala teman akrab yang sudah cukup sabar melihat pengeluaran konsumtifmu',
+        'langsung to the point tanpa basa-basi, karena data bicara sendiri',
       ];
-      selectedTone = roastTones[Math.floor(Math.random() * roastTones.length)];
+      selectedTone = tones[Math.floor(Math.random() * tones.length)];
     }
 
-    const todayDateStr = now.toLocaleDateString('en-CA', { timeZone: 'Asia/Jakarta' }); // YYYY-MM-DD format in Jakarta time
+    const todayDateStr = now.toLocaleDateString('en-CA', { timeZone: 'Asia/Jakarta' });
+    const userName = user.name?.split(' ')[0] || 'bro';
 
     const prompt = buildRoastPrompt({
-      totalIncome,
-      totalExpense,
+      userName,
       balance,
+      totalWealth,
       dailyAllowance,
       daysLeftInMonth,
       todayExpense,
       yesterdayExpense,
+      last7DayExpense,
+      last30DayExpense,
+      last30DayIncome,
+      avgDailySpend7Days,
+      wantSpend30Days,
+      needSpend30Days,
+      topWantCategories,
       spendingAlert,
       expenses: expenseList,
       tone: selectedTone,
       isGoodSpendingStatus,
+      isBrokeStatus,
       todayDateStr,
     });
 
-    // =====================
-    // AI CALL — BERTINGKAT
-    // =====================
+    // ── AI CALL — BERTINGKAT ─────────────────────────────────────────────────
 
-    // ── 1. GEMINI 2.0 FLASH (UTAMA) ──────────────────────────────────────────
+    // 1. GEMINI 2.0 FLASH (UTAMA)
     try {
       const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
-      const result = await model.generateContent(prompt);
+      const result = await model.generateContent({
+        contents: [{ role: 'user', parts: [{ text: prompt }] }],
+        generationConfig: { temperature: 0.5 }, // Suhu 0.5 untuk konsistensi bahasa & meminimalkan halusinasi
+      });
       const response = await result.response;
-      let text = response.text().trim();
-      text = text.replace(/^["']|["']$/g, '');
+      let text = response.text().trim().replace(/^["'`]|["'`]$/g, '');
 
-      if (!text || text.length < 10) throw new Error('Gemini returned weak response');
-      if (/[\u4E00-\u9FFF]/.test(text)) throw new Error('Gemini returned Chinese characters');
-
-      console.log('[ROAST] ✅ Berhasil via Gemini 2.0 Flash.');
-      return NextResponse.json({ success: true, data: { message: text } });
+      if (isValidRoast(text)) {
+        console.log('[ROAST] ✅ Berhasil via Gemini 2.0 Flash.');
+        return NextResponse.json({ success: true, data: { message: text } });
+      }
+      throw new Error('Gemini output failed quality validation');
     } catch (geminiError: any) {
-      console.warn('[ROAST] Gemini gagal, beralih ke Hugging Face...', geminiError.message);
+      console.warn('[ROAST] Gemini gagal atau tidak valid, beralih ke Hugging Face...', geminiError.message);
     }
 
-    // ── 2. HUGGING FACE ROUTER V1 (FALLBACK GRATIS) ──────────────────────────
+    // 2. HUGGING FACE (FALLBACK)
     try {
-      const hfText = await callHuggingFace(prompt, {
-        maxNewTokens: 200,
-        temperature: 0.65, // Suhu lebih rendah agar bahasa rapi & tidak typo
-      });
-
-      const cleaned = hfText.replace(/^["']|["']$/g, '').trim();
-
-      if (cleaned && cleaned.length >= 10 && !/[\u4E00-\u9FFF]/.test(cleaned)) {
+      const hfText = await callHuggingFace(prompt, { maxNewTokens: 200, temperature: 0.5 });
+      const cleaned = hfText.replace(/^["'`]|["'`]$/g, '').trim();
+      if (isValidRoast(cleaned)) {
         console.log('[ROAST] ✅ Berhasil via Hugging Face.');
         return NextResponse.json({ success: true, data: { message: cleaned } });
       }
-
-      throw new Error('Hugging Face returned weak response');
+      throw new Error('Hugging Face output failed quality validation');
     } catch (hfError: any) {
-      console.warn('[ROAST] Hugging Face gagal, beralih ke static fallback...', hfError.message);
+      console.warn('[ROAST] Hugging Face gagal atau tidak valid, beralih ke static fallback...', hfError.message);
     }
 
-    // ── 3. STATIC ROAST POOL (SAFETY NET TERAKHIR) ────────────────────────────
+    // 3. STATIC FALLBACK (SAFETY NET - PERSONALIZED)
     console.log('[ROAST] Menggunakan static roast pool sebagai safety net.');
     return NextResponse.json({
       success: true,
-      data: { message: fallbackRoast(totalIncome, totalExpense, balance, dailyAllowance, todayExpense) },
+      data: { message: fallbackRoast(userName, balance, dailyAllowance, todayExpense, wantRatio, topWantCategories) },
     });
 
   } catch (error) {
     console.error('ROAST ERROR:', error);
-
     return NextResponse.json(
-      {
-        success: false,
-        message: 'Failed to generate roast',
-        error: String(error),
-      },
+      { success: false, message: 'Failed to generate roast', error: String(error) },
       { status: 500 }
     );
   }

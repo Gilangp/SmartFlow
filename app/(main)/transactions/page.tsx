@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import AddExpenseModal from '@/components/AddExpenseModal';
 import AddIncomeModal from '@/components/AddIncomeModal';
 import ScanReceiptModal from '@/components/ScanReceiptModal';
+import TransactionDetailModal from '@/components/TransactionDetailModal';
 import { showInterstitial } from '@/lib/admob';
 import { TransactionRecord } from '@/types';
 import { ScanLine, Lock, Download, TrendingDown, TrendingUp, HelpCircle } from 'lucide-react';
@@ -40,6 +41,7 @@ export default function TransactionsPage() {
   const [canExportExcel, setCanExportExcel] = useState(false);
   const [checkingSub, setCheckingSub] = useState(true);
   const [viewMode, setViewMode] = useState<'list' | 'analytics'>('list');
+  const [selectedTx, setSelectedTx] = useState<TransactionRecord | null>(null);
 
   const runTransactionsTour = useCallback(() => {
     setViewMode('list');
@@ -441,7 +443,11 @@ export default function TransactionsPage() {
                                         'text-indigo-600 dark:text-indigo-400';
 
                       return (
-                        <div key={tx.id} className="flex items-center gap-3 p-3 border-b border-gray-100 dark:border-gray-800 last:border-0 hover:bg-gray-50 dark:hover:bg-gray-800 transition">
+                        <div
+                          key={tx.id}
+                          onClick={() => setSelectedTx(tx)}
+                          className="flex items-center gap-3 p-3 border-b border-gray-100 dark:border-gray-800 last:border-0 hover:bg-gray-50 dark:hover:bg-gray-800 transition cursor-pointer active:bg-gray-100 dark:active:bg-gray-700"
+                        >
                           <div className={`w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 ${bgClass}`}>
                             {icon}
                           </div>
@@ -456,9 +462,12 @@ export default function TransactionsPage() {
                               )}
                             </p>
                           </div>
-                          <p className={`font-medium text-sm flex-shrink-0 ${textClass}`}>
-                            {sign}{formatCurrency(tx.amount)}
-                          </p>
+                          <div className="flex items-center gap-1 flex-shrink-0">
+                            <p className={`font-medium text-sm ${textClass}`}>
+                              {sign}{formatCurrency(tx.amount)}
+                            </p>
+                            <span className="text-gray-300 dark:text-gray-600 text-xs ml-1">›</span>
+                          </div>
                         </div>
                       );
                     })}
@@ -509,6 +518,12 @@ export default function TransactionsPage() {
             setShowScanModal(false);
             setAddModalType('EXPENSE');
           }}
+        />
+      )}
+      {selectedTx && (
+        <TransactionDetailModal
+          transaction={selectedTx}
+          onClose={() => setSelectedTx(null)}
         />
       )}
     </div>
