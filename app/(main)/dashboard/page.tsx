@@ -24,9 +24,39 @@ function formatCurrencyFull(amount: number): string {
 }
 
 const statusConfig = {
-  GREEN: { label: 'Aman', progressColor: 'bg-emerald-500' },
-  YELLOW: { label: 'Hati-hati', progressColor: 'bg-amber-500' },
-  RED: { label: 'Overbudget', progressColor: 'bg-rose-500' },
+  GREEN: { 
+    label: 'Aman', 
+    progressColor: 'bg-emerald-400 shadow-lg shadow-emerald-400/60',
+    cardBg: 'bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900',
+    cardBorder: 'border border-emerald-500/30 dark:border-emerald-500/40',
+    cardGlow: 'shadow-xl shadow-emerald-500/10',
+    badgeBg: 'bg-emerald-500/15 backdrop-blur-md',
+    badgeBorder: 'border border-emerald-400/40',
+    badgeText: 'text-emerald-300 font-semibold tracking-wide',
+    badgeGlow: 'shadow-lg shadow-emerald-500/20'
+  },
+  YELLOW: { 
+    label: 'Hati-hati', 
+    progressColor: 'bg-amber-400 shadow-lg shadow-amber-400/80',
+    cardBg: 'bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900',
+    cardBorder: 'border-2 border-amber-400 dark:border-amber-400',
+    cardGlow: 'shadow-2xl shadow-amber-500/25 animate-pulse',
+    badgeBg: 'bg-amber-500/20 backdrop-blur-md',
+    badgeBorder: 'border border-amber-400/60',
+    badgeText: 'text-amber-300 font-bold tracking-wide',
+    badgeGlow: 'shadow-lg shadow-amber-500/30 animate-pulse'
+  },
+  RED: { 
+    label: 'Overbudget', 
+    progressColor: 'bg-rose-500 shadow-lg shadow-rose-500/80',
+    cardBg: 'bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900',
+    cardBorder: 'border-2 border-rose-500 dark:border-rose-400',
+    cardGlow: 'shadow-2xl shadow-rose-500/40 animate-pulse',
+    badgeBg: 'bg-rose-500/25 backdrop-blur-md',
+    badgeBorder: 'border border-rose-400/80',
+    badgeText: 'text-rose-200 font-extrabold tracking-wide',
+    badgeGlow: 'shadow-xl shadow-rose-500/40 animate-pulse'
+  },
 };
 
 export default function DashboardPage() {
@@ -312,8 +342,8 @@ export default function DashboardPage() {
           
           {/* Left Column: Metrics & Pockets */}
           <div className="lg:col-span-7 space-y-6">
-            {/* Daily Allowance Card */}
-            <div id="tour-daily-allowance" className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-indigo-600 via-indigo-700 to-indigo-800 p-6 shadow-xl">
+            {/* Daily Allowance Card (Badge Besar) */}
+            <div id="tour-daily-allowance" className={`relative overflow-hidden rounded-2xl p-6 transition-all duration-500 ${status.cardBg} ${status.cardBorder} ${status.cardGlow}`}>
               
               <div className="relative z-10">
                 <div className="flex justify-between items-start mb-6">
@@ -325,8 +355,8 @@ export default function DashboardPage() {
                       {formatCurrencyFull(dailyMetrics.dailyAllowance)}
                     </p>
                   </div>
-                  <div className="px-3 py-1.5 rounded-full bg-white/10 backdrop-blur-sm border border-white/20">
-                    <span className="text-xs font-medium text-white">{status.label}</span>
+                  <div className={`px-3 py-1.5 rounded-full backdrop-blur-md border transition-all ${status.badgeBg} ${status.badgeBorder} ${status.badgeGlow}`}>
+                    <span className={`text-xs ${status.badgeText}`}>{status.label}</span>
                   </div>
                 </div>
 
