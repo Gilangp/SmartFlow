@@ -2,8 +2,10 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { Crown, GraduationCap, Zap, ChevronRight, Tag, Loader2 } from 'lucide-react';
+import { Crown, GraduationCap, Zap, ChevronRight, Tag, Loader2, HelpCircle } from 'lucide-react';
 import Link from 'next/link';
+import { driver } from 'driver.js';
+import 'driver.js/dist/driver.css';
 
 interface SubscriptionData {
   plan: 'TRIAL' | 'STUDENT' | 'PREMIUM';
@@ -38,6 +40,60 @@ export default function ProfilePage() {
     name: '',
     paydayDate: '',
   });
+
+  const runProfileTour = useCallback(() => {
+    const driverObj = driver({
+      showProgress: true,
+      nextBtnText: 'Lanjut',
+      prevBtnText: 'Kembali',
+      doneBtnText: 'Selesai',
+      steps: [
+        {
+          popover: {
+            title: 'Pengaturan & Profil Akun',
+            description: 'Di sini kamu bisa mengelola informasi akun, melihat status langganan, dan mengatur siklus tanggal gajianmu.',
+            side: 'bottom' as const,
+            align: 'start' as const
+          }
+        },
+        {
+          element: '#tour-prof-sub',
+          popover: {
+            title: 'Status Langganan & Verifikasi KTM',
+            description: 'Pantau status paketmu (Trial, Student, atau Premium). Mahasiswa bisa memverifikasi KTM untuk mendapatkan fitur gratis dan diskon khusus!',
+            side: 'bottom' as const,
+            align: 'start' as const
+          }
+        },
+        {
+          element: '#tour-prof-payday',
+          popover: {
+            title: 'Siklus Tanggal Gajian',
+            description: 'Sangat penting! Atur tanggal gajian atau kiriman bulananmu di sini. Sistem akan otomatis mereset perhitungan Jatah Harian setiap tanggal ini.',
+            side: 'top' as const,
+            align: 'start' as const
+          }
+        }
+      ],
+      onDestroyed: () => {
+        localStorage.setItem('sf-tour-profile-completed', 'true');
+      }
+    });
+
+    driverObj.drive();
+  }, []);
+
+  useEffect(() => {
+    if (!isLoading && profile) {
+      const tourCompleted = localStorage.getItem('sf-tour-profile-completed');
+      if (!tourCompleted) {
+        const timer = setTimeout(() => {
+          runProfileTour();
+        }, 1200);
+        return () => clearTimeout(timer);
+      }
+    }
+  }, [isLoading, profile, runProfileTour]);
 
   const getToken = useCallback(() => localStorage.getItem('sf-token'), []);
 
@@ -146,8 +202,16 @@ export default function ProfilePage() {
     <div className="min-h-screen bg-gray-50/50 dark:bg-gray-950">
       {/* Header */}
       <header className="sticky top-0 z-40 bg-white/80 dark:bg-gray-950/80 backdrop-blur-xl border-b border-gray-200 dark:border-gray-800 pt-safe">
-        <div className="max-w-7xl mx-auto px-5 py-4">
+        <div className="max-w-7xl mx-auto px-5 py-4 flex items-center justify-between">
           <h1 className="text-xl font-semibold text-gray-900 dark:text-white">Profil</h1>
+          <button
+            onClick={runProfileTour}
+            className="w-9 h-9 rounded-lg bg-gray-100 dark:bg-gray-800 flex items-center justify-center text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700 transition active:scale-95"
+            title="Panduan Pengguna"
+            aria-label="Tampilkan Panduan"
+          >
+            <HelpCircle className="w-4.5 h-4.5" />
+          </button>
         </div>
       </header>
 
@@ -167,7 +231,7 @@ export default function ProfilePage() {
 
           {/* Badge & Plan Info */}
           {sub && (
-            <div className={`mx-auto max-w-xs p-3 rounded-xl border flex items-center justify-between text-left ${
+            <div id="tour-prof-sub" className={`mx-auto max-w-xs p-3 rounded-xl border flex items-center justify-between text-left ${
               sub.plan === 'PREMIUM' ? 'bg-indigo-50 border-indigo-200 dark:bg-indigo-900/20 dark:border-indigo-800' :
               sub.plan === 'STUDENT' ? 'bg-emerald-50 border-emerald-200 dark:bg-emerald-900/20 dark:border-emerald-800' :
               'bg-amber-50 border-amber-200 dark:bg-amber-900/20 dark:border-amber-800'
@@ -231,7 +295,7 @@ export default function ProfilePage() {
               />
             </div>
 
-            <div>
+            <div id="tour-prof-payday">
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
                 Tanggal Gajian
               </label>

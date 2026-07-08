@@ -264,19 +264,17 @@
 }
 
 /* ============================================================
-   DRIVER.JS — POPOVER: Isolasi GPU layer agar tidak terpengaruh blur halaman
+   DRIVER.JS — POPOVER: Cyber / Royal Indigo Glassmorphism
    ============================================================ */
 .driver-popover {
-  background-color: #ffffff !important;
+  background: rgba(255, 255, 255, 0.98) !important;
   color: #1e293b !important;
-  border-radius: 1.25rem !important;
-  padding: 1.25rem !important;
-  border: 1px solid #e2e8f0 !important;
-  box-shadow: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1) !important;
+  border-radius: 1.5rem !important;
+  padding: 1.5rem !important;
+  border: 1px solid rgba(99, 102, 241, 0.25) !important;
+  box-shadow: 0 20px 40px -10px rgba(99, 102, 241, 0.15), 0 0 20px rgba(99, 102, 241, 0.1) !important;
   font-family: 'Inter', system-ui, sans-serif !important;
-  max-width: 300px !important;
-
-  /* Kunci: isolasi dari stacking context blur halaman */
+  max-width: 320px !important;
   isolation: isolate !important;
   contain: layout style !important;
   transform: translateZ(0) !important;
@@ -287,7 +285,6 @@
   will-change: auto !important;
 }
 
-/* Reset semua child popover dari blur */
 .driver-popover * {
   filter: none !important;
   backdrop-filter: none !important;
@@ -297,17 +294,18 @@
 }
 
 .dark .driver-popover {
-  background-color: #0f172a !important;
+  background: #0b1120 !important;
   color: #f1f5f9 !important;
-  border: 1px solid #1e293b !important;
-  box-shadow: 0 25px 50px -12px rgb(0 0 0 / 0.5) !important;
+  border: 1px solid rgba(99, 102, 241, 0.4) !important;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.8), 0 0 30px rgba(99, 102, 241, 0.2) !important;
 }
 
 .driver-popover-title {
-  font-size: 0.95rem !important;
-  font-weight: 700 !important;
+  font-size: 1.05rem !important;
+  font-weight: 800 !important;
   color: #0f172a !important;
   margin-bottom: 0.5rem !important;
+  letter-spacing: -0.01em !important;
 }
 
 .dark .driver-popover-title {
@@ -315,9 +313,9 @@
 }
 
 .driver-popover-description {
-  font-size: 0.825rem !important;
-  line-height: 1.4 !important;
-  color: #64748b !important;
+  font-size: 0.85rem !important;
+  line-height: 1.5 !important;
+  color: #475569 !important;
 }
 
 .dark .driver-popover-description {
@@ -334,7 +332,7 @@
 }
 
 .driver-popover-footer {
-  margin-top: 1rem !important;
+  margin-top: 1.25rem !important;
   display: flex !important;
   align-items: center !important;
   justify-content: space-between !important;
@@ -342,7 +340,12 @@
 
 .driver-popover-progress-text {
   font-size: 0.75rem !important;
-  color: #94a3b8 !important;
+  font-weight: 600 !important;
+  color: #6366f1 !important;
+}
+
+.dark .driver-popover-progress-text {
+  color: #818cf8 !important;
 }
 
 .driver-popover-navigation-btns {
@@ -350,20 +353,12 @@
   gap: 0.5rem !important;
 }
 
-/* Fix blur bleed — pastikan tombol tetap sharp */
-.driver-popover,
-.driver-popover * {
-  filter: none !important;
-  backdrop-filter: none !important;
-  -webkit-backdrop-filter: none !important;
-}
-
 .driver-popover-next-btn, .driver-popover-prev-btn {
-  font-size: 0.75rem !important;
-  font-weight: 600 !important;
-  padding: 0.5rem 0.875rem !important;
-  border-radius: 0.75rem !important;
-  transition: background-color 0.2s, color 0.2s !important;
+  font-size: 0.8rem !important;
+  font-weight: 700 !important;
+  padding: 0.55rem 1rem !important;
+  border-radius: 0.85rem !important;
+  transition: all 0.2s ease !important;
   cursor: pointer !important;
   border: none !important;
   position: relative !important;
@@ -372,38 +367,35 @@
   transform: none !important;
   will-change: auto !important;
   text-shadow: none !important;
-  box-shadow: none !important;
 }
 
 .driver-popover-prev-btn {
   background-color: #f1f5f9 !important;
   color: #475569 !important;
-  text-shadow: none !important;
 }
 
 .dark .driver-popover-prev-btn {
   background-color: #1e293b !important;
   color: #94a3b8 !important;
-  text-shadow: none !important;
 }
 
 .driver-popover-prev-btn:hover {
   background-color: #e2e8f0 !important;
-  text-shadow: none !important;
+  color: #1e293b !important;
 }
 
 .dark .driver-popover-prev-btn:hover {
   background-color: #334155 !important;
-  text-shadow: none !important;
+  color: #ffffff !important;
 }
 
 .driver-popover-next-btn {
-  background-color: #4f46e5 !important;
+  background: linear-gradient(135deg, #4f46e5 0%, #6366f1 100%) !important;
   color: #ffffff !important;
-  text-shadow: none !important;
+  box-shadow: 0 4px 12px rgba(79, 70, 229, 0.35) !important;
 }
 
 .driver-popover-next-btn:hover {
-  background-color: #4338ca !important;
-  text-shadow: none !important;
+  background: linear-gradient(135deg, #4338ca 0%, #4f46e5 100%) !important;
+  box-shadow: 0 6px 16px rgba(79, 70, 229, 0.5) !important;
 }

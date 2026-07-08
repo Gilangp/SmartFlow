@@ -2,8 +2,10 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, Edit2, Trash2 } from 'lucide-react';
+import { Edit2, Trash2, HelpCircle } from 'lucide-react';
 import { CategoryRecord } from '@/types';
+import { driver } from 'driver.js';
+import 'driver.js/dist/driver.css';
 
 interface Pocket {
   id: string;
@@ -21,6 +23,60 @@ export default function CategoriesPage() {
   const [form, setForm] = useState<{name: string, type: 'NEED'|'WANT', pocketId: string | null}>({ name: '', type: 'NEED', pocketId: null });
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState('');
+
+  const runCategoriesTour = useCallback(() => {
+    const driverObj = driver({
+      showProgress: true,
+      nextBtnText: 'Lanjut',
+      prevBtnText: 'Kembali',
+      doneBtnText: 'Selesai',
+      steps: [
+        {
+          popover: {
+            title: 'Manajemen Kategori Finansial',
+            description: 'Di sini kamu bisa mengatur klasifikasi pengeluaranmu menjadi Kebutuhan (Need) atau Keinginan (Want) untuk membantu AI menganalisis kebiasaan belanjamu.',
+            side: 'bottom' as const,
+            align: 'start' as const
+          }
+        },
+        {
+          element: '#tour-cat-info',
+          popover: {
+            title: 'Konsep Need vs Want',
+            description: 'Need adalah pengeluaran wajib (makan, transportasi, kos). Want adalah hiburan atau keinginan (nongkrong, kopi, fashion). Alokasi ideal mahasiswa adalah 50% Need dan 30% Want!',
+            side: 'bottom' as const,
+            align: 'start' as const
+          }
+        },
+        {
+          element: '#tour-cat-add-btn',
+          popover: {
+            title: 'Tambah Kategori & Kaitkan Kantong',
+            description: 'Klik tombol ini untuk membuat kategori baru dan mengaitkannya secara otomatis dengan Kantong Keuangan tertentu (misal: kategori "Kopi" memotong kantong "Dompet Utama").',
+            side: 'left' as const,
+            align: 'start' as const
+          }
+        }
+      ],
+      onDestroyed: () => {
+        localStorage.setItem('sf-tour-categories-completed', 'true');
+      }
+    });
+
+    driverObj.drive();
+  }, []);
+
+  useEffect(() => {
+    if (!isLoading && categories.length > 0) {
+      const tourCompleted = localStorage.getItem('sf-tour-categories-completed');
+      if (!tourCompleted) {
+        const timer = setTimeout(() => {
+          runCategoriesTour();
+        }, 1200);
+        return () => clearTimeout(timer);
+      }
+    }
+  }, [isLoading, categories, runCategoriesTour]);
 
   const getToken = useCallback(() => localStorage.getItem('sf-token'), []);
 
@@ -117,12 +173,6 @@ export default function CategoriesPage() {
       <header className="sticky top-0 z-40 bg-white/80 dark:bg-gray-950/80 backdrop-blur-xl border-b border-gray-200 dark:border-gray-800 pt-safe">
         <div className="max-w-7xl mx-auto px-5 py-4 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <button 
-              onClick={() => router.back()} 
-              className="md:hidden p-1.5 -ml-1.5 text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800 rounded-lg transition-colors"
-            >
-              <ArrowLeft className="w-5 h-5" strokeWidth={2} />
-            </button>
             <div>
               <h1 className="text-xl font-semibold text-gray-900 dark:text-white">Kategori</h1>
               <p className="text-xs text-gray-500 dark:text-gray-500 mt-0.5">
@@ -130,18 +180,29 @@ export default function CategoriesPage() {
               </p>
             </div>
           </div>
-          <button
-            onClick={handleOpenAdd}
-            className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-sm font-medium transition-all"
-          >
-            + Tambah
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              id="tour-cat-add-btn"
+              onClick={handleOpenAdd}
+              className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-sm font-medium transition-all shadow-sm shadow-indigo-600/20 active:scale-[0.98]"
+            >
+              + Tambah
+            </button>
+            <button
+              onClick={runCategoriesTour}
+              className="w-9 h-9 rounded-xl bg-gray-100 dark:bg-gray-800 flex items-center justify-center text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700 transition active:scale-95"
+              title="Panduan Pengguna"
+              aria-label="Tampilkan Panduan"
+            >
+              <HelpCircle className="w-5 h-5" />
+            </button>
+          </div>
         </div>
       </header>
 
       <main className="max-w-7xl mx-auto px-5 py-6 space-y-6">
         {/* Info Card */}
-        <div className="bg-indigo-50 dark:bg-indigo-500/5 rounded-xl p-4 border-l-4 border-indigo-500">
+        <div id="tour-cat-info" className="bg-indigo-50 dark:bg-indigo-500/5 rounded-xl p-4 border-l-4 border-indigo-500">
           <p className="text-sm font-medium text-gray-900 dark:text-white mb-1">
             Need vs Want
           </p>
