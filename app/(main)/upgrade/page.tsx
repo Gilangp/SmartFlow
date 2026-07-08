@@ -138,7 +138,7 @@ export default function UpgradePage() {
       features: [
         { text: 'Semua fitur lengkap' },
         { text: 'AI Smart Input' },
-        { text: '4 Kantong keuangan' },
+        { text: '2 Kantong default + bebas tambah kantong' },
         { text: 'Maksimal 50 transaksi/bulan' },
       ],
       cta: 'Paket Saat Ini',

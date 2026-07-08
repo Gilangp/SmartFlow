@@ -20,6 +20,7 @@ function formatCurrency(amount: number): string {
   return `Rp ${amount.toLocaleString('id-ID')}`;
 }
 
+
 export default function AnalyticsView({ transactions, canUseAnalytics, checkingSub }: AnalyticsViewProps) {
   const router = useRouter();
   const [trendData, setTrendData] = useState<any[]>([]);
@@ -46,7 +47,9 @@ export default function AnalyticsView({ transactions, canUseAnalytics, checkingS
          fetch('/api/analytics', { headers: { Authorization: `Bearer ${t}` } })
            .then(r => r.json())
            .then(d => {
-             if (d.success && d.data?.trend) setTrendData(d.data.trend);
+             if (d.success) {
+                if (d.data?.trend) setTrendData(d.data.trend);
+             }
            });
 
          setAiLoading(true);
@@ -485,7 +488,7 @@ export default function AnalyticsView({ transactions, canUseAnalytics, checkingS
               ))}
             </div>
           ) : (
-             <div className="text-gray-400 text-sm text-center py-4">Belum ada data pengeluaran</div>
+            <div className="text-gray-400 text-sm text-center py-4">Belum ada data pengeluaran</div>
           )}
         </div>
       </div>

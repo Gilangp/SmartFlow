@@ -156,6 +156,7 @@ model IncomeRecord {
   allocationEmergency   Decimal   @default(0.00) @db.Decimal(15, 2)
   allocationSavings     Decimal   @default(0.00) @db.Decimal(15, 2)
   allocationWishlist    Decimal   @default(0.00) @db.Decimal(15, 2)
+  breakdownJson         String?   @db.Text // Dynamic pocket breakdown: [{ pocketName, pocketColor, amount, percentage }]
   
   notes           String?
   recordedAt      DateTime      @default(now())

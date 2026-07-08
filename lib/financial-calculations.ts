@@ -99,24 +99,12 @@ export function calculateBonusDistribution(
   amount: number,
   isEmergencyFull: boolean = true
 ): BonusDistribution {
-  // Default: 50% Emergency/Savings, 30% Wishlist, 20% Main
-  // But prioritize Emergency if not full (BR-03)
-  
-  if (isEmergencyFull) {
-    return {
-      emergency: amount * 0.5,
-      savings: 0,
-      wishlist: amount * 0.3,
-      main: amount * 0.2,
-    };
-  }
-
-  // If Emergency not full, prioritize it first
+  // Default template 2 kantong: 70% Main, 30% Savings
   return {
-    emergency: amount * 0.5,
+    emergency: 0,
     savings: amount * 0.3,
-    wishlist: amount * 0.2,
-    main: 0,
+    wishlist: 0,
+    main: amount * 0.7,
   };
 }
 

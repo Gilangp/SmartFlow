@@ -65,11 +65,32 @@ export async function GET(request: NextRequest) {
       value
     })).sort((a, b) => b.value - a.value);
 
+    // 3. Data riwayat distribusi pemasukan (IncomeRecord)
+    const incomeRecordsRaw = await prisma.incomeRecord.findMany({
+      where: { userId: decoded.userId },
+      orderBy: { recordedAt: 'desc' },
+      take: 20,
+    });
+
+    const incomeRecords = incomeRecordsRaw.map((rec) => ({
+      id: rec.id,
+      type: rec.type,
+      amount: rec.amount.toNumber(),
+      allocationMain: rec.allocationMain.toNumber(),
+      allocationEmergency: rec.allocationEmergency.toNumber(),
+      allocationSavings: rec.allocationSavings.toNumber(),
+      allocationWishlist: rec.allocationWishlist.toNumber(),
+      breakdownJson: rec.breakdownJson,
+      notes: rec.notes,
+      recordedAt: rec.recordedAt.toISOString(),
+    }));
+
     return NextResponse.json({
       success: true,
       data: {
         trend: trendData,
         categories: pieData,
+        incomeRecords,
       },
     });
   } catch (error) {

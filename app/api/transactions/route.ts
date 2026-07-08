@@ -90,6 +90,10 @@ export async function POST(request: NextRequest) {
 
       const totalEffectiveAllocation = otherPocketsAllocation + mainPocketAllocation;
       const transactions = [];
+      let allocMain = 0;
+      let allocEmergency = 0;
+      let allocSavings = 0;
+      let allocWishlist = 0;
 
       if (totalEffectiveAllocation > 0) {
         for (const targetPocket of allPockets) {
@@ -101,6 +105,11 @@ export async function POST(request: NextRequest) {
 
           if (effectiveAllocation > 0) {
             const allocationAmount = (amount * effectiveAllocation) / 100;
+
+            if (targetPocket.type === 'MAIN') allocMain += allocationAmount;
+            else if (targetPocket.type === 'EMERGENCY') allocEmergency += allocationAmount;
+            else if (targetPocket.type === 'SAVINGS' || targetPocket.type === 'CUSTOM') allocSavings += allocationAmount;
+            else if (targetPocket.type === 'WISHLIST') allocWishlist += allocationAmount;
 
             // Create transaction
             const txn = await prisma.transaction.create({
@@ -124,6 +133,28 @@ export async function POST(request: NextRequest) {
             });
           }
         }
+
+        const breakdownData = transactions.map((t) => ({
+          pocketId: t.pocketId,
+          pocketName: t.pocket.name,
+          pocketColor: t.pocket.color || '#6366f1',
+          amount: t.amount.toNumber(),
+        }));
+
+        await prisma.incomeRecord.create({
+          data: {
+            userId: decoded.userId,
+            type: type,
+            amount: amount,
+            allocationMain: allocMain,
+            allocationEmergency: allocEmergency,
+            allocationSavings: allocSavings,
+            allocationWishlist: allocWishlist,
+            breakdownJson: JSON.stringify(breakdownData),
+            notes: notes || `${type === 'INCOME_ROUTINE' ? 'Pemasukan Rutin' : 'Pemasukan Tambahan'} (Alokasi ke ${transactions.length} kantong)`,
+            recordedAt: new Date(date),
+          },
+        });
       } else {
         // Fallback: put everything into the selected pocket if no allocation is set up
         const txn = await prisma.transaction.create({
@@ -142,6 +173,29 @@ export async function POST(request: NextRequest) {
         await prisma.pocket.update({
           where: { id: pocket.id },
           data: { balance: pocket.balance.plus(amount) },
+        });
+
+        const pType = pocket.type;
+        const breakdownData = [{
+          pocketId: pocket.id,
+          pocketName: pocket.name,
+          pocketColor: pocket.color || '#6366f1',
+          amount: amount,
+        }];
+
+        await prisma.incomeRecord.create({
+          data: {
+            userId: decoded.userId,
+            type: type,
+            amount: amount,
+            allocationMain: pType === 'MAIN' ? amount : 0,
+            allocationEmergency: pType === 'EMERGENCY' ? amount : 0,
+            allocationSavings: pType === 'SAVINGS' || pType === 'CUSTOM' ? amount : 0,
+            allocationWishlist: pType === 'WISHLIST' ? amount : 0,
+            breakdownJson: JSON.stringify(breakdownData),
+            notes: notes || `${type === 'INCOME_ROUTINE' ? 'Pemasukan Rutin' : 'Pemasukan Tambahan'} ke ${pocket.name}`,
+            recordedAt: new Date(date),
+          },
         });
       }
 

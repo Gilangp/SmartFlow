@@ -115,8 +115,8 @@ export default function PocketsPage() {
       steps: [
         {
           popover: {
-            title: 'Sistem 4 Kantong Keuangan',
-            description: 'Di halaman ini, kamu bisa membagi uangmu ke dalam kantong-kantong khusus untuk kedisiplinan finansial yang lebih baik.',
+            title: 'Sistem Kantong Cerdas',
+            description: 'Di halaman ini, kamu bisa membagi uangmu ke dalam kantong-kantong khusus (2 kantong default + kantong kustom) untuk kedisiplinan finansial yang lebih baik.',
             side: 'bottom' as const,
             align: 'start' as const
           }
@@ -179,7 +179,7 @@ export default function PocketsPage() {
           element: '#tour-add-pocket-btn',
           popover: {
             title: 'Tambah Kantong Kustom',
-            description: 'Butuh kantong tambahan diluar 4 kantong default? Buat kantong kustom barumu sendiri di sini.',
+            description: 'Butuh kantong tambahan diluar 2 kantong default (Utama & Tabungan)? Buat kantong kustom atau target impianmu sendiri di sini.',
             side: 'bottom' as const,
             align: 'start' as const
           }

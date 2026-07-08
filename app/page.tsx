@@ -101,7 +101,7 @@ export default function Home() {
     {
       icon: <Wallet className="w-6 h-6 text-indigo-600 dark:text-indigo-400" />,
       title: 'Dynamic Pockets (Sistem Amplop)',
-      description: 'Bagi pemasukanmu ke berbagai kantong khusus (Darurat, Tabungan, Wishlist) dengan persentase alokasi yang dinamis.',
+      description: 'Bagi pemasukanmu ke 2 kantong default (Utama & Tabungan) atau tambah kantong kustom sesuai kebutuhanku dengan persentase alokasi yang dinamis.',
       metric: 'Auto-Allocation'
     },
     {
@@ -174,7 +174,7 @@ export default function Home() {
         'Semua fitur lengkap',
         'AI Financial Assistant',
         'Input pakai bahasa sehari-hari',
-        '4 Kantong + progress tracking'
+        '2 Kantong default + bebas tambah kantong'
       ],
       popular: false,
       buttonText: 'Coba Gratis',

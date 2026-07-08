@@ -115,8 +115,8 @@ export default function DashboardPage() {
         {
           element: '#tour-pockets',
           popover: {
-            title: 'Sistem 4 Kantong',
-            description: 'Keuangan kamu dibagi ke dalam 4 kantong: Utama, Darurat, Tabungan, dan Wishlist. Ini membantu alokasi keuangan yang lebih disiplin.',
+            title: 'Sistem Kantong Cerdas',
+            description: 'Keuangan kamu dibagi ke dalam kantong-kantong cerdas (secara default: Dompet Utama dan Tabungan, serta bebas kamu tambah sendiri seperti Dana Darurat atau Wishlist). Ini membantu alokasi keuangan yang lebih disiplin.',
             side: 'top' as const,
             align: 'start' as const
           }

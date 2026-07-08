@@ -173,8 +173,8 @@ export async function POST(request: NextRequest) {
     
     if (!isPremium) {
       const pocketCount = await prisma.pocket.count({ where: { userId: decoded.userId } });
-      if (pocketCount >= 4) { // Trial has the 4 default pockets, cannot add more
-        return NextResponse.json({ success: false, message: 'Maksimal 4 kantong untuk akun Trial. Silakan upgrade Premium!' }, { status: 403 });
+      if (pocketCount >= 4) { // Trial mulai dengan 2 kantong default dan bisa tambah maksimal 2 kantong kustom (total 4)
+        return NextResponse.json({ success: false, message: 'Maksimal 4 kantong untuk akun Trial (2 default + 2 kustom). Silakan verifikasi KTM (Student) / upgrade Premium untuk kantong tanpa batas!' }, { status: 403 });
       }
     }
 
