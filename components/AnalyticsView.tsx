@@ -347,8 +347,8 @@ export default function AnalyticsView({ transactions, canUseAnalytics, checkingS
           
           <div className="space-y-4 my-auto">
             <div className="flex justify-between text-xs font-medium">
-              <span className="text-indigo-600 dark:text-indigo-400">Kebutuhan (Needs)</span>
-              <span className="text-rose-500">Keinginan (Wants)</span>
+              <span className="text-indigo-600 dark:text-indigo-400">Kebutuhan (Esensial)</span>
+              <span className="text-rose-500">Keinginan (Konsumtif)</span>
             </div>
             
             <div className="h-4 w-full bg-gray-100 dark:bg-gray-800 rounded-full overflow-hidden flex">

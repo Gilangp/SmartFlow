@@ -5,6 +5,7 @@ import { prisma } from '@/lib/db';
 interface UpdateCategoryRequest {
   name?: string;
   type?: 'NEED' | 'WANT';
+  pocketId?: string | null;
 }
 
 export async function PATCH(
@@ -47,9 +48,36 @@ export async function PATCH(
       );
     }
 
+    const updateData: {
+      name?: string;
+      type?: 'NEED' | 'WANT';
+      pocketId?: string | null;
+    } = {};
+
+    if (body.name !== undefined && body.name !== category.name) {
+      const existing = await prisma.category.findUnique({
+        where: { userId_name: { userId: decoded.userId, name: body.name } },
+      });
+      if (existing) {
+        return NextResponse.json(
+          { success: false, message: 'Nama kategori sudah digunakan' },
+          { status: 409 }
+        );
+      }
+      updateData.name = body.name;
+    } else if (body.name !== undefined) {
+      updateData.name = body.name;
+    }
+
+    if (body.type !== undefined) updateData.type = body.type;
+    if (body.pocketId !== undefined) {
+      // Convert empty string "" to null to avoid database foreign key violation
+      updateData.pocketId = body.pocketId ? body.pocketId : null;
+    }
+
     const updated = await prisma.category.update({
       where: { id: categoryId },
-      data: body,
+      data: updateData,
     });
 
     return NextResponse.json({

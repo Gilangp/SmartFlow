@@ -499,7 +499,7 @@ export default function DashboardPage() {
                           <div className="flex items-center gap-1 text-xs text-gray-400 flex-nowrap overflow-hidden">
                             <span className="truncate">{tx.pocket}</span>
                             <span className="flex-shrink-0">•</span>
-                            <span className="flex-shrink-0">{new Date(tx.date).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' })}</span>
+                            <span className="flex-shrink-0">{new Date(tx.date).toLocaleDateString('id-ID', { weekday: 'short', day: 'numeric', month: 'short' })}</span>
                             {tx.createdAt && (
                               <>
                                 <span className="flex-shrink-0">•</span>

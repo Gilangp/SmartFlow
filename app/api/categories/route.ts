@@ -145,12 +145,21 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ success: false, message: 'Category not found' }, { status: 404 });
     }
 
+    if (name && name !== existing.name) {
+      const dup = await prisma.category.findUnique({
+        where: { userId_name: { userId: decoded.userId, name } },
+      });
+      if (dup) {
+        return NextResponse.json({ success: false, message: 'Nama kategori sudah digunakan' }, { status: 409 });
+      }
+    }
+
     const updated = await prisma.category.update({
       where: { id },
       data: {
         ...(name && { name }),
         ...(type && { type }),
-        ...(pocketId !== undefined && { pocketId }),
+        ...(pocketId !== undefined && { pocketId: pocketId ? pocketId : null }),
       }
     });
 

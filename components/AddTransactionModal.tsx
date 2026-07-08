@@ -3,7 +3,7 @@
 
 import { useState, useEffect } from 'react';
 import { CategoryRecord } from '@/types';
-import { Sparkles, Info, Camera, Image as ImageIcon, TrendingDown, TrendingUp, Gift, X } from 'lucide-react';
+import { Sparkles, Info, Camera, Image as ImageIcon, TrendingDown, TrendingUp, Gift, Calendar, X } from 'lucide-react';
 import { compressImage } from '@/lib/image-helper';
 import { formatNominalInput, cleanNominalInput } from '@/lib/utils';
 
@@ -34,6 +34,31 @@ const SMART_INPUT_EXAMPLES = [
   'Ongkos gojek ke kampus 25k',
   'Kopi sama teman 35.000',
 ];
+
+function getDateBadge(dateStr: string) {
+  if (!dateStr) return null;
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const target = new Date(dateStr + 'T00:00:00');
+  target.setHours(0, 0, 0, 0);
+  const diffDays = Math.round((target.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+
+  const className = 'bg-indigo-100 dark:bg-indigo-900/50 text-indigo-700 dark:text-indigo-300';
+
+  if (diffDays === 0) {
+    return { label: 'Hari Ini', className };
+  } else if (diffDays === -1) {
+    return { label: 'Kemarin', className };
+  } else if (diffDays === -2) {
+    return { label: '2 Hari Lalu', className };
+  } else if (diffDays < -2) {
+    return { label: `${Math.abs(diffDays)} Hari Lalu`, className };
+  } else if (diffDays === 1) {
+    return { label: 'Besok', className };
+  } else {
+    return { label: `${diffDays} Hari Lagi`, className };
+  }
+}
 
 export default function AddTransactionModal({ onClose, onSuccess, defaultType, prefill }: AddTransactionModalProps) {
   // If prefill is provided or defaultType is set, start directly in manual mode
@@ -111,6 +136,7 @@ export default function AddTransactionModal({ onClose, onSuccess, defaultType, p
           categoryId: matchedCat?.id || f.categoryId,
           pocketId: matchedCat?.pocketId || f.pocketId,
           notes: extracted.notes || smartText,
+          date: extracted.date || f.date,
         }));
         setMode('manual');
       } else {
@@ -500,13 +526,41 @@ export default function AddTransactionModal({ onClose, onSuccess, defaultType, p
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
                   Tanggal
                 </label>
-                <input
-                  type="date"
-                  value={form.date}
-                  onChange={(e) => setForm((f) => ({ ...f, date: e.target.value }))}
-                  required
-                  className="w-full px-4 py-2.5 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
-                />
+                <div className="relative block w-full px-4 py-2.5 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white flex items-center justify-between cursor-pointer hover:border-indigo-500/50 transition focus-within:ring-2 focus-within:ring-indigo-500/50">
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <Calendar className="w-4 h-4 text-gray-400 dark:text-gray-500 flex-shrink-0" />
+                    <span className="font-medium text-sm truncate">
+                      {form.date ? new Date(form.date + 'T00:00:00').toLocaleDateString('id-ID', {
+                        weekday: 'long',
+                        day: 'numeric',
+                        month: 'long',
+                        year: 'numeric',
+                      }) : 'Pilih Tanggal'}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2 flex-shrink-0">
+                    {(() => {
+                      const badge = getDateBadge(form.date);
+                      return badge ? (
+                        <span className={`px-2 py-0.5 rounded text-xs font-bold ${badge.className}`}>
+                          {badge.label}
+                        </span>
+                      ) : null;
+                    })()}
+                  </div>
+                  <input
+                    type="date"
+                    value={form.date}
+                    onChange={(e) => setForm((f) => ({ ...f, date: e.target.value }))}
+                    onClick={(e) => {
+                      if (e.currentTarget.showPicker) {
+                        try { e.currentTarget.showPicker(); } catch {}
+                      }
+                    }}
+                    required
+                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                  />
+                </div>
               </div>
 
               {/* Notes */}

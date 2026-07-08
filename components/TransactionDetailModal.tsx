@@ -164,7 +164,7 @@ ${tx.notes ? `Catatan : ${tx.notes}\n` : ''}ID Tx   : ${tx.id}
                       ? 'bg-indigo-100 dark:bg-indigo-900/50 text-indigo-700 dark:text-indigo-300'
                       : 'bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-300'
                   }`}>
-                    {tx.categoryType === 'NEED' ? 'Need' : 'Want'}
+                    {tx.categoryType === 'NEED' ? 'Kebutuhan' : 'Keinginan'}
                   </span>
                 )}
               </div>

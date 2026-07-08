@@ -13,6 +13,7 @@ const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY || '' });
 type AIResponse = {
   totalAmount: number;
   category: string;
+  date?: string;
   notes: string;
 };
 
@@ -63,9 +64,22 @@ function fallbackParser(text: string) {
     }
   }
 
+  // Deteksi tanggal relatif sederhana untuk fallback
+  const now = new Date();
+  const lower = text.toLowerCase();
+  if (lower.includes('2 hari') || lower.includes('lusa kemarin')) {
+    now.setDate(now.getDate() - 2);
+  } else if (lower.includes('3 hari')) {
+    now.setDate(now.getDate() - 3);
+  } else if (lower.includes('kemarin') || lower.includes('semalam') || lower.includes('tadi malam')) {
+    now.setDate(now.getDate() - 1);
+  }
+  const dateStr = now.toLocaleDateString('en-CA', { timeZone: 'Asia/Jakarta' });
+
   return {
     totalAmount: total,
     category: 'Lainnya',
+    date: dateStr,
     notes: text,
   };
 }
@@ -113,14 +127,22 @@ export async function POST(request: NextRequest) {
       .map((c) => `${c.name} (${c.type === 'NEED' ? 'NEED - Kebutuhan pokok/wajib/esensial' : 'WANT - Keinginan/gaya hidup/jajan/konsumtif'})`)
       .join(', ');
 
-    // 🔹 PROMPT (lebih ketat & akurat untuk klasifikasi NEED vs WANT)
+    const nowWib = new Date();
+    const todayStr = nowWib.toLocaleDateString('en-CA', { timeZone: 'Asia/Jakarta' });
+
+    // 🔹 PROMPT (lebih ketat & akurat untuk klasifikasi NEED vs WANT & deteksi tanggal)
     const prompt = `
 Kamu adalah parser data keuangan Indonesia yang sangat pintar dan akurat.
 
 Tugas:
-Ekstrak semua nominal dari teks, hitung total pengeluaran, tentukan kategori yang paling pas, dan rapihkan catatan (notes).
+Ekstrak semua nominal dari teks, hitung total pengeluaran, tentukan kategori yang paling pas, hitung tanggal transaksi yang dimaksud, dan rapihkan catatan (notes).
 
 Rules:
+- Hari ini adalah tanggal ${todayStr} (format YYYY-MM-DD, waktu WIB).
+- Deteksi tanggal dari teks input pada kolom "date" (dalam format YYYY-MM-DD):
+  • Jika user menyebut waktu relatif seperti "kemarin"/"semalam" (berarti hari sebelum hari ini), "2 hari kemarin"/"2 hari lalu" (berarti 2 hari sebelum hari ini), "3 hari lalu", dsb., hitung tanggalnya dengan tepat dari hari ini (${todayStr}).
+  • Jika user menyebut tanggal spesifik (misal: "tgl 5", "5 Juli", "5/7"), konversi ke YYYY-MM-DD pada tahun yang sesuai.
+  • Jika tidak ada keterangan waktu/tanggal di teks, gunakan tanggal hari ini: "${todayStr}".
 - 3k = 3000
 - 10rb = 10000
 - 20 ribu = 20000
@@ -132,7 +154,7 @@ Rules:
 - Output HARUS JSON valid
 - Jangan gunakan markdown
 - Jangan tambahkan penjelasan
-- Gabungkan nama barang/kegiatan ke dalam 'notes' dengan rapi dan jelas. Jika ada lebih dari satu kegiatan/barang, pisahkan dengan koma dan spasi (, ) (contoh: "makan siang, isi bensin, beli pulsa").
+- Gabungkan nama barang/kegiatan ke dalam 'notes' dengan rapi dan jelas. Jika ada lebih dari satu kegiatan/barang, pisahkan dengan koma dan spasi (, ) (contoh: "makan siang, isi bensin, beli pulsa"). Jangan masukkan kata waktu seperti "kemarin" atau "2 hari lalu" ke dalam notes jika sudah diproses ke kolom date.
 
 Daftar Kategori User yang Tersedia:
 [${categoryListFormatted || 'Lainnya'}]
@@ -141,6 +163,7 @@ Format JSON:
 {
   "totalAmount": number,
   "category": string,
+  "date": "YYYY-MM-DD",
   "notes": string
 }
 
@@ -188,6 +211,7 @@ Input:
             data: {
               amount: fallback.totalAmount,
               category: fallback.category,
+              date: fallback.date,
               notes: fallback.notes,
             },
           });
@@ -213,6 +237,7 @@ Input:
       data: {
         amount: parsed.totalAmount,
         category: cleanCat || 'Lainnya',
+        date: parsed.date || todayStr,
         notes: parsed.notes || text,
       },
     });
