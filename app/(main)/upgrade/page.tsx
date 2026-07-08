@@ -59,6 +59,72 @@ export default function UpgradePage() {
     fetchSubscription(token);
   };
 
+  const [checkoutLoading, setCheckoutLoading] = useState(false);
+
+  const handleUpgradePremium = async () => {
+    setCheckoutLoading(true);
+    const toastId = toast.loading('Menyiapkan pembayaran...');
+    try {
+      const res = await fetch('/api/subscription/checkout', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`
+        }
+      });
+      const data = await res.json();
+      if (!data.success) {
+        toast.dismiss(toastId);
+        toast.error(data.message || 'Gagal memulai pembayaran.');
+        return;
+      }
+
+      const { snapToken, clientKey, isProduction } = data.data;
+
+      // Load snap.js dynamically if not present
+      if (!(window as any).snap) {
+        const snapScriptUrl = isProduction
+          ? 'https://app.midtrans.com/snap/snap.js'
+          : 'https://app.sandbox.midtrans.com/snap/snap.js';
+
+        await new Promise<void>((resolve, reject) => {
+          const script = document.createElement('script');
+          script.src = snapScriptUrl;
+          if (clientKey) {
+            script.setAttribute('data-client-key', clientKey);
+          }
+          script.onload = () => resolve();
+          script.onerror = () => reject(new Error('Gagal memuat payment gateway Midtrans.'));
+          document.body.appendChild(script);
+        });
+      }
+
+      toast.dismiss(toastId);
+
+      // Trigger Snap popup
+      (window as any).snap.pay(snapToken, {
+        onSuccess: function (result: any) {
+          toast.success('Pembayaran berhasil! Akun Anda telah menjadi Premium.');
+          fetchSubscription(token);
+        },
+        onPending: function (result: any) {
+          toast.success('Pembayaran pending. Silakan selesaikan pembayaran Anda.');
+        },
+        onError: function (result: any) {
+          toast.error('Pembayaran gagal. Silakan coba lagi.');
+        },
+        onClose: function () {
+          toast.error('Halaman pembayaran ditutup.');
+        }
+      });
+    } catch (err: any) {
+      toast.dismiss(toastId);
+      toast.error(err.message || 'Terjadi kesalahan saat checkout.');
+    } finally {
+      setCheckoutLoading(false);
+    }
+  };
+
 
   const packages = [
     {
@@ -113,7 +179,7 @@ export default function UpgradePage() {
         { text: 'Dashboard Analitik Mendalam' },
         { text: 'Dukungan prioritas 24/7' },
       ],
-      cta: 'Segera Hadir',
+      cta: 'Upgrade Premium',
       ctaAction: 'premium',
       popular: false,
     },
@@ -139,7 +205,7 @@ export default function UpgradePage() {
       badge: 'bg-indigo-100 dark:bg-indigo-950/30 text-indigo-700 dark:text-indigo-400',
       border: 'border-indigo-200 dark:border-indigo-800',
       icon: 'bg-indigo-100 dark:bg-indigo-950/30 text-indigo-600 dark:text-indigo-400',
-      btn: 'bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-400 cursor-not-allowed',
+      btn: 'bg-indigo-600 hover:bg-indigo-700 text-white',
       check: 'text-indigo-500',
     },
   };
@@ -265,11 +331,12 @@ export default function UpgradePage() {
               <button
                 onClick={() => {
                   if (pkg.ctaAction === 'ktm' && !isCurrentPlan) setKtmOpen(true);
+                  if (pkg.ctaAction === 'premium' && !isCurrentPlan) handleUpgradePremium();
                 }}
                 disabled={
                   isCurrentPlan ||
                   pkg.ctaAction === null ||
-                  pkg.ctaAction === 'premium'
+                  checkoutLoading
                 }
                 className={`w-full py-3 mt-auto rounded-xl font-bold text-sm transition-all duration-200 ${
                   isCurrentPlan
@@ -277,7 +344,7 @@ export default function UpgradePage() {
                     : colors.btn
                 }`}
               >
-                {isCurrentPlan ? '✓ Paket Aktif' : pkg.cta}
+                {isCurrentPlan ? '✓ Paket Aktif' : (checkoutLoading && pkg.ctaAction === 'premium') ? 'Memproses...' : pkg.cta}
               </button>
             </div>
           );

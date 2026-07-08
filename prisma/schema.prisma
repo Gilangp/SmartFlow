@@ -218,22 +218,23 @@ model Subscription {
 }
 
 // ============================================================================
-// Payment Table — Riwayat Pembayaran Duitku
+// Payment Table — Riwayat Pembayaran Midtrans
 // ============================================================================
 model Payment {
-  id              String       @id @default(cuid())
-  subscriptionId  String
-  merchantOrderId String       @unique  // ID unik untuk Duitku
-  amount          Int          // dalam Rupiah
-  status          String       @default("PENDING") // PENDING | SUCCESS | FAILED | EXPIRED
-  paymentMethod   String?      // VA, QRIS, dll
-  paymentUrl      String?      // URL redirect ke Duitku
-  duitkuReference String?      // Referensi dari Duitku setelah sukses
-  paidAt          DateTime?
-  createdAt       DateTime     @default(now())
-  updatedAt       DateTime     @updatedAt
+  id                    String       @id @default(cuid())
+  subscriptionId        String
+  orderId               String       @unique  // ID unik transaksi Midtrans
+  amount                Int          // dalam Rupiah
+  status                String       @default("PENDING") // PENDING | SUCCESS | FAILED | EXPIRED
+  paymentMethod         String?      // VA, QRIS, Gopay, dll
+  paymentUrl            String?      // URL redirect ke Snap Midtrans (opsional)
+  snapToken             String?      // Token Snap Midtrans untuk popup modal
+  midtransTransactionId String?      // Referensi ID transaksi dari Midtrans setelah sukses
+  paidAt                DateTime?
+  createdAt             DateTime     @default(now())
+  updatedAt             DateTime     @updatedAt
 
-  subscription    Subscription @relation(fields: [subscriptionId], references: [id])
+  subscription          Subscription @relation(fields: [subscriptionId], references: [id])
 
   @@map("payments")
 }
