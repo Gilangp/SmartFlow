@@ -1,9 +1,9 @@
 // components/AddExpenseModal.tsx
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { CategoryRecord } from '@/types';
-import { Sparkles, Info, Camera, TrendingDown, Calendar, X } from 'lucide-react';
+import { Sparkles, Info, Camera, TrendingDown, Calendar, X, Mic, MicOff, Square } from 'lucide-react';
 import { compressImage } from '@/lib/image-helper';
 import { formatNominalInput, cleanNominalInput } from '@/lib/utils';
 
@@ -61,6 +61,13 @@ function getDateBadge(dateStr: string) {
 export default function AddExpenseModal({ onClose, onSuccess, prefill }: AddExpenseModalProps) {
   const [mode, setMode] = useState<'smart' | 'manual' | 'scan'>(prefill ? 'manual' : 'smart');
   const [smartText, setSmartText] = useState('');
+  const [isListening, setIsListening] = useState(false);
+  const [voiceError, setVoiceError] = useState('');
+  const recognitionRef = useRef<any>(null);
+  const finalTranscriptRef = useRef('');
+  const silenceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const silenceRafRef = useRef<number | null>(null);
+  const SILENCE_TIMEOUT_MS = 3000; // auto-stop setelah 3 detik hening
   const [aiProcessing, setAiProcessing] = useState(false);
   const [categories, setCategories] = useState<CategoryRecord[]>([]);
   const [pockets, setPockets] = useState<Pocket[]>([]);
@@ -75,6 +82,148 @@ export default function AddExpenseModal({ onClose, onSuccess, prefill }: AddExpe
   const [error, setError] = useState('');
 
   const getToken = () => localStorage.getItem('sf-token');
+
+  // ── Stop semua recording ──────────────────────────────────────────────────
+  const stopVoice = useCallback(() => {
+    if (silenceTimerRef.current) {
+      clearTimeout(silenceTimerRef.current);
+      silenceTimerRef.current = null;
+    }
+    if (silenceRafRef.current) {
+      cancelAnimationFrame(silenceRafRef.current);
+      silenceRafRef.current = null;
+    }
+    if (recognitionRef.current) {
+      recognitionRef.current.stop();
+      recognitionRef.current = null;
+    }
+    setIsListening(false);
+  }, []);
+
+  // ── Start recording: Web Speech API + AudioContext silence detection ────────
+  const startVoice = useCallback(() => {
+    setVoiceError('');
+
+    const SpeechRecognition =
+      (window as any).SpeechRecognition ||
+      (window as any).webkitSpeechRecognition;
+
+    if (!SpeechRecognition) {
+      setVoiceError('Browser kamu tidak mendukung voice input. Gunakan Chrome atau Edge.');
+      return;
+    }
+
+    // Reset teks lama — rekam selalu mulai dari awal
+    setSmartText('');
+    finalTranscriptRef.current = '';
+
+    const recognition = new SpeechRecognition();
+    recognition.lang = 'id-ID';
+    recognition.continuous = true;
+    recognition.interimResults = true;
+    recognition.maxAlternatives = 1;
+
+    recognition.onstart = () => setIsListening(true);
+
+    recognition.onresult = (event: any) => {
+      let interim = '';
+      let final = finalTranscriptRef.current;
+      for (let i = event.resultIndex; i < event.results.length; i++) {
+        const t = event.results[i][0].transcript;
+        if (event.results[i].isFinal) {
+          final += (final ? ' ' : '') + t;
+          finalTranscriptRef.current = final;
+        } else {
+          interim = t;
+        }
+      }
+      setSmartText(finalTranscriptRef.current + (interim ? ' ' + interim : ''));
+    };
+
+    recognition.onerror = (event: any) => {
+      const errMap: Record<string, string> = {
+        'not-allowed': 'Izin mikrofon ditolak. Izinkan di pengaturan browser.',
+        'audio-capture': 'Mikrofon tidak ditemukan.',
+        'network': 'Gagal koneksi. Coba lagi.',
+      };
+      // 'no-speech' diabaikan karena silence detection yang handle
+      if (event.error !== 'no-speech') {
+        setVoiceError(errMap[event.error] || `Error: ${event.error}`);
+      }
+    };
+
+    recognition.onend = () => {
+      recognitionRef.current = null;
+      setIsListening(false);
+    };
+
+    recognitionRef.current = recognition;
+    recognition.start();
+
+    // ── Silence Detection via AudioContext ───────────────────────────────────
+    // Minta stream mikrofon terpisah hanya untuk cek volume
+    navigator.mediaDevices.getUserMedia({ audio: true }).then((stream) => {
+      try {
+        const audioCtx = new AudioContext();
+        const source = audioCtx.createMediaStreamSource(stream);
+        const analyser = audioCtx.createAnalyser();
+        analyser.fftSize = 512;
+        source.connect(analyser);
+        const dataArray = new Uint8Array(analyser.frequencyBinCount);
+        const SILENCE_THRESHOLD = 8;
+
+        const checkSilence = () => {
+          if (!recognitionRef.current) {
+            stream.getTracks().forEach((t) => t.stop());
+            audioCtx.close();
+            return;
+          }
+
+          analyser.getByteTimeDomainData(dataArray);
+          let sum = 0;
+          for (let i = 0; i < dataArray.length; i++) {
+            const val = (dataArray[i] - 128) / 128;
+            sum += val * val;
+          }
+          const rms = Math.sqrt(sum / dataArray.length) * 100;
+
+          if (rms < SILENCE_THRESHOLD) {
+            if (!silenceTimerRef.current) {
+              silenceTimerRef.current = setTimeout(() => {
+                stream.getTracks().forEach((t) => t.stop());
+                audioCtx.close();
+                if (recognitionRef.current) {
+                  recognitionRef.current.stop();
+                  recognitionRef.current = null;
+                }
+                silenceTimerRef.current = null;
+                silenceRafRef.current = null;
+                setIsListening(false);
+              }, SILENCE_TIMEOUT_MS);
+            }
+          } else {
+            if (silenceTimerRef.current) {
+              clearTimeout(silenceTimerRef.current);
+              silenceTimerRef.current = null;
+            }
+          }
+
+          silenceRafRef.current = requestAnimationFrame(checkSilence);
+        };
+
+        silenceRafRef.current = requestAnimationFrame(checkSilence);
+      } catch {
+        stream.getTracks().forEach((t) => t.stop());
+      }
+    }).catch(() => { /* tidak bisa dapat stream untuk volume check, skip */ });
+  }, [smartText]);
+
+  // Cleanup on unmount
+  useEffect(() => () => {
+    if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
+    if (silenceRafRef.current) cancelAnimationFrame(silenceRafRef.current);
+    if (recognitionRef.current) recognitionRef.current.stop();
+  }, []);
 
   useEffect(() => {
     const token = getToken();
@@ -305,18 +454,80 @@ export default function AddExpenseModal({ onClose, onSuccess, prefill }: AddExpe
                   ))}
                 </div>
               </div>
-              <div>
+              {/* Modern Prompt Box Container */}
+              <div className={`w-full rounded-xl border bg-white dark:bg-gray-800 transition-all shadow-sm overflow-hidden ${
+                isListening
+                  ? 'border-rose-400 dark:border-rose-500 ring-2 ring-rose-400/20'
+                  : 'border-gray-200 dark:border-gray-700 focus-within:border-indigo-500 focus-within:ring-2 focus-within:ring-indigo-500/20'
+              }`}>
                 <textarea
                   value={smartText}
                   onChange={(e) => setSmartText(e.target.value)}
-                  placeholder="Ketik apa saja... contoh: 'Makan soto ayam 18rb'"
+                  placeholder={
+                    isListening
+                      ? 'Mendengarkan... bicara sekarang'
+                      : "Ketik atau rekam suara... contoh: 'Makan soto ayam 18rb'"
+                  }
                   rows={3}
-                  className="w-full px-4 py-2.5 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/50 resize-none text-sm"
+                  className="w-full px-4 pt-3 pb-2 bg-transparent text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none resize-none text-sm leading-relaxed"
                 />
+
+                {/* Prompt Box Toolbar Footer */}
+                <div className="flex items-center justify-between px-3 py-2 bg-gray-50/60 dark:bg-gray-800/60 border-t border-gray-100 dark:border-gray-700/60">
+                  <div className="flex items-center gap-2">
+                    {isListening ? (
+                      <div className="flex items-center gap-2 text-xs text-rose-600 dark:text-rose-400 font-medium">
+                        <span className="relative flex h-2 w-2">
+                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
+                          <span className="relative inline-flex rounded-full h-2 w-2 bg-rose-500"></span>
+                        </span>
+                        <span>Merekam... otomatis hapus teks lama</span>
+                      </div>
+                    ) : (
+                      <span className="text-[11px] text-gray-400 dark:text-gray-500">
+                        Ketik atau ketuk tombol rekam
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={isListening ? stopVoice : startVoice}
+                      title={isListening ? 'Stop perekaman' : 'Rekam suara otomatis'}
+                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all shadow-sm ${
+                        isListening
+                          ? 'bg-rose-500 hover:bg-rose-600 text-white animate-pulse'
+                          : 'bg-indigo-50 dark:bg-indigo-500/10 hover:bg-indigo-100 dark:hover:bg-indigo-500/20 text-indigo-600 dark:text-indigo-400 border border-indigo-100 dark:border-indigo-500/20 active:scale-95'
+                      }`}
+                    >
+                      {isListening ? (
+                        <>
+                          <Square className="w-3 h-3 fill-current" />
+                          <span>Stop</span>
+                        </>
+                      ) : (
+                        <>
+                          <Mic className="w-3.5 h-3.5" />
+                          <span>Rekam Suara</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </div>
               </div>
+
+              {/* Voice error */}
+              {voiceError && (
+                <div className="flex items-start gap-2 p-2.5 rounded-lg bg-amber-50 dark:bg-amber-500/10 border border-amber-100 dark:border-amber-500/20 text-amber-700 dark:text-amber-300 text-xs">
+                  <MicOff className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" />
+                  <span>{voiceError}</span>
+                </div>
+              )}
+
               <button
                 onClick={handleSmartInput}
-                disabled={!smartText.trim() || aiProcessing}
+                disabled={!smartText.trim() || aiProcessing || isListening}
                 className="w-full py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-medium text-sm transition-all disabled:opacity-50"
               >
                 {aiProcessing ? 'Memproses...' : 'Proses dengan AI'}

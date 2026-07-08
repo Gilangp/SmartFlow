@@ -269,3 +269,110 @@ export async function callHuggingFaceVision(
 
   throw lastError ?? new Error('[HuggingFace Vision] Semua model vision gagal.');
 }
+
+/**
+ * Memanggil Hugging Face Inference API untuk Automatic Speech Recognition (audio → teks).
+ *
+ * Model cascade (urutan prioritas):
+ *   1. openai/whisper-large-v3          — akurasi tertinggi, mendukung id (Bahasa Indonesia)
+ *   2. openai/whisper-medium            — lebih cepat, fallback ke-2
+ *   3. distil-whisper/distil-large-v3   — sangat cepat (distilasi Whisper)
+ *
+ * @param audioBuffer  - Buffer audio (WebM/WAV/MP3/OGG)
+ * @param mimeType     - MIME type audio (default: 'audio/webm')
+ * @returns teks hasil transkripsi
+ */
+export async function callHuggingFaceAudio(
+  audioBuffer: Buffer,
+  mimeType: string = 'audio/webm'
+): Promise<string> {
+  const HF_ASR_BASE = 'https://api-inference.huggingface.co/models';
+
+  const ASR_MODELS = [
+    'openai/whisper-large-v3',
+    'openai/whisper-medium',
+    'distil-whisper/distil-large-v3',
+  ];
+
+  const tokens = [
+    { key: process.env.HF_TOKEN_PRIMARY, label: 'PRIMARY' },
+    { key: process.env.HF_TOKEN_SECONDARY, label: 'SECONDARY' },
+  ].filter((t): t is { key: string; label: string } => Boolean(t.key));
+
+  if (tokens.length === 0) {
+    throw new Error('[HuggingFace Audio] Tidak ada HF_TOKEN yang dikonfigurasi.');
+  }
+
+  let lastError: Error | null = null;
+
+  for (const model of ASR_MODELS) {
+    for (const { key: token, label: tokenLabel } of tokens) {
+      try {
+        console.log(`[HuggingFace Audio] Mencoba model "${model}" dengan token ${tokenLabel}...`);
+
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 25000);
+
+        let response: Response;
+        try {
+          response = await fetch(`${HF_ASR_BASE}/${model}`, {
+            method: 'POST',
+            headers: {
+              Authorization: `Bearer ${token}`,
+              'Content-Type': mimeType,
+            },
+            body: audioBuffer.buffer.slice(
+              audioBuffer.byteOffset,
+              audioBuffer.byteOffset + audioBuffer.byteLength
+            ) as ArrayBuffer,
+            signal: controller.signal,
+          });
+        } finally {
+          clearTimeout(timeoutId);
+        }
+
+        if (response.status === 503) {
+          console.warn(`[HuggingFace Audio] Model "${model}" sedang loading (503). Coba berikutnya...`);
+          lastError = new Error(`Model ${model} loading.`);
+          break;
+        }
+
+        if (response.status === 429) {
+          console.warn(`[HuggingFace Audio] Token ${tokenLabel} rate limit. Coba token berikutnya...`);
+          lastError = new Error(`Token ${tokenLabel} rate limited.`);
+          continue;
+        }
+
+        if (!response.ok) {
+          const errText = await response.text();
+          throw new Error(`HF Audio HTTP ${response.status}: ${errText.slice(0, 200)}`);
+        }
+
+        const result = await response.json();
+        const transcription: string =
+          result?.text ||
+          result?.generated_text ||
+          (Array.isArray(result) ? result[0]?.text : null) ||
+          '';
+
+        if (!transcription.trim()) {
+          throw new Error('Transkripsi kosong dari model ' + model);
+        }
+
+        console.log(`[HuggingFace Audio] ✅ Berhasil via "${model}" (${tokenLabel}): "${transcription.slice(0, 80)}..."`);
+        return transcription.trim();
+
+      } catch (err: any) {
+        lastError = err;
+        const isTimeout = err.name === 'AbortError';
+        console.warn(
+          `[HuggingFace Audio] ${isTimeout ? 'Timeout' : 'Error'} pada "${model}" token ${tokenLabel}:`,
+          err.message
+        );
+        if (isTimeout) break;
+      }
+    }
+  }
+
+  throw lastError ?? new Error('[HuggingFace Audio] Semua model ASR gagal.');
+}
