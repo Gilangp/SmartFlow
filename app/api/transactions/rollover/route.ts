@@ -23,7 +23,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { performanceId, action, targetPocketType } = body;
+    const { performanceId, action, targetPocketType, targetPocketId } = body;
 
     if (!performanceId || !action) {
       return NextResponse.json(
@@ -69,8 +69,8 @@ export async function POST(request: NextRequest) {
     }
 
     if (action === 'TRANSFER') {
-      if (!targetPocketType) {
-        return NextResponse.json({ success: false, message: 'Target pocket type required for transfer' }, { status: 400 });
+      if (!targetPocketType && !targetPocketId) {
+        return NextResponse.json({ success: false, message: 'Target pocket required for transfer' }, { status: 400 });
       }
 
       const allPockets = await prisma.pocket.findMany({
@@ -78,10 +78,16 @@ export async function POST(request: NextRequest) {
       });
 
       const mainPocket = allPockets.find((p) => p.type === 'MAIN');
-      const targetPocket = allPockets.find((p) => p.type === targetPocketType);
+      const targetPocket = targetPocketId
+        ? allPockets.find((p) => p.id === targetPocketId)
+        : allPockets.find((p) => p.type === targetPocketType);
 
       if (!mainPocket || !targetPocket) {
         return NextResponse.json({ success: false, message: 'Pockets not found' }, { status: 404 });
+      }
+
+      if (targetPocket.id === mainPocket.id) {
+        return NextResponse.json({ success: false, message: 'Cannot transfer rollover to main pocket' }, { status: 400 });
       }
 
       await prisma.$transaction([

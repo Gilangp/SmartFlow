@@ -1,20 +1,53 @@
 'use client';
 
-import { useState } from 'react';
-import { PiggyBank, Target, RefreshCw, PartyPopper, ChevronRight } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { PiggyBank, Target, RefreshCw, PartyPopper, ChevronRight, ShieldAlert, Coins, Wallet } from 'lucide-react';
+
+interface PocketSummary {
+  id: string;
+  name: string;
+  type: string;
+  balance: number;
+  targetAmount?: number;
+}
 
 interface RolloverModalProps {
   performanceId: string;
   surplus: number;
+  pockets?: PocketSummary[];
   onClose: () => void;
   onSuccess: () => void;
 }
 
-export default function RolloverModal({ performanceId, surplus, onClose, onSuccess }: RolloverModalProps) {
+export default function RolloverModal({ performanceId, surplus, pockets, onClose, onSuccess }: RolloverModalProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
+  const [availablePockets, setAvailablePockets] = useState<PocketSummary[]>(pockets || []);
 
-  const handleAction = async (action: 'TRANSFER' | 'CARRY_OVER', targetPocketType?: 'SAVINGS' | 'WISHLIST') => {
+  useEffect(() => {
+    if (pockets && pockets.length > 0) {
+      setAvailablePockets(pockets);
+    } else {
+      const fetchPockets = async () => {
+        const token = localStorage.getItem('sf-token');
+        if (!token) return;
+        try {
+          const res = await fetch('/api/pockets', {
+            headers: { Authorization: `Bearer ${token}` }
+          });
+          const data = await res.json();
+          if (data.success) {
+            setAvailablePockets(data.data);
+          }
+        } catch {
+          // Silent fail
+        }
+      };
+      fetchPockets();
+    }
+  }, [pockets]);
+
+  const handleAction = async (action: 'TRANSFER' | 'CARRY_OVER', targetPocket?: PocketSummary) => {
     setIsSubmitting(true);
     setError('');
     const token = localStorage.getItem('sf-token');
@@ -23,7 +56,12 @@ export default function RolloverModal({ performanceId, surplus, onClose, onSucce
       const res = await fetch('/api/transactions/rollover', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ performanceId, action, targetPocketType }),
+        body: JSON.stringify({ 
+          performanceId, 
+          action, 
+          targetPocketType: targetPocket?.type,
+          targetPocketId: targetPocket?.id,
+        }),
       });
       const data = await res.json();
       if (data.success) {
@@ -40,6 +78,51 @@ export default function RolloverModal({ performanceId, surplus, onClose, onSucce
 
   const formatCurrency = (amount: number) => {
     return `Rp ${amount.toLocaleString('id-ID')}`;
+  };
+
+  const getPocketStyle = (pocket: PocketSummary) => {
+    if (pocket.type === 'SAVINGS') {
+      return {
+        icon: PiggyBank,
+        iconBg: 'bg-emerald-100 dark:bg-emerald-800 text-emerald-600 dark:text-emerald-400',
+        borderBg: 'border-emerald-100 dark:border-emerald-900 bg-emerald-50 dark:bg-emerald-500/5 hover:bg-emerald-100 dark:hover:bg-emerald-500/10',
+        titleColor: 'text-emerald-900 dark:text-emerald-100',
+        descColor: 'text-emerald-600 dark:text-emerald-400',
+        chevronColor: 'text-emerald-500',
+        desc: 'Pindahkan ke Tabungan Aset',
+      };
+    }
+    if (pocket.type === 'WISHLIST') {
+      return {
+        icon: Target,
+        iconBg: 'bg-indigo-100 dark:bg-indigo-800 text-indigo-600 dark:text-indigo-400',
+        borderBg: 'border-indigo-100 dark:border-indigo-900 bg-indigo-50 dark:bg-indigo-500/5 hover:bg-indigo-100 dark:hover:bg-indigo-500/10',
+        titleColor: 'text-indigo-900 dark:text-indigo-100',
+        descColor: 'text-indigo-600 dark:text-indigo-400',
+        chevronColor: 'text-indigo-500',
+        desc: pocket.targetAmount ? `Target impian (Rp ${pocket.targetAmount.toLocaleString('id-ID')})` : 'Pindahkan ke target impian',
+      };
+    }
+    if (pocket.type === 'EMERGENCY') {
+      return {
+        icon: ShieldAlert,
+        iconBg: 'bg-rose-100 dark:bg-rose-800 text-rose-600 dark:text-rose-400',
+        borderBg: 'border-rose-100 dark:border-rose-900 bg-rose-50 dark:bg-rose-500/5 hover:bg-rose-100 dark:hover:bg-rose-500/10',
+        titleColor: 'text-rose-900 dark:text-rose-100',
+        descColor: 'text-rose-600 dark:text-rose-400',
+        chevronColor: 'text-rose-500',
+        desc: pocket.targetAmount ? `Dana Darurat (Target: Rp ${pocket.targetAmount.toLocaleString('id-ID')})` : 'Pindahkan ke Dana Darurat',
+      };
+    }
+    return {
+      icon: Coins,
+      iconBg: 'bg-purple-100 dark:bg-purple-800 text-purple-600 dark:text-purple-400',
+      borderBg: 'border-purple-100 dark:border-purple-900 bg-purple-50 dark:bg-purple-500/5 hover:bg-purple-100 dark:hover:bg-purple-500/10',
+      titleColor: 'text-purple-900 dark:text-purple-100',
+      descColor: 'text-purple-600 dark:text-purple-400',
+      chevronColor: 'text-purple-500',
+      desc: pocket.targetAmount ? `Target: Rp ${pocket.targetAmount.toLocaleString('id-ID')}` : `Pindahkan ke kantong ${pocket.name}`,
+    };
   };
 
   return (
@@ -71,40 +154,32 @@ export default function RolloverModal({ performanceId, surplus, onClose, onSucce
             Mau diapakan sisa uang ini?
           </p>
 
-          <div className="space-y-3">
-            <button
-              onClick={() => handleAction('TRANSFER', 'SAVINGS')}
-              disabled={isSubmitting}
-              className="w-full flex items-center justify-between p-4 rounded-xl border-2 border-emerald-100 dark:border-emerald-900 bg-emerald-50 dark:bg-emerald-500/5 hover:bg-emerald-100 dark:hover:bg-emerald-500/10 transition-colors disabled:opacity-50"
-            >
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-emerald-100 dark:bg-emerald-800 flex items-center justify-center">
-                  <PiggyBank className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
-                </div>
-                <div className="text-left">
-                  <p className="font-semibold text-emerald-900 dark:text-emerald-100">Tabung (Savings)</p>
-                  <p className="text-xs text-emerald-600 dark:text-emerald-400">Pindahkan ke Tabungan Aset</p>
-                </div>
-              </div>
-              <ChevronRight className="w-4 h-4 text-emerald-500" />
-            </button>
-
-            <button
-              onClick={() => handleAction('TRANSFER', 'WISHLIST')}
-              disabled={isSubmitting}
-              className="w-full flex items-center justify-between p-4 rounded-xl border-2 border-indigo-100 dark:border-indigo-900 bg-indigo-50 dark:bg-indigo-500/5 hover:bg-indigo-100 dark:hover:bg-indigo-500/10 transition-colors disabled:opacity-50"
-            >
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-indigo-100 dark:bg-indigo-800 flex items-center justify-center">
-                  <Target className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
-                </div>
-                <div className="text-left">
-                  <p className="font-semibold text-indigo-900 dark:text-indigo-100">Wishlist</p>
-                  <p className="text-xs text-indigo-600 dark:text-indigo-400">Pindahkan ke target impian</p>
-                </div>
-              </div>
-              <ChevronRight className="w-4 h-4 text-indigo-500" />
-            </button>
+          <div className="space-y-3 max-h-64 overflow-y-auto pr-1">
+            {availablePockets
+              .filter((p) => p.type !== 'MAIN')
+              .map((pocket) => {
+                const style = getPocketStyle(pocket);
+                const IconComponent = style.icon;
+                return (
+                  <button
+                    key={pocket.id}
+                    onClick={() => handleAction('TRANSFER', pocket)}
+                    disabled={isSubmitting}
+                    className={`w-full flex items-center justify-between p-4 rounded-xl border-2 transition-colors disabled:opacity-50 ${style.borderBg}`}
+                  >
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 ${style.iconBg}`}>
+                        <IconComponent className="w-5 h-5" />
+                      </div>
+                      <div className="text-left min-w-0 truncate">
+                        <p className={`font-semibold truncate ${style.titleColor}`}>{pocket.name}</p>
+                        <p className={`text-xs truncate ${style.descColor}`}>{style.desc}</p>
+                      </div>
+                    </div>
+                    <ChevronRight className={`w-4 h-4 flex-shrink-0 ml-2 ${style.chevronColor}`} />
+                  </button>
+                );
+              })}
 
             <button
               onClick={() => handleAction('CARRY_OVER')}

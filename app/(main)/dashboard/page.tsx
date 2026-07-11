@@ -586,6 +586,7 @@ export default function DashboardPage() {
         <RolloverModal
           performanceId={rolloverData.id}
           surplus={rolloverData.surplus}
+          pockets={dailyMetrics.pocketSummary}
           onClose={() => setShowRolloverModal(false)}
           onSuccess={() => {
             setShowRolloverModal(false);
