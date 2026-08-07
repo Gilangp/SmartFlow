@@ -50,7 +50,8 @@ export async function POST(request: NextRequest) {
     }
 
     const orderId = `sf-prem-${decoded.userId.slice(-6)}-${Date.now()}`;
-    const amount = 49000;
+    const amount = 29000;
+
 
     // ── 4. CALL MIDTRANS SNAP API ──────────────────────────────────────────
     const serverKey = process.env.MIDTRANS_SERVER_KEY || '';
@@ -60,10 +61,30 @@ export async function POST(request: NextRequest) {
       : 'https://app.sandbox.midtrans.com/snap/v1/transactions';
 
     if (!serverKey || serverKey.includes('YOUR_SANDBOX_SERVER_KEY')) {
+      console.warn('[MIDTRANS CHECKOUT] Midtrans Server Key belum diisi key asli. Menggunakan mode simulasi dev sandbox...');
+      const mockToken = `mock-snap-token-${Date.now()}`;
+      await prisma.payment.create({
+        data: {
+          subscriptionId: subscription.id,
+          orderId,
+          amount,
+          status: 'PENDING',
+          paymentUrl: '#',
+          snapToken: mockToken,
+        },
+      });
       return NextResponse.json({
-        success: false,
-        message: 'Kunci server Midtrans belum dikonfigurasi. Hubungi Admin.',
-      }, { status: 500 });
+        success: true,
+        data: {
+          orderId,
+          snapToken: mockToken,
+          redirectUrl: '#',
+          clientKey: 'SB-Mid-client-mock',
+          isProduction: false,
+          isMock: true,
+          message: 'Mode pengujian dev (Masukkan MIDTRANS_SERVER_KEY asli di .env untuk Sandbox Midtrans sungguhan).',
+        },
+      });
     }
 
     const authHeader = Buffer.from(`${serverKey}:`).toString('base64');

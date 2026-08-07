@@ -116,7 +116,7 @@ export default function DashboardPage() {
           element: '#tour-pockets',
           popover: {
             title: 'Sistem Kantong Cerdas',
-            description: 'Keuangan kamu dibagi ke dalam kantong-kantong cerdas (secara default: Dompet Utama dan Tabungan, serta bebas kamu tambah sendiri seperti Dana Darurat atau Wishlist). Ini membantu alokasi keuangan yang lebih disiplin.',
+            description: 'Keuangan kamu dibagi ke dalam 2 kantong bawaan (Dompet Utama dan Tabungan) serta bebas kamu tambah sendiri dengan kantong kustom sesuai kebutuhanmu.',
             side: 'top' as const,
             align: 'start' as const
           }
@@ -424,7 +424,7 @@ export default function DashboardPage() {
               <div className="grid grid-cols-2 gap-4">
                 {[...dailyMetrics.pocketSummary]
                   .sort((a, b) => {
-                    const order = ['MAIN', 'EMERGENCY', 'SAVINGS', 'WISHLIST', 'CUSTOM'];
+                    const order = ['MAIN', 'SAVINGS', 'EMERGENCY', 'WISHLIST', 'CUSTOM'];
                     return order.indexOf(a.type) - order.indexOf(b.type);
                   })
                   .slice(0, 4)

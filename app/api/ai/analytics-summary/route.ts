@@ -2,8 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { verifyToken, extractTokenFromHeader } from '@/lib/auth';
 import { prisma } from '@/lib/db';
 import { GoogleGenerativeAI } from '@google/generative-ai';
-import { callHuggingFace, extractJsonFromHfOutput } from '@/lib/huggingface';
+import { routeAICall, extractJsonFromOutput } from '@/lib/ai/router';
 import { startOfMonth, subMonths, endOfMonth } from 'date-fns';
+
 
 export const dynamic = 'force-dynamic';
 
@@ -318,37 +319,41 @@ OUTPUT:`;
       [rp(totalWealth), `${user.pockets.length}`, ...user.pockets.map(p => `${Math.round((Number(p.balance) / (totalWealth || 1)) * 100)}%`), ...user.pockets.map(p => `${p.allocation}%`)].filter(Boolean) as string[]
     ];
 
-    // 1. Gemini
+    // 1. DEEPSEEK-V4-FLASH VIA AI GATEWAY (UTAMA)
+    try {
+      const aiRes = await routeAICall(
+        [{ role: 'user', content: prompt }],
+        { modelType: 'TEXT', temperature: 0.4 }
+      );
+      if (aiRes.success && aiRes.content) {
+        const parsed = extractJsonFromOutput(aiRes.content);
+        if (Array.isArray(parsed) && isValidAiReport(parsed, pointKeyNumbers)) {
+          console.log(`[ANALYTICS-AI] ✅ Berhasil via ${aiRes.modelUsed} (${aiRes.tokenUsed}).`);
+          return NextResponse.json({ success: true, data: { summary: parsed.slice(0, 4), source: aiRes.modelUsed } });
+        }
+      }
+      console.warn('[ANALYTICS-AI] AI Gateway output tidak valid atau halusinasi angka.');
+    } catch (err: any) {
+      console.warn('[ANALYTICS-AI] AI Gateway gagal, beralih ke Gemini...', err.message);
+    }
+
+    // 2. Gemini 2.0 Flash (Fallback)
     try {
       const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
       const result = await model.generateContent({
         contents: [{ role: 'user', parts: [{ text: prompt }] }],
-        generationConfig: { temperature: 0.4 }, // suhu rendah = lebih presisi, kurang hallucination
+        generationConfig: { temperature: 0.4 },
       });
       const rawText = result.response.text();
-      const parsed = extractJsonFromHfOutput(rawText);
+      const parsed = extractJsonFromOutput(rawText);
 
       if (Array.isArray(parsed) && isValidAiReport(parsed, pointKeyNumbers)) {
         console.log('[ANALYTICS-AI] ✅ Berhasil via Gemini 2.0 Flash.');
         return NextResponse.json({ success: true, data: { summary: parsed.slice(0, 4), source: 'GEMINI' } });
       }
-      console.warn('[ANALYTICS-AI] Gemini output tidak valid atau halusinasi angka.');
+      console.warn('[ANALYTICS-AI] Gemini output tidak valid.');
     } catch (err: any) {
-      console.warn('[ANALYTICS-AI] Gemini gagal, coba Hugging Face...', err.message);
-    }
-
-    // 2. Hugging Face
-    try {
-      const hfText = await callHuggingFace(prompt, { maxNewTokens: 600, temperature: 0.4 });
-      const parsed = extractJsonFromHfOutput(hfText);
-
-      if (Array.isArray(parsed) && isValidAiReport(parsed, pointKeyNumbers)) {
-        console.log('[ANALYTICS-AI] ✅ Berhasil via Hugging Face.');
-        return NextResponse.json({ success: true, data: { summary: parsed.slice(0, 4), source: 'HUGGINGFACE' } });
-      }
-      console.warn('[ANALYTICS-AI] Hugging Face output tidak valid atau halusinasi angka.');
-    } catch (err: any) {
-      console.warn('[ANALYTICS-AI] Hugging Face gagal, beralih ke fallback...', err.message);
+      console.warn('[ANALYTICS-AI] Gemini gagal, beralih ke fallback...', err.message);
     }
 
     // 3. Rule-based fallback — 100% akurat, semua angka dari backend

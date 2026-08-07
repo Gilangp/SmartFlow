@@ -5,6 +5,8 @@ import OpenAI from 'openai';
 import { prisma } from '@/lib/db';
 import { getUserSubscription } from '@/lib/subscription';
 import { callHuggingFace, callHuggingFaceVision, extractJsonFromHfOutput } from '@/lib/huggingface';
+import { routeAICall } from '@/lib/ai/router';
+
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY || '' });
@@ -161,47 +163,52 @@ Rules:
 - confidence: HIGH jika teks jelas, MEDIUM jika agak berantakan, LOW jika tidak yakin
       `.trim();
 
-      // ── 5a. GEMINI TEXT ─────────────────────────────────────────────────────
+      // ── 5a. AI GATEWAY (UTAMA) ─────────────────────────────────────────────
       try {
-        console.log('[SCAN] Memproses raw text dengan Gemini 2.0 Flash (Text Mode)...');
-        const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
-        const result = await model.generateContent(textPrompt);
-        const responseText = result.response.text();
-        const cleaned = responseText.replace(/```json/g, '').replace(/```/g, '').trim();
+        console.log('[SCAN] Memproses raw text via AI Gateway...');
+        const aiRes = await routeAICall(
+          [{ role: 'user', content: textPrompt }],
+          { modelType: 'TEXT', temperature: 0.1 }
+        );
 
-        try { parsed = JSON.parse(cleaned); } catch {
-          const match = cleaned.match(/\{[\s\S]*\}/);
-          if (match) parsed = JSON.parse(match[0]);
-        }
-
-        if (parsed?.totalAmount) {
-          console.log('[SCAN] ✅ Parsing berhasil via Gemini Text (Hybrid Mode).');
-        } else {
-          parsed = null;
-          throw new Error('Gemini Text tidak menghasilkan totalAmount yang valid');
-        }
-      } catch (textParseErr: any) {
-        console.warn('[SCAN] Gemini Text gagal:', textParseErr.message);
-      }
-
-      // ── 5b. HUGGING FACE TEXT (jika Gemini Text gagal) ─────────────────────
-      if (!parsed) {
-        try {
-          console.log('[SCAN] Memproses raw text dengan Hugging Face (Text Mode)...');
-          const hfOutput = await callHuggingFace(textPrompt, {
-            maxNewTokens: 400,
-            temperature: 0.1,
-          });
-          parsed = extractJsonFromHfOutput(hfOutput);
+        if (aiRes.success && aiRes.content) {
+          const cleaned = aiRes.content.replace(/```json/g, '').replace(/```/g, '').trim();
+          try { parsed = JSON.parse(cleaned); } catch {
+            const match = cleaned.match(/\{[\s\S]*\}/);
+            if (match) parsed = JSON.parse(match[0]);
+          }
 
           if (parsed?.totalAmount) {
-            console.log('[SCAN] ✅ Parsing berhasil via Hugging Face Text (Hybrid Mode).');
+            console.log(`[SCAN] ✅ Parsing berhasil via ${aiRes.modelUsed} (${aiRes.tokenUsed}).`);
           } else {
             parsed = null;
-            throw new Error('Hugging Face tidak menghasilkan totalAmount yang valid');
+            throw new Error('AI Gateway tidak menghasilkan totalAmount yang valid');
           }
-        } catch (hfErr: any) {
-          console.warn('[SCAN] Hugging Face Text gagal:', hfErr.message);
+        } else {
+          throw new Error(aiRes.error || 'AI Gateway text call failed');
+        }
+      } catch (gatewayTextErr: any) {
+        console.warn('[SCAN] AI Gateway Text gagal, beralih ke Gemini 2.0 Flash...', gatewayTextErr.message);
+
+        // ── 5b. GEMINI TEXT (FALLBACK) ─────────────────────────────────────────
+        try {
+          const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
+          const result = await model.generateContent(textPrompt);
+          const responseText = result.response.text();
+          const cleaned = responseText.replace(/```json/g, '').replace(/```/g, '').trim();
+
+          try { parsed = JSON.parse(cleaned); } catch {
+            const match = cleaned.match(/\{[\s\S]*\}/);
+            if (match) parsed = JSON.parse(match[0]);
+          }
+
+          if (parsed?.totalAmount) {
+            console.log('[SCAN] ✅ Parsing berhasil via Gemini Text (Hybrid Mode).');
+          } else {
+            parsed = null;
+          }
+        } catch (textParseErr: any) {
+          console.warn('[SCAN] Gemini Text gagal:', textParseErr.message);
         }
       }
 

@@ -2,8 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { verifyToken, extractTokenFromHeader } from '@/lib/auth';
 import { prisma } from '@/lib/db';
 import { GoogleGenerativeAI } from '@google/generative-ai';
-import { callHuggingFace } from '@/lib/huggingface';
 import { getDaysLeftInCycle } from '@/lib/financial-calculations';
+import { routeAICall } from '@/lib/ai/router';
+
 
 export const dynamic = 'force-dynamic';
 
@@ -341,12 +342,30 @@ export async function GET(request: NextRequest) {
 
     // ── AI CALL — BERTINGKAT ─────────────────────────────────────────────────
 
-    // 1. GEMINI 2.0 FLASH (UTAMA)
+    // 1. DEEPSEEK-V4-FLASH VIA AI GATEWAY (UTAMA)
+    try {
+      const aiRes = await routeAICall(
+        [{ role: 'user', content: prompt }],
+        { modelType: 'TEXT', temperature: 0.5 }
+      );
+      if (aiRes.success && aiRes.content) {
+        let text = aiRes.content.trim().replace(/^["'`]|["'`]$/g, '');
+        if (isValidRoast(text)) {
+          console.log(`[ROAST] ✅ Berhasil via ${aiRes.modelUsed} (${aiRes.tokenUsed}).`);
+          return NextResponse.json({ success: true, data: { message: text } });
+        }
+      }
+      throw new Error('AI Gateway output failed quality validation');
+    } catch (gatewayErr: any) {
+      console.warn('[ROAST] AI Gateway gagal atau tidak valid, beralih ke Gemini 2.0 Flash...', gatewayErr.message);
+    }
+
+    // 2. GEMINI 2.0 FLASH (FALLBACK)
     try {
       const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
       const result = await model.generateContent({
         contents: [{ role: 'user', parts: [{ text: prompt }] }],
-        generationConfig: { temperature: 0.5 }, // Suhu 0.5 untuk konsistensi bahasa & meminimalkan halusinasi
+        generationConfig: { temperature: 0.5 },
       });
       const response = await result.response;
       let text = response.text().trim().replace(/^["'`]|["'`]$/g, '');
@@ -357,20 +376,7 @@ export async function GET(request: NextRequest) {
       }
       throw new Error('Gemini output failed quality validation');
     } catch (geminiError: any) {
-      console.warn('[ROAST] Gemini gagal atau tidak valid, beralih ke Hugging Face...', geminiError.message);
-    }
-
-    // 2. HUGGING FACE (FALLBACK)
-    try {
-      const hfText = await callHuggingFace(prompt, { maxNewTokens: 200, temperature: 0.5 });
-      const cleaned = hfText.replace(/^["'`]|["'`]$/g, '').trim();
-      if (isValidRoast(cleaned)) {
-        console.log('[ROAST] ✅ Berhasil via Hugging Face.');
-        return NextResponse.json({ success: true, data: { message: cleaned } });
-      }
-      throw new Error('Hugging Face output failed quality validation');
-    } catch (hfError: any) {
-      console.warn('[ROAST] Hugging Face gagal atau tidak valid, beralih ke static fallback...', hfError.message);
+      console.warn('[ROAST] Gemini gagal atau tidak valid, beralih ke static fallback...', geminiError.message);
     }
 
     // 3. STATIC FALLBACK (SAFETY NET - PERSONALIZED)

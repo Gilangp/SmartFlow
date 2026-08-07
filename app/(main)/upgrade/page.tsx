@@ -168,7 +168,7 @@ export default function UpgradePage() {
       id: 'PREMIUM',
       name: 'Premium',
       icon: <Crown className="w-5 h-5" />,
-      price: 'Rp 49.000',
+      price: 'Rp 29.000',
       period: 'bulan',
       color: 'indigo',
       description: 'Untuk profesional muda tanpa batas',

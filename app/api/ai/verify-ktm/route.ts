@@ -3,6 +3,8 @@ import { GoogleGenerativeAI } from '@google/generative-ai';
 import OpenAI from 'openai';
 import { generateKtmToken } from '@/lib/auth';
 import { callHuggingFace, extractJsonFromHfOutput } from '@/lib/huggingface';
+import { routeAICall } from '@/lib/ai/router';
+
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY || '' });
@@ -109,54 +111,59 @@ Kembalikan HANYA JSON tanpa teks lain:
 { "valid": true, "name": "Nama Lengkap Mahasiswa", "nim": "NIM-nya", "university": "Nama Kampus Lengkap" }
       `.trim();
 
-      // ── 2a. GEMINI TEXT ────────────────────────────────────────────────────
+      // ── 2a. AI GATEWAY (UTAMA) ─────────────────────────────────────────────
       try {
-        console.log('[KTM] Memproses raw text dengan Gemini 2.0 Flash (Text Mode)...');
-        const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
-        const result = await model.generateContent(textPrompt);
-        const responseText = result.response.text();
-        const cleaned = responseText.replace(/```json/g, '').replace(/```/g, '').trim();
-        let parsed: any = null;
+        console.log('[KTM] Memproses raw text via AI Gateway...');
+        const aiRes = await routeAICall(
+          [{ role: 'user', content: textPrompt }],
+          { modelType: 'TEXT', temperature: 0.1 }
+        );
 
-        try { parsed = JSON.parse(cleaned); } catch {
-          const match = cleaned.match(/\{[\s\S]*\}/);
-          if (match) parsed = JSON.parse(match[0]);
-        }
-
-        if (parsed?.valid && parsed?.nim && parsed?.name && parsed?.university) {
-          extractedName = parsed.name;
-          extractedNim = parsed.nim;
-          extractedUniv = parsed.university;
-          isOcrSuccessful = true;
-          console.log('[KTM] ✅ Berhasil via Gemini Text Mode.');
-        } else {
-          throw new Error('Gemini Text tidak menghasilkan data KTM yang valid');
-        }
-      } catch (geminiTextErr: any) {
-        console.warn('[KTM] Gemini Text Mode gagal:', geminiTextErr.message);
-      }
-
-      // ── 2b. HUGGING FACE TEXT (jika Gemini Text gagal) ─────────────────────
-      if (!isOcrSuccessful) {
-        try {
-          console.log('[KTM] Memproses raw text dengan Hugging Face (Text Mode)...');
-          const hfOutput = await callHuggingFace(textPrompt, {
-            maxNewTokens: 200,
-            temperature: 0.1,
-          });
-          const parsed = extractJsonFromHfOutput(hfOutput);
+        if (aiRes.success && aiRes.content) {
+          const cleaned = aiRes.content.replace(/```json/g, '').replace(/```/g, '').trim();
+          let parsed: any = null;
+          try { parsed = JSON.parse(cleaned); } catch {
+            const match = cleaned.match(/\{[\s\S]*\}/);
+            if (match) parsed = JSON.parse(match[0]);
+          }
 
           if (parsed?.valid && parsed?.nim && parsed?.name && parsed?.university) {
-            extractedName = parsed.name as string;
-            extractedNim = parsed.nim as string;
-            extractedUniv = parsed.university as string;
+            extractedName = parsed.name;
+            extractedNim = parsed.nim;
+            extractedUniv = parsed.university;
             isOcrSuccessful = true;
-            console.log('[KTM] ✅ Berhasil via Hugging Face Text Mode.');
+            console.log(`[KTM] ✅ Berhasil via ${aiRes.modelUsed} (${aiRes.tokenUsed}).`);
           } else {
-            throw new Error('Hugging Face tidak menghasilkan data KTM yang valid');
+            throw new Error('AI Gateway tidak menghasilkan data KTM yang valid');
           }
-        } catch (hfErr: any) {
-          console.warn('[KTM] Hugging Face Text Mode gagal:', hfErr.message);
+        } else {
+          throw new Error(aiRes.error || 'AI Gateway text call failed');
+        }
+      } catch (gatewayTextErr: any) {
+        console.warn('[KTM] AI Gateway Text Mode gagal, beralih ke Gemini 2.0 Flash...', gatewayTextErr.message);
+
+        // ── 2b. GEMINI TEXT (FALLBACK) ─────────────────────────────────────────
+        try {
+          const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
+          const result = await model.generateContent(textPrompt);
+          const responseText = result.response.text();
+          const cleaned = responseText.replace(/```json/g, '').replace(/```/g, '').trim();
+          let parsed: any = null;
+
+          try { parsed = JSON.parse(cleaned); } catch {
+            const match = cleaned.match(/\{[\s\S]*\}/);
+            if (match) parsed = JSON.parse(match[0]);
+          }
+
+          if (parsed?.valid && parsed?.nim && parsed?.name && parsed?.university) {
+            extractedName = parsed.name;
+            extractedNim = parsed.nim;
+            extractedUniv = parsed.university;
+            isOcrSuccessful = true;
+            console.log('[KTM] ✅ Berhasil via Gemini Text Mode.');
+          }
+        } catch (geminiTextErr: any) {
+          console.warn('[KTM] Gemini Text Mode gagal:', geminiTextErr.message);
         }
       }
 

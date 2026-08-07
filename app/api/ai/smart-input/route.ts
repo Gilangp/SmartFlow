@@ -4,6 +4,8 @@ import { GoogleGenerativeAI } from '@google/generative-ai';
 import OpenAI from 'openai';
 import { prisma } from '@/lib/db';
 import { callHuggingFace } from '@/lib/huggingface';
+import { routeAICall } from '@/lib/ai/router';
+
 
 const genAI = new GoogleGenerativeAI(
   process.env.GEMINI_API_KEY || process.env.GOOGLE_AI_API_KEY || ''
@@ -173,27 +175,32 @@ Input:
 
     let rawText = '';
 
-    // ── 1. GEMINI 2.0 FLASH (UTAMA) ──────────────────────────────────────────
+    // ── 1. DEEPSEEK-V4-FLASH VIA AI GATEWAY (UTAMA) ──────────────────────────
     try {
-      const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
-      const result = await model.generateContent(prompt);
-      const response = await result.response;
-      rawText = response.text();
-      console.log('[SMART INPUT] ✅ Berhasil via Gemini 2.0 Flash.');
-    } catch (geminiError: any) {
-      console.warn('[SMART INPUT] Gemini gagal, beralih ke Hugging Face...', geminiError.message);
+      const aiRes = await routeAICall(
+        [{ role: 'user', content: prompt }],
+        { modelType: 'TEXT', temperature: 0.1 }
+      );
+      if (aiRes.success && aiRes.content) {
+        rawText = aiRes.content;
+        console.log(`[SMART INPUT] ✅ Berhasil via ${aiRes.modelUsed} (${aiRes.tokenUsed}).`);
+      } else {
+        throw new Error(aiRes.error || 'AI Gateway returned empty response');
+      }
+    } catch (gatewayErr: any) {
+      console.warn('[SMART INPUT] AI Gateway gagal, beralih ke Gemini 2.0 Flash...', gatewayErr.message);
 
-      // ── 2. HUGGING FACE (FALLBACK GRATIS) ──────────────────────────────────
+      // ── 2. GEMINI 2.0 FLASH (FALLBACK) ──────────────────────────────────────
       try {
-        rawText = await callHuggingFace(prompt, {
-          maxNewTokens: 256,
-          temperature: 0.1, // Suhu rendah untuk JSON yang konsisten
-        });
-        console.log('[SMART INPUT] ✅ Berhasil via Hugging Face.');
-      } catch (hfError: any) {
-        console.warn('[SMART INPUT] Hugging Face gagal, beralih ke OpenAI...', hfError.message);
+        const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
+        const result = await model.generateContent(prompt);
+        const response = await result.response;
+        rawText = response.text();
+        console.log('[SMART INPUT] ✅ Berhasil via Gemini 2.0 Flash.');
+      } catch (geminiError: any) {
+        console.warn('[SMART INPUT] Gemini gagal, beralih ke OpenAI...', geminiError.message);
 
-        // ── 3. OPENAI GPT-4O-MINI (FALLBACK BERBAYAR) ──────────────────────
+        // ── 3. OPENAI GPT-4O-MINI (FALLBACK BERBAYAR) ─────────────────────────
         try {
           const openaiResponse = await openai.chat.completions.create({
             model: 'gpt-4o-mini',
@@ -203,7 +210,7 @@ Input:
           console.log('[SMART INPUT] ✅ Berhasil via OpenAI gpt-4o-mini.');
         } catch (openaiError: any) {
           console.warn('[SMART INPUT] OpenAI juga gagal. Menggunakan regex fallback.', openaiError.message);
-          // ── 4. REGEX LOKAL (SAFETY NET) ──────────────────────────────────
+          // ── 4. REGEX LOKAL (SAFETY NET) ────────────────────────────────────
           const fallback = fallbackParser(text);
           return NextResponse.json({
             success: true,

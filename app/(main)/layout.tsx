@@ -1,4 +1,5 @@
 import Navigation from '@/components/Navigation';
+import AiChatModal from '@/components/AiChatModal';
 
 export default function MainLayout({
   children,
@@ -16,6 +17,10 @@ export default function MainLayout({
           {children}
         </div>
       </div>
+
+      {/* Global Finto AI Floating Assistant */}
+      <AiChatModal />
     </div>
   );
 }
+
