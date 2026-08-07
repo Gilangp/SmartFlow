@@ -12,76 +12,7 @@ const genAI = new GoogleGenerativeAI(
   process.env.GEMINI_API_KEY || process.env.GOOGLE_AI_API_KEY || ''
 );
 
-// ─── PROMPT BUILDER ───────────────────────────────────────────────────────────
-function buildRoastPrompt({
-  userName,
-  balance,
-  totalWealth,
-  dailyAllowance,
-  avgDailySpend7Days,
-  wantRatio,
-  topWantCategories,
-  spendingAlert,
-  expenses,
-  tone,
-  todayDateStr,
-}: {
-  userName: string;
-  balance: number;
-  totalWealth: number;
-  dailyAllowance: number;
-  avgDailySpend7Days: number;
-  wantRatio: number;
-  topWantCategories: string[];
-  spendingAlert?: string;
-  expenses: string[];
-  tone: string;
-  todayDateStr: string;
-}) {
-  return `
-[ROLE]
-Finto Financial Roaster, seorang sahabat dekat pengguna yang jujur, blak-blakan, dan paham kebiasaan keuangan anak muda/mahasiswa.
-
-[OBJECTIVE]
-Memberikan evaluasi dan sindiran (*roasting*) yang spesifik, tajam, dan konstruktif dalam 3 kalimat singkat.
-
-[CONTEXT]
-- Hari ini: ${todayDateStr} (WIB).
-- Pengguna: ${userName}
-- Saldo Dompet Utama: Rp ${balance.toLocaleString('id-ID')}
-- Total Kekayaan: Rp ${totalWealth.toLocaleString('id-ID')}
-- Jatah Harian Ideal: Rp ${Math.round(dailyAllowance).toLocaleString('id-ID')}/hari
-- Rata-rata Belanja Harian (7d): Rp ${Math.round(avgDailySpend7Days).toLocaleString('id-ID')}/hari
-- Komposisi Belanja (30d): ${wantRatio}% Keinginan
-- Kategori Boros Teratas: ${topWantCategories.length > 0 ? topWantCategories.join(', ') : 'Tidak ada'}
-${spendingAlert ? `- ALERT SISTEM: ${spendingAlert}` : ''}
-
-[INSTRUCTIONS]
-1. Buat 3 kalimat roasting dengan alur: Pujian ironis -> Data kontras -> Perintah/Ajakan bertindak.
-2. Kalimat kedua HARUS membandingkan data kontras (misal: rata-rata belanja vs jatah ideal).
-3. Jika ada, sebutkan 1-2 transaksi terbesar dari [INPUT] sebagai penyebab kebocoran.
-4. Gaya bahasa: Gen-Z (lu, gak, sih, boncos, jebol).
-5. Nada bicara: ${tone}.
-
-[INPUT]
-Daftar transaksi terakhir pengguna (untuk mencari penyebab kebocoran):
-${expenses.slice(-15).join('\n')}
-
-[TASK]
-Buat respons roasting 3 kalimat yang tajam, akurat, dan logis.
-
-[OUTPUT FORMAT]
-String teks polos (plain text), terdiri dari 3 kalimat pendek yang dipisahkan oleh baris baru.
-
-[CONSTRAINTS]
-- DILARANG pakai emoji atau karakter non-latin.
-- WAJIB format nominal dengan pemisah ribuan titik (contoh: Rp 50.000).
-
-[VALIDATION RULES]
-- Output harus terdiri dari 3 kalimat yang jelas.
-- Setiap kalimat harus singkat dan padat.
-`.trim();
-}
+import { buildRoastPrompt } from '@/lib/ai/prompts';
 
 // ─── VALIDATION & STATIC FALLBACK ─────────────────────────────────────────────
 function isValidRoast(text: string): boolean {
