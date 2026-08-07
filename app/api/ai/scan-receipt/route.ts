@@ -6,6 +6,7 @@ import { prisma } from '@/lib/db';
 import { getUserSubscription } from '@/lib/subscription';
 import { callHuggingFace, callHuggingFaceVision, extractJsonFromHfOutput } from '@/lib/huggingface';
 import { routeAICall } from '@/lib/ai/router';
+import { buildScanReceiptPrompt } from '@/lib/ai/prompts';
 
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
@@ -134,34 +135,10 @@ export async function POST(request: NextRequest) {
     // Urutan: Gemini Text → Hugging Face Text → OpenAI Text
     // Hemat: kirim teks biasa, bukan gambar
     if (!parsed && rawOcrSuccess && rawText) {
-      const textPrompt = `
-Kamu adalah parser struk/kwitansi Indonesia yang sangat akurat.
-Analisis teks hasil OCR di bawah ini dan ekstrak informasi transaksi ke dalam format JSON.
-
-Teks hasil OCR:
-"""
-${rawText}
-"""
-
-Kembalikan HANYA JSON tanpa teks lain, dalam format berikut:
-{
-  "merchant": "Nama toko/restoran/merchant (paling relevan)",
-  "totalAmount": 0,
-  "date": "YYYY-MM-DD atau null jika tidak ada",
-  "items": [
-    { "name": "nama item/barang", "price": 0, "qty": 1 }
-  ],
-  "category": "pilih SATU dari daftar berikut (TULIS NAMANYA SAJA tanpa kurung NEED/WANT): [${categoryNamesList}]",
-  "confidence": "HIGH/MEDIUM/LOW"
-}
-
-Rules:
-- totalAmount adalah total akhir yang dibayar (integer, tanpa titik/koma)
-- Jika ada tulisan TOTAL, GRAND TOTAL, JUMLAH, gunakan nilai tersebut
-- Semua harga dalam Rupiah (integer)
-- PENTING UNTUK KATEGORI: Perhatikan tipe (NEED vs WANT) pada daftar kategori di atas. Jangan masukkan belanja konsumtif/lifestyle/jajan (kopi kafe, boba, game, belanja online, nongkrong) ke kategori NEED! Belanja konsumtif HARUS masuk ke kategori bertipe WANT. Sebaliknya, pengeluaran wajib/pokok (makan utama sehari-hari, transportasi/bensin, tagihan, listrik, kesehatan/obat, pendidikan) masukkan ke kategori bertipe NEED.
-- confidence: HIGH jika teks jelas, MEDIUM jika agak berantakan, LOW jika tidak yakin
-      `.trim();
+      const textPrompt = buildScanReceiptPrompt({
+        categoryNamesList,
+        rawText,
+      });
 
       // ── 5a. AI GATEWAY (UTAMA) ─────────────────────────────────────────────
       try {
@@ -241,28 +218,47 @@ Rules:
       console.log('[SCAN] Tidak ada raw text dari OCR. Menggunakan Vision fallback...');
 
       const visionPrompt = `
-Kamu adalah OCR cerdas untuk struk/kwitansi Indonesia.
-Ekstrak informasi dari gambar struk/kwitansi ini dan kembalikan dalam format JSON PERSIS seperti di bawah ini.
-Jangan tambahkan teks lain, hanya JSON.
+[ROLE]
+Receipt Data Extraction Specialist for Finto.
 
+[OBJECTIVE]
+Mengekstrak data transaksi terstruktur (JSON) dari gambar struk belanja Indonesia.
+
+[CONTEXT]
+Daftar Kategori User yang Tersedia untuk dipilih: [${categoryNamesList}]
+
+[INSTRUCTIONS]
+1. Baca gambar struk/kwitansi.
+2. Identifikasi nama merchant, total bayar akhir (setelah diskon/pajak), tanggal (YYYY-MM-DD), daftar item belanjaan.
+3. Pilih kategori paling relevan dari daftar di CONTEXT. Prioritaskan kategori NEED untuk belanja pokok dan WANT untuk lifestyle/jajan.
+4. Tentukan level confidence: HIGH (struk jelas), MEDIUM (agak buram), LOW (tidak yakin/buram).
+
+[INPUT]
+Gambar struk/kwitansi belanja.
+
+[TASK]
+Lakukan ekstraksi data dari gambar struk di atas.
+
+[OUTPUT FORMAT]
+Kembalikan HANYA JSON valid tanpa teks lain:
 {
-  "merchant": "nama toko/restoran/tempat",
+  "merchant": "Nama toko/restoran",
   "totalAmount": 0,
-  "date": "YYYY-MM-DD atau null jika tidak ada",
-  "items": [
-    { "name": "nama item", "price": 0, "qty": 1 }
-  ],
-  "category": "pilih SATU dari daftar berikut (TULIS NAMANYA SAJA tanpa kurung NEED/WANT): [${categoryNamesList}]",
+  "date": "YYYY-MM-DD atau null",
+  "items": [{ "name": "nama item", "price": 0, "qty": 1 }],
+  "category": "Nama Kategori Terpilih",
   "confidence": "HIGH/MEDIUM/LOW"
 }
 
-Rules:
-- totalAmount adalah total akhir yang dibayar (setelah diskon/pajak)
-- Jika ada tulisan TOTAL, GRAND TOTAL, JUMLAH, gunakan nilai itu
-- Semua harga dalam Rupiah (integer, tanpa titik/koma)
-- PENTING UNTUK KATEGORI: Perhatikan tipe (NEED vs WANT) pada daftar kategori di atas. Jangan masukkan belanja konsumtif/lifestyle/jajan (kopi kafe, boba, game, belanja online, nongkrong) ke kategori NEED! Belanja konsumtif HARUS masuk ke kategori bertipe WANT. Sebaliknya, pengeluaran wajib/pokok (makan utama sehari-hari, transportasi/bensin, tagihan, listrik, kesehatan/obat, pendidikan) masukkan ke kategori bertipe NEED.
-- confidence: HIGH jika struk jelas, MEDIUM jika agak buram, LOW jika tidak yakin
-      `.trim();
+[CONSTRAINTS]
+- DILARANG mengarang data yang tidak ada di gambar. Gunakan null jika tidak pasti.
+- DILARANG menyertakan markdown (\`\`\`json) atau teks penjelasan di luar JSON.
+
+[VALIDATION RULES]
+- Output HARUS berupa JSON valid.
+- totalAmount HARUS berupa integer tanpa titik/koma.
+- Field merchant, totalAmount, category, dan confidence wajib terisi.
+`.trim();
 
       // ── 6a. GEMINI VISION ───────────────────────────────────────────────────
       try {

@@ -36,7 +36,7 @@ export async function callHuggingFaceRouterAPI(
     temperature: options.temperature ?? 0.5,
   };
 
-  const timeoutMs = options.timeoutMs || 4000;
+  const timeoutMs = options.timeoutMs || 8000;
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
 

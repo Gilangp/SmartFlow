@@ -4,6 +4,7 @@ import OpenAI from 'openai';
 import { generateKtmToken } from '@/lib/auth';
 import { callHuggingFace, extractJsonFromHfOutput } from '@/lib/huggingface';
 import { routeAICall } from '@/lib/ai/router';
+import { buildVerifyKtmPrompt } from '@/lib/ai/prompts';
 
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
@@ -96,20 +97,7 @@ export async function POST(request: NextRequest) {
     // ── TAHAP 2: AI TEXT PARSING (jika OCR dapat raw text tapi regex gagal) ──
     // Hemat: kirim teks biasa, bukan gambar
     if (!isOcrSuccessful && rawText.trim().length > 20) {
-      const textPrompt = `
-Kamu adalah sistem pendeteksi KTM (Kartu Tanda Mahasiswa) Indonesia.
-Analisis teks berikut yang merupakan hasil OCR dari sebuah KTM.
-Ekstrak: Nama Mahasiswa, NIM (Nomor Induk Mahasiswa), dan Nama Universitas/Kampus.
-Ketiga field harus berhasil diekstrak. Jika salah satu tidak ditemukan, kembalikan valid=false.
-
-Teks OCR KTM:
-"""
-${rawText}
-"""
-
-Kembalikan HANYA JSON tanpa teks lain:
-{ "valid": true, "name": "Nama Lengkap Mahasiswa", "nim": "NIM-nya", "university": "Nama Kampus Lengkap" }
-      `.trim();
+      const textPrompt = buildVerifyKtmPrompt({ rawText });
 
       // ── 2a. AI GATEWAY (UTAMA) ─────────────────────────────────────────────
       try {
@@ -196,13 +184,44 @@ Kembalikan HANYA JSON tanpa teks lain:
     if (!isOcrSuccessful) {
       console.log('[KTM] Tidak ada raw text yang memadai, beralih ke Vision Fallback...');
       const visionPrompt = `
-Kamu adalah sistem pendeteksi KTM Indonesia.
-Baca kartu identitas dari gambar ini. Jika bukan KTM atau teksnya tidak jelas, kembalikan valid=false.
-Jika ini adalah KTM yang jelas, ekstrak nama mahasiswa, NIM, dan nama Universitas/Kampus.
-WAJIB: Ketiganya (name, nim, university) harus terbaca dengan jelas. Jika ada salah satu yang kosong atau tidak terbaca, kembalikan valid=false.
-Kembalikan HANYA JSON ini tanpa teks lain:
-{ "valid": true, "name": "Nama Lengkap", "nim": "12345678", "university": "Nama Kampus" }
-      `.trim();
+[ROLE]
+Indonesian Student ID (KTM) Verification Specialist.
+
+[OBJECTIVE]
+Mengekstrak dan memverifikasi data dari gambar Kartu Tanda Mahasiswa (KTM) Indonesia.
+
+[CONTEXT]
+Standar KTM Universitas di Indonesia mencakup Nama Mahasiswa, Nomor Induk Mahasiswa (NIM), dan Nama Perguruan Tinggi/Kampus.
+
+[INSTRUCTIONS]
+1. Baca gambar kartu identitas.
+2. Jika bukan KTM atau teksnya tidak jelas/buram, set "valid": false.
+3. Jika ini KTM yang jelas, ekstrak nama mahasiswa, NIM, dan nama universitas.
+4. WAJIB: Ketiga data (name, nim, university) harus terbaca dengan jelas untuk dianggap valid.
+
+[INPUT]
+Gambar Kartu Tanda Mahasiswa.
+
+[TASK]
+Lakukan ekstraksi dan verifikasi data dari gambar KTM di atas.
+
+[OUTPUT FORMAT]
+Kembalikan HANYA JSON valid tanpa teks lain:
+{
+  "valid": true,
+  "name": "Nama Lengkap Mahasiswa",
+  "nim": "NIM-nya",
+  "university": "Nama Kampus Lengkap"
+}
+
+[CONSTRAINTS]
+- DILARANG mengarang data yang tidak ada di gambar. Gunakan null jika tidak pasti.
+- DILARANG menyertakan markdown (\`\`\`json) atau teks penjelasan di luar JSON.
+
+[VALIDATION RULES]
+- Output HARUS berupa JSON valid.
+- Jika "valid" adalah true, maka field name, nim, dan university wajib terisi string yang valid.
+`.trim();
 
       let parsed: any = null;
 

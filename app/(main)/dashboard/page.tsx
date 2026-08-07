@@ -10,6 +10,7 @@ import { DashboardData } from '@/types';
 import { driver } from 'driver.js';
 import 'driver.js/dist/driver.css';
 import { Sun, Moon, HelpCircle, Loader2, Coins, ChevronRight, TrendingDown, TrendingUp } from 'lucide-react';
+import ReactMarkdown from 'react-markdown';
 
 function formatCurrency(amount: number): string {
   if (amount >= 1_000_000_000_000) return `Rp ${(amount / 1_000_000_000_000).toFixed(1)}T`;
@@ -325,15 +326,17 @@ export default function DashboardPage() {
                   )}
                 </button>
               </div>
-              <p className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed mt-1">
+              <div className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed mt-1">
                 {aiRoast ? (
-                  <>&ldquo;{aiRoast}&rdquo;</>
+                  <div className="prose dark:prose-invert max-w-none text-sm font-normal text-gray-700 dark:text-gray-300 leading-relaxed">
+                    <ReactMarkdown>{aiRoast}</ReactMarkdown>
+                  </div>
                 ) : aiLoading ? (
                   <span className="text-gray-500 dark:text-gray-400 italic">Sedang menganalisis keuanganmu...</span>
                 ) : (
                   <span className="text-gray-500 dark:text-gray-400 italic">Klik tombol untuk melihat analisis AI.</span>
                 )}
-              </p>
+              </div>
             </div>
           </div>
         </div>

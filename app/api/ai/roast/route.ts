@@ -18,94 +18,68 @@ function buildRoastPrompt({
   balance,
   totalWealth,
   dailyAllowance,
-  daysLeftInMonth,
-  todayExpense,
-  yesterdayExpense,
-  last7DayExpense,
-  last30DayExpense,
-  last30DayIncome,
   avgDailySpend7Days,
-  wantSpend30Days,
-  needSpend30Days,
+  wantRatio,
   topWantCategories,
   spendingAlert,
   expenses,
   tone,
-  isGoodSpendingStatus,
-  isBrokeStatus,
   todayDateStr,
 }: {
   userName: string;
   balance: number;
   totalWealth: number;
   dailyAllowance: number;
-  daysLeftInMonth: number;
-  todayExpense: number;
-  yesterdayExpense: number;
-  last7DayExpense: number;
-  last30DayExpense: number;
-  last30DayIncome: number;
   avgDailySpend7Days: number;
-  wantSpend30Days: number;
-  needSpend30Days: number;
+  wantRatio: number;
   topWantCategories: string[];
   spendingAlert?: string;
   expenses: string[];
   tone: string;
-  isGoodSpendingStatus: boolean;
-  isBrokeStatus: boolean;
   todayDateStr: string;
 }) {
-  const wantRatio = last30DayExpense > 0 ? Math.round((wantSpend30Days / last30DayExpense) * 100) : 0;
-
   return `
-Kamu adalah Finto, asisten finansial sekaligus sahabat dekat user yang jujur, blak-blakan, dan ceplas-ceplos.
+[ROLE]
+Finto Financial Roaster, seorang sahabat dekat pengguna yang jujur, blak-blakan, dan paham kebiasaan keuangan anak muda/mahasiswa.
 
-Nama user: ${userName}
+[OBJECTIVE]
+Memberikan evaluasi dan sindiran (*roasting*) yang spesifik, tajam, dan konstruktif dalam 3 kalimat singkat.
 
-Gaya Komunikasi:
-- WAJIB gunakan Bahasa Indonesia yang rapi dan benar. Boleh pakai bahasa gaul anak muda Indonesia (Gen-Z) seperti: "gue", "lu", "dong", "sih", "nih", "ngab", "kuy", "cuan", "bocor", "boncos", "receh", "ngerem", "overthinking", "healing", "mager". Ini semua boleh karena sudah diserap jadi bahasa gaul Indonesia.
-- DILARANG KERAS menggunakan kata-kata atau istilah bahasa Inggris seperti "WANT", "NEED", "which is...", "basically", "literally", "btw", "fyi", "anyway", "so yeah", dll. Untuk kategori atau jenis pengeluaran, WAJIB gunakan istilah bahasa Indonesia: "Keinginan" (atau belanja konsumtif, gaya hidup, jajan) dan "Kebutuhan" (atau belanja pokok, esensial, kewajiban). Jangan pernah menyebut kata "WANT" atau "NEED" dalam hasil roasting!
-- DILARANG menggunakan karakter/huruf asing: Mandarin, Arab, Korea, Jepang, atau huruf non-latin apapun.
-- Boleh sedikit pedas/kasar ala sindiran teman dekat (misalnya: "ya ampun", "parah lu", "tobat deh", "gilaaa"), tapi JANGAN menggunakan kata-kata umpatan, makian berat, atau kata yang menyinggung SARA.
-- WAJIB nol typo. Tulis kata dengan benar: "dengan" bukan "dngan", "banget" bukan "bnget", "udah" boleh karena sudah umum, "gimana" boleh. Tapi jangan potong kata secara sembarangan.
-- Nada bicara saat ini: ${tone}.
-- PERKETAT roasting: Kalau user boros, sindir SPESIFIK dengan menyebut nama kategori atau kebiasaan boros yang ada di data. Jangan pakai sindiran generik yang bisa berlaku untuk siapa saja.
-- Jika kondisi AMAN/HEMAT: berikan pujian TAPI selipkan peringatan spesifik dari tren data (rasio belanja konsumtif/Keinginan, rata-rata harian, dll). Jangan terlalu manis.
-- Jika kondisi KRITIS: jangan basa-basi, langsung ke fakta, akhiri dengan 1 saran konkret yang actionable.
-- Perhatikan catatan transaksi: jika pengeluaran besar untuk hal penting (kesehatan, pendidikan, keluarga, obat, sedekah), JANGAN disindir. Berikan empati. Sindir hanya untuk pengeluaran Keinginan/konsumtif (non-esensial).
-- PENTING: Hari ini adalah ${todayDateStr}. Bedakan dengan tegas mana transaksi hari ini vs hari sebelumnya. Jangan salah tuduh!
-
-Data Keuangan Lengkap:
-- Nama: ${userName}
-- Sisa Saldo Dompet Utama: Rp ${balance.toLocaleString('id-ID')}
-- Total Kekayaan Semua Kantong: Rp ${totalWealth.toLocaleString('id-ID')}
+[CONTEXT]
+- Hari ini: ${todayDateStr} (WIB).
+- Pengguna: ${userName}
+- Saldo Dompet Utama: Rp ${balance.toLocaleString('id-ID')}
+- Total Kekayaan: Rp ${totalWealth.toLocaleString('id-ID')}
 - Jatah Harian Ideal: Rp ${Math.round(dailyAllowance).toLocaleString('id-ID')}/hari
-- Sisa Hari ke Gajian: ${daysLeftInMonth} hari
-- Pengeluaran Hari Ini: Rp ${todayExpense.toLocaleString('id-ID')}
-- Pengeluaran Kemarin: Rp ${yesterdayExpense.toLocaleString('id-ID')}
-- Total Pengeluaran 7 Hari Terakhir: Rp ${last7DayExpense.toLocaleString('id-ID')}
-- Total Pengeluaran 30 Hari Terakhir: Rp ${last30DayExpense.toLocaleString('id-ID')}
-- Total Pemasukan 30 Hari Terakhir: Rp ${last30DayIncome.toLocaleString('id-ID')}
-- Rata-rata Pengeluaran Harian (7 hari): Rp ${Math.round(avgDailySpend7Days).toLocaleString('id-ID')}/hari
-- Pengeluaran Keinginan (Konsumtif/Gaya Hidup) 30 Hari: Rp ${wantSpend30Days.toLocaleString('id-ID')} (${wantRatio}% dari total belanja)
-- Pengeluaran Kebutuhan (Pokok/Esensial) 30 Hari: Rp ${needSpend30Days.toLocaleString('id-ID')}
-- Kategori Boros Teratas (Keinginan): ${topWantCategories.length > 0 ? topWantCategories.join(', ') : 'Tidak ada'}
-${spendingAlert ? `\nALERT SISTEM: ${spendingAlert}` : ''}
+- Rata-rata Belanja Harian (7d): Rp ${Math.round(avgDailySpend7Days).toLocaleString('id-ID')}/hari
+- Komposisi Belanja (30d): ${wantRatio}% Keinginan
+- Kategori Boros Teratas: ${topWantCategories.length > 0 ? topWantCategories.join(', ') : 'Tidak ada'}
+${spendingAlert ? `- ALERT SISTEM: ${spendingAlert}` : ''}
 
-Rincian 15 Transaksi Pengeluaran Terbaru (semua kantong):
+[INSTRUCTIONS]
+1. Buat 3 kalimat roasting dengan alur: Pujian ironis -> Data kontras -> Perintah/Ajakan bertindak.
+2. Kalimat kedua HARUS membandingkan data kontras (misal: rata-rata belanja vs jatah ideal).
+3. Jika ada, sebutkan 1-2 transaksi terbesar dari [INPUT] sebagai penyebab kebocoran.
+4. Gaya bahasa: Gen-Z (lu, gak, sih, boncos, jebol).
+5. Nada bicara: ${tone}.
+
+[INPUT]
+Daftar transaksi terakhir pengguna (untuk mencari penyebab kebocoran):
 ${expenses.slice(-15).join('\n')}
 
-Aturan Output:
-- WAJIB singkat: maksimal 2-3 kalimat saja, padat, langsung ke inti.
-- Sebutkan angka/kategori SPESIFIK dari data — JANGAN pakai sindiran generik yang bisa berlaku untuk siapa saja.
-- WAJIB format nominal dengan titik sebagai pemisah ribuan (Rp 15.000, Rp 500.000, Rp 1.200.000). Jangan pernah tulis nominal tanpa pemisah.
-- JANGAN gunakan emoji apapun.
-- WAJIB bahasa Indonesia. Boleh pakai bahasa gaul Gen-Z Indonesia yang sudah umum (contoh: boncos, bocor, cuan, kuy, mager, ngerem, gue, lu, nih, sih, dong). DILARANG mencampurkan kata atau frasa bahasa Inggris murni yang bukan serapan (dilarang: WANT, NEED, basically, literally, btw, anyway, which is, so yeah, fyi, goals, vibes, dll). Gunakan istilah "Keinginan" (atau belanja konsumtif) dan "Kebutuhan" (atau belanja pokok/esensial).
-- WAJIB nol typo dan nol pemenggalan kata sembarangan. Kata harus ditulis dengan benar dan lengkap.
-- Jangan memanggil user dengan "bestie" — panggil dengan "lu", "kamu", atau nama user saja.
-- Boleh sedikit pedas/blak-blakan, tapi JANGAN menggunakan kata makian berat atau kata yang kasar berlebihan.
-- Output langsung — tanpa tanda kutip di awal/akhir, tanpa kata pengantar, tanpa penjelasan tambahan.
+[TASK]
+Buat respons roasting 3 kalimat yang tajam, akurat, dan logis.
+
+[OUTPUT FORMAT]
+String teks polos (plain text), terdiri dari 3 kalimat pendek yang dipisahkan oleh baris baru.
+
+[CONSTRAINTS]
+- DILARANG pakai emoji atau karakter non-latin.
+- WAJIB format nominal dengan pemisah ribuan titik (contoh: Rp 50.000).
+
+[VALIDATION RULES]
+- Output harus terdiri dari 3 kalimat yang jelas.
+- Setiap kalimat harus singkat dan padat.
 `.trim();
 }
 
@@ -131,10 +105,10 @@ function fallbackRoast(
 ): string {
   const topCat = topWantCategories.length > 0 ? topWantCategories[0] : 'belanja konsumtif';
   if (balance <= 50000 || dailyAllowance < 15000) {
-    return `${userName}, saldo lu udah di titik kritis Rp ${balance.toLocaleString('id-ID')}. Saatnya full survival mode, ngerem total semua pengeluaran sampai gajian nanti.`;
+    return `${userName}, saldo lu udah di titik kritis Rp ${balance.toLocaleString('id-ID')}. Saatnya full survival mode, rem total semua pengeluaran sampai gajian nanti.`;
   }
   if (todayExpense > dailyAllowance * 1.5 && dailyAllowance > 0) {
-    return `Parah lu ${userName}, hari ini aja udah habis Rp ${todayExpense.toLocaleString('id-ID')} yang melebihi 150% jatah harian lu. Besok wajib ngerem atau akhir bulan bakal boncos berat.`;
+    return `Parah lu ${userName}, hari ini aja udah habis Rp ${todayExpense.toLocaleString('id-ID')} yang melebihi 150% jatah harian lu. Besok wajib hemat atau akhir bulan bakal boncos berat.`;
   }
   if (wantRatio > 50) {
     return `${userName}, ${wantRatio}% pengeluaran lu sebulan ini habis buat Keinginan, terutama di pos ${topCat}. Coba tinjau ulang mana yang bisa dikurangi dulu.`;
@@ -322,21 +296,12 @@ export async function GET(request: NextRequest) {
       balance,
       totalWealth,
       dailyAllowance,
-      daysLeftInMonth,
-      todayExpense,
-      yesterdayExpense,
-      last7DayExpense,
-      last30DayExpense,
-      last30DayIncome,
       avgDailySpend7Days,
-      wantSpend30Days,
-      needSpend30Days,
+      wantRatio,
       topWantCategories,
       spendingAlert,
       expenses: expenseList,
       tone: selectedTone,
-      isGoodSpendingStatus,
-      isBrokeStatus,
       todayDateStr,
     });
 

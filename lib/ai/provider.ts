@@ -27,12 +27,13 @@ export async function executeTextModel(
     });
   }
 
-  // 1. Try Primary Model (deepseek-ai/DeepSeek-V3) via HF Router API
+  // 1. Try Primary Model (zai-org/GLM-5.2) via HF Router API
   try {
     const { text, tokenLabel } = await callHuggingFaceRouterAPI(model, chatMessages, {
       temperature,
       maxTokens: max_tokens,
       useSecondaryToken: options.useSecondaryToken,
+      timeoutMs: 8500,
     });
 
     if (text) {
@@ -48,18 +49,15 @@ export async function executeTextModel(
   }
 
   // 2. Try Fallback Models on Hugging Face Router
-  const fallbackModels = [
-    'zai-org/GLM-5.2',
-    'meta-llama/Llama-3.3-70B-Instruct',
-    'Qwen/Qwen2.5-72B-Instruct',
-  ];
+  const fallbackModels = AI_MODELS.FALLBACK_TEXT;
 
   for (const altModel of fallbackModels) {
     try {
       const { text, tokenLabel } = await callHuggingFaceRouterAPI(altModel, chatMessages, {
         temperature,
         maxTokens: max_tokens,
-        useSecondaryToken: false,
+        useSecondaryToken: options.useSecondaryToken,
+        timeoutMs: 6000,
       });
 
       if (text) {

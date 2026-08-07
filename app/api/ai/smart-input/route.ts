@@ -5,6 +5,7 @@ import OpenAI from 'openai';
 import { prisma } from '@/lib/db';
 import { callHuggingFace } from '@/lib/huggingface';
 import { routeAICall } from '@/lib/ai/router';
+import { buildSmartInputPrompt } from '@/lib/ai/prompts';
 
 
 const genAI = new GoogleGenerativeAI(
@@ -132,46 +133,12 @@ export async function POST(request: NextRequest) {
     const nowWib = new Date();
     const todayStr = nowWib.toLocaleDateString('en-CA', { timeZone: 'Asia/Jakarta' });
 
-    // 🔹 PROMPT (lebih ketat & akurat untuk klasifikasi NEED vs WANT & deteksi tanggal)
-    const prompt = `
-Kamu adalah parser data keuangan Indonesia yang sangat pintar dan akurat.
-
-Tugas:
-Ekstrak semua nominal dari teks, hitung total pengeluaran, tentukan kategori yang paling pas, hitung tanggal transaksi yang dimaksud, dan rapihkan catatan (notes).
-
-Rules:
-- Hari ini adalah tanggal ${todayStr} (format YYYY-MM-DD, waktu WIB).
-- Deteksi tanggal dari teks input pada kolom "date" (dalam format YYYY-MM-DD):
-  • Jika user menyebut waktu relatif seperti "kemarin"/"semalam" (berarti hari sebelum hari ini), "2 hari kemarin"/"2 hari lalu" (berarti 2 hari sebelum hari ini), "3 hari lalu", dsb., hitung tanggalnya dengan tepat dari hari ini (${todayStr}).
-  • Jika user menyebut tanggal spesifik (misal: "tgl 5", "5 Juli", "5/7"), konversi ke YYYY-MM-DD pada tahun yang sesuai.
-  • Jika tidak ada keterangan waktu/tanggal di teks, gunakan tanggal hari ini: "${todayStr}".
-- 3k = 3000
-- 10rb = 10000
-- 20 ribu = 20000
-- 1.5jt = 1500000
-- 2M / 2 miliar = 2000000000
-- Dalam Indonesia: 'k'/'rb'/'ribu' = 1.000, 'jt'/'juta' = 1.000.000, 'm'/'M'/'miliar' = 1.000.000.000 (Miliar), 't' = Triliun.
-- PENTING UNTUK KATEGORI: Perhatikan tipe (NEED vs WANT) pada daftar kategori di bawah. Jangan masukkan belanja konsumtif/lifestyle/jajan (kopi kafe, boba, game, belanja online, nongkrong) ke kategori NEED! Belanja konsumtif HARUS masuk ke kategori bertipe WANT. Sebaliknya, pengeluaran wajib/pokok (makan utama sehari-hari, transportasi/bensin, tagihan, listrik, kesehatan/obat, pendidikan) masukkan ke kategori bertipe NEED.
-- Pada kolom "category" di JSON output, TULIS NAMA KATEGORI-NYA SAJA (tanpa tambahan keterangan NEED/WANT di dalam kurung, contoh: jika di daftar ada "Makanan & Dapur (NEED...)", maka tulis "Makanan & Dapur" saja). Jika tidak ada yang cocok, tulis "Lainnya".
-- Output HARUS JSON valid
-- Jangan gunakan markdown
-- Jangan tambahkan penjelasan
-- Gabungkan nama barang/kegiatan ke dalam 'notes' dengan rapi dan jelas. Jika ada lebih dari satu kegiatan/barang, pisahkan dengan koma dan spasi (, ) (contoh: "makan siang, isi bensin, beli pulsa"). Jangan masukkan kata waktu seperti "kemarin" atau "2 hari lalu" ke dalam notes jika sudah diproses ke kolom date.
-
-Daftar Kategori User yang Tersedia:
-[${categoryListFormatted || 'Lainnya'}]
-
-Format JSON:
-{
-  "totalAmount": number,
-  "category": string,
-  "date": "YYYY-MM-DD",
-  "notes": string
-}
-
-Input:
-"${text}"
-`;
+    // 🔹 PROMPT (Standard Finto AI 9-Component Framework)
+    const prompt = buildSmartInputPrompt({
+      todayStr,
+      categoryListFormatted,
+      text,
+    });
 
     let rawText = '';
 
