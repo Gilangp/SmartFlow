@@ -77,7 +77,12 @@ export default function RolloverModal({ performanceId, surplus, pockets, onClose
   };
 
   const formatCurrency = (amount: number) => {
-    return `Rp ${amount.toLocaleString('id-ID')}`;
+    if (isNaN(amount) || amount === null || amount === undefined) return 'Rp 0';
+    const hasFraction = amount % 1 !== 0;
+    return `Rp ${amount.toLocaleString('id-ID', {
+      minimumFractionDigits: 0,
+      maximumFractionDigits: hasFraction ? 2 : 0,
+    })}`;
   };
 
   const getPocketStyle = (pocket: PocketSummary) => {

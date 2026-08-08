@@ -21,9 +21,7 @@ function formatCurrency(amount: number): string {
   })}`;
 }
 
-function formatCurrencyFull(amount: number): string {
-  return `Rp ${amount.toLocaleString('id-ID', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
-}
+
 
 const statusConfig = {
   GREEN: { 

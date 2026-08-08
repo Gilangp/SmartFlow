@@ -32,9 +32,7 @@ function formatCurrency(amount: number): string {
   })}`;
 }
 
-function formatCurrencyFull(amount: number): string {
-  return `Rp ${amount.toLocaleString('id-ID', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
-}
+
 
 function getPocketIcon(type: string, name: string) {
   if (type === 'MAIN') return <Wallet className="w-5 h-5 text-white" strokeWidth={2.5} />;
@@ -387,7 +385,7 @@ export default function PocketsPage() {
                     {hasTarget && pocket.targetAmount && (
                       <div className="mb-4 bg-black/20 p-3 rounded-xl border border-white/10 backdrop-blur-sm">
                         <div className="flex justify-between text-xs text-white/90 mb-1.5 font-medium">
-                          <span>Target: {formatCurrencyFull(pocket.targetAmount)}</span>
+                          <span>Target: {formatCurrency(pocket.targetAmount)}</span>
                           <span className="font-bold text-amber-300">{Math.round(progress)}%</span>
                         </div>
                         <div className="h-2 bg-black/40 rounded-full overflow-hidden shadow-inner relative">
@@ -541,7 +539,7 @@ export default function PocketsPage() {
                   className="w-full px-4 py-2.5 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500 transition-all font-mono"
                 />
                 <p className="text-xs text-gray-500 mt-1">
-                  Max: {formatCurrencyFull(withdrawData.pocket.balance)}
+                  Max: {formatCurrency(withdrawData.pocket.balance)}
                 </p>
               </div>
 

@@ -301,13 +301,13 @@ export default function TransactionsPage() {
           <>
             {/* Summary Cards */}
             <div className="grid grid-cols-2 gap-3 mb-5">
-              <div className="bg-white dark:bg-gray-900 rounded-xl p-4 border border-gray-200 dark:border-gray-800">
+              <div className="bg-white dark:bg-gray-900 rounded-xl p-4 border border-gray-200 dark:border-gray-800 min-w-0">
                 <p className="text-xs text-gray-500 mb-1">Pemasukan</p>
-                <p className="text-lg font-bold text-emerald-600 dark:text-emerald-400">{formatCurrency(totalIncome)}</p>
+                <p className="text-base sm:text-lg font-bold text-emerald-600 dark:text-emerald-400 truncate">{formatCurrency(totalIncome)}</p>
               </div>
-              <div className="bg-white dark:bg-gray-900 rounded-xl p-4 border border-gray-200 dark:border-gray-800">
+              <div className="bg-white dark:bg-gray-900 rounded-xl p-4 border border-gray-200 dark:border-gray-800 min-w-0">
                 <p className="text-xs text-gray-500 mb-1">Pengeluaran</p>
-                <p className="text-lg font-bold text-rose-600 dark:text-rose-400">{formatCurrency(totalExpense)}</p>
+                <p className="text-base sm:text-lg font-bold text-rose-600 dark:text-rose-400 truncate">{formatCurrency(totalExpense)}</p>
               </div>
             </div>
 

@@ -184,15 +184,17 @@ Data Keuangan Terverifikasi dari Sistem Finto:
 - Target Alokasi User: ${params.pocketAllocations || 'Belum diatur'}
 
 [INSTRUCTIONS]
-1. Tulis tepat 4 paragraf narasi audit dalam BAHASA SEHARI-HARI YANG SANGAT MUDAH DIPAHAMI ORANG AWAM:
-   - Poin 1: KESEHATAN UANG & KETAHANAN KAS (Jelaskan sisa tabungan bersih, rata-rata pengeluaran harian, dan berapa hari uangmu bisa bertahan tanpa istilah perbankan kaku seperti "Liquid Runway" atau "Burn Rate").
-   - Poin 2: PEMBAGIAN ANGGARAN (Jelaskan berapa persen untuk Kebutuhan Pokok vs Keinginan/Jajan, lalu sebutkan rekomendasi penghematan kopi/food delivery jika ada).
-   - Poin 3: PEMERIKSAAN BELANJAAN (Jelaskan berapa banyak transaksi wajib/produktif vs transaksi hura-hura/non-pokok).
-   - Poin 4: PEMBAGIAN UANG DI KANTONG (Jelaskan di mana uangmu disimpan saat ini seperti Dompet Utama/Uang Pegangan/Tabungan dan beri saran alokasinya).
-2. Setiap paragraf wajib memuat angka riil dari [CONTEXT].
-3. Gunakan gaya bahasa hangat, ramah, kasual santuy ('kamu'), jelaskan arti angkanya secara langsung (misal: "uangmu bisa bertahan 16 hari ke depan").
-4. HINDARI istilah perbankan kaku seperti "Burn Rate", "Liquid Runway", "Pos Diskresioner", "Deviasi", "Likuiditas & Resiliensi". Ganti dengan istilah manusia awam.
-5. Tutup setiap paragraf dengan 1 rekomendasi konkret.
+1. Tulis tepat 4 paragraf narasi audit keuangan profesional namun SANGAT MUDAH DIPAHAMI ORANG AWAM (ramah, hangat, & kasual santuy 'kamu'):
+   - Poin 1: KESEHATAN KAS & KETAHANAN HARI (Sampaikan analisis sisa uang masuk bersih, rata-rata belanja harian, berapa hari uangmu bisa bertahan, serta opsi strategi menjaga dana darurat agar bertahan lebih lama).
+   - Poin 2: PEMBAGIAN ANGGARAN & STRATEGI JAJAN (Sampaikan analisis persen Kebutuhan vs Keinginan/Jajan, lalu berikan opsi/cara mengatur penghematan seperti menurunkan batas jajan kopi atau food delivery dari Rp X ke Rp Y).
+   - Poin 3: PEMERIKSAAN BELANJAAN & EVALUASI DIRI (Sampaikan analisis berapa banyak transaksi produktif/wajib vs transaksi hura-hura, lalu berikan saran & strategi agar tetap disiplin memprioritaskan kebutuhan penting).
+   - Poin 4: STRATEGI ALOKASI KANTONG & DANA AMAN (Sampaikan analisis sebaran uang di kantong-kantong saat ini, perbandingan dengan target saldo aman, lalu berikan saran cara memindahkan alokasinya ke tabungan).
+2. Setiap paragraf wajib memadukan 3 elemen inti:
+   a. **Analisis Data Riil**: Arti angka riil dari [CONTEXT] tanpa mengarang.
+   b. **Opsi / Strategi Pengaturan**: Cara mengatur nominal atau opsi penghematan konkret.
+   c. **Saran / Masukan Aksional**: Langkah nyata yang harus dilakukan pengguna.
+3. HINDARI istilah perbankan kaku seperti "Burn Rate", "Liquid Runway", "Pos Diskresioner", "Deviasi", "Likuiditas". Gunakan bahasa manusia awam.
+4. Tutup setiap paragraf dengan 1 saran/strategi konkret yang mudah dieksekusi.
 
 [INPUT]
 Data ringkasan agregasi keuangan 30 hari di atas.
