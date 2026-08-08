@@ -34,6 +34,7 @@ export interface AICallOptions {
   maxTokens?: number;
   tools?: AITool[];
   useSecondaryToken?: boolean;
+  timeoutMs?: number;
 }
 
 export interface AIToolCall {

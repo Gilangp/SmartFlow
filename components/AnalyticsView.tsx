@@ -71,10 +71,35 @@ export default function AnalyticsView({ transactions, canUseAnalytics, checkingS
 
          setAiLoading(true);
          fetch('/api/ai/analytics-summary', { headers: { Authorization: `Bearer ${t}` } })
-           .then(r => r.json())
-           .then(d => {
-             if (d.success && Array.isArray(d.data?.summary)) {
-               setAiSummary(d.data.summary);
+           .then(async (r) => {
+             if (!r.body) {
+               setAiLoading(false);
+               return;
+             }
+             const reader = r.body.getReader();
+             const decoder = new TextDecoder();
+             let buffer = '';
+
+             while (true) {
+               const { done, value } = await reader.read();
+               if (done) break;
+               buffer += decoder.decode(value, { stream: true });
+               const lines = buffer.split('\n\n');
+               buffer = lines.pop() || '';
+
+               for (const line of lines) {
+                 const trimmed = line.trim();
+                 if (trimmed.startsWith('data:')) {
+                   try {
+                     const jsonStr = trimmed.replace(/^data:\s*/, '');
+                     const data = JSON.parse(jsonStr);
+                     if (Array.isArray(data?.summary)) {
+                       setAiSummary(data.summary);
+                       setAiLoading(false);
+                     }
+                   } catch (e) {}
+                 }
+               }
              }
            })
            .catch(() => {})

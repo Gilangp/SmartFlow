@@ -32,11 +32,11 @@ export async function callHuggingFaceRouterAPI(
   const payload = {
     model,
     messages,
-    max_tokens: options.maxTokens ?? 1024,
-    temperature: options.temperature ?? 0.5,
+    max_tokens: options.maxTokens ?? 600,
+    temperature: options.temperature ?? 0.4,
   };
 
-  const timeoutMs = options.timeoutMs || 8000;
+  const timeoutMs = options.timeoutMs || 30000;
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
 
