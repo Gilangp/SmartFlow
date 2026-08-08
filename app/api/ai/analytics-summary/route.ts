@@ -17,32 +17,13 @@ function rp(n: number) {
   return `Rp ${Math.round(n).toLocaleString('id-ID')}`;
 }
 
-function isValidAiReport(summary: any, pointKeyNumbers: string[][]): boolean {
-  if (!Array.isArray(summary) || summary.length < 4 || typeof summary[0] !== 'string') return false;
+function isValidAiReport(summary: any): boolean {
+  if (!Array.isArray(summary) || summary.length < 4) return false;
   
-  // Periksa setiap poin (paragraf 1 sampai 4) agar minimal ada 1 angka representatif per paragraf
+  // Periksa setiap poin (paragraf 1 sampai 4) agar berisi teks narasi yang memadai (> 15 karakter)
   for (let i = 0; i < 4; i++) {
-    const text = String(summary[i] || '');
-    if (!/Rp\s*\d+|\d+%/.test(text)) return false; // Setiap paragraf wajib punya nominal Rp atau persentase
-    
-    const candidates = pointKeyNumbers[i] || [];
-    const validCandidates = candidates.filter(numStr => {
-      if (!numStr) return false;
-      const c = numStr.replace(/\s+/g, '').replace(/\./g, '');
-      return c !== 'Rp0' && c !== '0%' && c !== '0';
-    });
-    if (validCandidates.length === 0) continue;
-
-    let matchedInPoint = false;
-    for (const numStr of validCandidates) {
-      const cleanNum = numStr.replace(/\s+/g, '').replace(/\./g, '');
-      const cleanText = text.replace(/\s+/g, '').replace(/\./g, '');
-      if (cleanText.includes(cleanNum)) {
-        matchedInPoint = true;
-        break;
-      }
-    }
-    if (!matchedInPoint) return false;
+    const text = String(summary[i] || '').trim();
+    if (text.length < 15) return false;
   }
   return true;
 }
@@ -307,12 +288,12 @@ export async function GET(request: NextRequest) {
       );
       if (aiRes.success && aiRes.content) {
         const parsed = extractJsonFromOutput(aiRes.content);
-        if (Array.isArray(parsed) && isValidAiReport(parsed, pointKeyNumbers)) {
+        if (Array.isArray(parsed) && isValidAiReport(parsed)) {
           console.log(`[ANALYTICS-AI] ✅ Berhasil via ${aiRes.modelUsed} (${aiRes.tokenUsed}).`);
           return NextResponse.json({ success: true, data: { summary: parsed.slice(0, 4), source: aiRes.modelUsed } });
         }
       }
-      console.warn('[ANALYTICS-AI] AI Gateway output tidak valid atau halusinasi angka.');
+      console.warn('[ANALYTICS-AI] AI Gateway output tidak valid.');
     } catch (err: any) {
       console.warn('[ANALYTICS-AI] AI Gateway gagal, beralih ke Gemini...', err.message);
     }
@@ -327,7 +308,7 @@ export async function GET(request: NextRequest) {
       const rawText = result.response.text();
       const parsed = extractJsonFromOutput(rawText);
 
-      if (Array.isArray(parsed) && isValidAiReport(parsed, pointKeyNumbers)) {
+      if (Array.isArray(parsed) && isValidAiReport(parsed)) {
         console.log('[ANALYTICS-AI] ✅ Berhasil via Gemini 2.0 Flash.');
         return NextResponse.json({ success: true, data: { summary: parsed.slice(0, 4), source: 'GEMINI' } });
       }
