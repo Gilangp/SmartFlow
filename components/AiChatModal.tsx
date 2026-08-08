@@ -2,6 +2,8 @@
 
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { Sparkles, X, Send, Bot, User, Loader2, Trash2, ArrowDown } from 'lucide-react';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 
 interface ChatMessage {
   id: string;
@@ -9,6 +11,12 @@ interface ChatMessage {
   content: string;
   timestamp: string;
   modelUsed?: string;
+}
+
+function formatMarkdownContent(text: string): string {
+  if (!text) return '';
+  // Otomatis sisipkan ganti baris (\n) jika baris tabel digabung oleh AI tanpa \n (contoh: "| Item | Nominal | |---|---| | Dompet |")
+  return text.replace(/\|\s*\|/g, '|\n|');
 }
 
 const QUICK_PROMPTS = [
@@ -120,7 +128,7 @@ export default function AiChatModal() {
       {/* Floating Toggle Button */}
       <button
         onClick={() => setIsOpen(true)}
-        className={`fixed bottom-24 right-5 z-40 lg:bottom-8 lg:right-8 p-3.5 rounded-full bg-gradient-to-r from-indigo-600 via-indigo-500 to-purple-600 text-white shadow-lg shadow-indigo-500/25 hover:shadow-indigo-500/40 hover:scale-105 transition-all duration-300 flex items-center gap-2 group ${
+        className={`fixed bottom-28 right-4 z-40 md:bottom-8 md:right-8 p-3.5 rounded-full bg-gradient-to-r from-indigo-600 via-indigo-500 to-purple-600 text-white shadow-xl shadow-indigo-500/30 hover:shadow-indigo-500/50 hover:scale-105 transition-all duration-300 flex items-center gap-2 group ${
           isOpen ? 'scale-0 opacity-0 pointer-events-none' : 'scale-100 opacity-100'
         }`}
         aria-label="Tanya Finto AI"
@@ -132,24 +140,29 @@ export default function AiChatModal() {
         <span className="text-xs font-semibold pr-1 hidden sm:inline-block">Tanya Finto AI</span>
       </button>
 
+      {/* Mobile Backdrop Overlay */}
+      {isOpen && (
+        <div
+          className="fixed inset-0 bg-black/50 backdrop-blur-xs z-[55] md:hidden animate-in fade-in duration-200"
+          onClick={() => setIsOpen(false)}
+        />
+      )}
+
       {/* Floating Chat Drawer / Panel */}
       {isOpen && (
-        <div className="fixed bottom-0 right-0 sm:bottom-6 sm:right-6 z-50 w-full sm:w-[380px] p-0 sm:p-0 animate-in fade-in slide-in-from-bottom-4 duration-200">
-          <div className="w-full h-[80vh] sm:h-[500px] max-h-[620px] bg-white dark:bg-gray-950 rounded-t-3xl sm:rounded-2xl border border-gray-200 dark:border-gray-800 shadow-2xl flex flex-col overflow-hidden">
+        <div className="fixed bottom-0 inset-x-0 md:inset-auto md:bottom-6 md:right-6 z-[60] w-full md:w-[380px] p-0 animate-in fade-in slide-in-from-bottom-4 duration-200">
+          <div className="w-full h-[85vh] md:h-[500px] max-h-[640px] bg-white dark:bg-gray-950 rounded-t-3xl md:rounded-2xl border border-gray-200 dark:border-gray-800 shadow-2xl flex flex-col overflow-hidden">
 
-            
             {/* Header */}
-            <div className="px-5 py-4 bg-gradient-to-r from-indigo-600 via-indigo-600 to-purple-600 text-white flex items-center justify-between">
+            <div className="px-5 py-4 bg-gradient-to-r from-indigo-600 via-indigo-600 to-purple-600 text-white flex items-center justify-between flex-shrink-0">
               <div className="flex items-center gap-3">
                 <div className="w-9 h-9 rounded-full bg-white/15 backdrop-blur-md flex items-center justify-center border border-white/20">
                   <Bot className="w-5 h-5 text-white" />
                 </div>
                 <div>
-                  <h3 className="text-sm font-bold flex items-center gap-1.5">
+                  <h3 className="text-sm font-bold">
                     Finto AI Assistant
-                    <span className="px-1.5 py-0.5 text-[10px] bg-white/20 rounded-full font-medium">Pro</span>
                   </h3>
-                  <p className="text-[11px] text-indigo-100">Finto Financial Engine</p>
                 </div>
               </div>
               <div className="flex items-center gap-1">
@@ -227,7 +240,45 @@ export default function AiChatModal() {
                             : 'bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-200 border border-gray-100 dark:border-gray-800 rounded-tl-none shadow-sm'
                         }`}
                       >
-                        <p className="whitespace-pre-wrap">{msg.content}</p>
+                        {msg.role === 'user' ? (
+                          <p className="whitespace-pre-wrap">{msg.content}</p>
+                        ) : (
+                          <ReactMarkdown
+                            remarkPlugins={[remarkGfm]}
+                            components={{
+                              p: ({ children }) => <p className="mb-2 last:mb-0 leading-relaxed">{children}</p>,
+                              strong: ({ children }) => <strong className="font-bold text-gray-900 dark:text-white">{children}</strong>,
+                              ul: ({ children }) => <ul className="list-disc pl-4 space-y-1 my-2">{children}</ul>,
+                              ol: ({ children }) => <ol className="list-decimal pl-4 space-y-1 my-2">{children}</ol>,
+                              li: ({ children }) => <li className="leading-relaxed">{children}</li>,
+                              table: ({ children }) => (
+                                <div className="my-3 overflow-x-auto rounded-xl border border-gray-200 dark:border-gray-800 shadow-sm bg-white dark:bg-gray-950">
+                                  <table className="w-full text-left text-xs border-collapse">{children}</table>
+                                </div>
+                              ),
+                              thead: ({ children }) => (
+                                <thead className="bg-indigo-50 dark:bg-indigo-950/70 text-indigo-950 dark:text-indigo-200 border-b border-gray-200 dark:border-gray-800 font-semibold">
+                                  {children}
+                                </thead>
+                              ),
+                              th: ({ children }) => (
+                                <th className="px-3.5 py-2.5 font-bold text-[11px] uppercase tracking-wider border-r border-gray-200/60 dark:border-gray-800/60 last:border-0">
+                                  {children}
+                                </th>
+                              ),
+                              tbody: ({ children }) => <tbody className="divide-y divide-gray-100 dark:divide-gray-800/60">{children}</tbody>,
+                              tr: ({ children }) => <tr className="hover:bg-gray-50/60 dark:hover:bg-gray-900/60 transition-colors">{children}</tr>,
+                              td: ({ children }) => (
+                                <td className="px-3.5 py-2 text-gray-700 dark:text-gray-300 border-r border-gray-100/60 dark:border-gray-800/40 last:border-0">
+                                  {children}
+                                </td>
+                              ),
+                              hr: () => <hr className="my-3 border-gray-200 dark:border-gray-800" />,
+                            }}
+                          >
+                            {formatMarkdownContent(msg.content)}
+                          </ReactMarkdown>
+                        )}
                       </div>
                       <p className="text-[10px] text-gray-400 px-1">{msg.timestamp}</p>
                     </div>
@@ -250,13 +301,13 @@ export default function AiChatModal() {
               <div ref={messagesEndRef} />
             </div>
 
-            {/* Input Form */}
+            {/* Input Form with Safe Area Padding */}
             <form
               onSubmit={e => {
                 e.preventDefault();
                 handleSendMessage();
               }}
-              className="p-3 bg-white dark:bg-gray-950 border-t border-gray-100 dark:border-gray-800 flex items-center gap-2"
+              className="p-3 pb-[calc(1.25rem+env(safe-area-inset-bottom,20px))] md:pb-3 bg-white dark:bg-gray-950 border-t border-gray-100 dark:border-gray-800 flex items-center gap-2 flex-shrink-0"
             >
               <input
                 type="text"

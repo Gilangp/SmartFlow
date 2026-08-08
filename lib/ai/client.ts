@@ -55,8 +55,8 @@ export async function callHuggingFaceRouterAPI(
     clearTimeout(timer);
   }
 
-  // Automatic token rotation fallback if primary encounters rate limit (429) or auth error (401)
-  if (!response.ok && (response.status === 429 || response.status === 401)) {
+  // Automatic token rotation fallback if primary encounters rate limit (429), auth error (401), or credit depleted (402)
+  if (!response.ok && (response.status === 429 || response.status === 401 || response.status === 402)) {
     const backupTokenObj = getHFToken(!options.useSecondaryToken);
     if (backupTokenObj.token !== token) {
       console.warn(`[AI Gateway Router] Token ${label} limit/error (${response.status}). Rotating to token ${backupTokenObj.label}...`);

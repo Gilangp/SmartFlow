@@ -6,7 +6,7 @@ import { prisma } from '@/lib/db';
 import { getUserSubscription } from '@/lib/subscription';
 import { callHuggingFace, callHuggingFaceVision, extractJsonFromHfOutput } from '@/lib/huggingface';
 import { routeAICall } from '@/lib/ai/router';
-import { buildScanReceiptPrompt } from '@/lib/ai/prompts';
+import { buildScanReceiptPrompt, buildScanReceiptVisionPrompt } from '@/lib/ai/prompts';
 
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
@@ -217,48 +217,7 @@ export async function POST(request: NextRequest) {
     if (!parsed) {
       console.log('[SCAN] Tidak ada raw text dari OCR. Menggunakan Vision fallback...');
 
-      const visionPrompt = `
-[ROLE]
-Receipt Data Extraction Specialist for Finto.
-
-[OBJECTIVE]
-Mengekstrak data transaksi terstruktur (JSON) dari gambar struk belanja Indonesia.
-
-[CONTEXT]
-Daftar Kategori User yang Tersedia untuk dipilih: [${categoryNamesList}]
-
-[INSTRUCTIONS]
-1. Baca gambar struk/kwitansi.
-2. Identifikasi nama merchant, total bayar akhir (setelah diskon/pajak), tanggal (YYYY-MM-DD), daftar item belanjaan.
-3. Pilih kategori paling relevan dari daftar di CONTEXT. Prioritaskan kategori NEED untuk belanja pokok dan WANT untuk lifestyle/jajan.
-4. Tentukan level confidence: HIGH (struk jelas), MEDIUM (agak buram), LOW (tidak yakin/buram).
-
-[INPUT]
-Gambar struk/kwitansi belanja.
-
-[TASK]
-Lakukan ekstraksi data dari gambar struk di atas.
-
-[OUTPUT FORMAT]
-Kembalikan HANYA JSON valid tanpa teks lain:
-{
-  "merchant": "Nama toko/restoran",
-  "totalAmount": 0,
-  "date": "YYYY-MM-DD atau null",
-  "items": [{ "name": "nama item", "price": 0, "qty": 1 }],
-  "category": "Nama Kategori Terpilih",
-  "confidence": "HIGH/MEDIUM/LOW"
-}
-
-[CONSTRAINTS]
-- DILARANG mengarang data yang tidak ada di gambar. Gunakan null jika tidak pasti.
-- DILARANG menyertakan markdown (\`\`\`json) atau teks penjelasan di luar JSON.
-
-[VALIDATION RULES]
-- Output HARUS berupa JSON valid.
-- totalAmount HARUS berupa integer tanpa titik/koma.
-- Field merchant, totalAmount, category, dan confidence wajib terisi.
-`.trim();
+      const visionPrompt = buildScanReceiptVisionPrompt({ categoryNamesList });
 
       // ── 6a. GEMINI VISION ───────────────────────────────────────────────────
       try {

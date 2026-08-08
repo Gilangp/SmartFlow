@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyToken, extractTokenFromHeader } from '@/lib/auth';
 import { prisma } from '@/lib/db';
+import { getUserSubscription } from '@/lib/subscription';
 
 export const dynamic = 'force-dynamic';
 
@@ -31,6 +32,42 @@ export async function POST(request: NextRequest) {
         { success: false, message: 'Invalid token' },
         { status: 401 }
       );
+    }
+
+    // 🔒 Pengecekan Batas Subskripsi User
+    const sub = await getUserSubscription(decoded.userId);
+
+    if (sub.isExpired && sub.plan === 'TRIAL') {
+      return NextResponse.json(
+        {
+          success: false,
+          message: 'Masa Trial Anda telah habis. Silakan verifikasi KTM (Student Gratis) atau upgrade ke Premium untuk menambah transaksi baru.',
+        },
+        { status: 403 }
+      );
+    }
+
+    if (sub.limits.maxTransactionsPerMonth !== null) {
+      const startOfMonth = new Date();
+      startOfMonth.setDate(1);
+      startOfMonth.setHours(0, 0, 0, 0);
+
+      const monthlyCount = await prisma.transaction.count({
+        where: {
+          userId: decoded.userId,
+          createdAt: { gte: startOfMonth },
+        },
+      });
+
+      if (monthlyCount >= sub.limits.maxTransactionsPerMonth) {
+        return NextResponse.json(
+          {
+            success: false,
+            message: `Batas kuota transaksi bulanan (${sub.limits.maxTransactionsPerMonth} transaksi) paket ${sub.plan} telah tercapai. Upgrade ke Premium untuk transaksi tanpa batas.`,
+          },
+          { status: 403 }
+        );
+      }
     }
 
     const body: CreateTransactionRequest = await request.json();

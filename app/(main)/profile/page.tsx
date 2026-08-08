@@ -270,7 +270,11 @@ export default function ProfilePage() {
                     {sub.plan} PLAN
                   </p>
                   <p className="text-[10px] text-gray-600 dark:text-gray-400">
-                    {sub.plan === 'TRIAL' ? `Sisa ${sub.daysLeft} hari` : 'Aktif selamanya'}
+                    {sub.plan === 'TRIAL'
+                      ? (sub.daysLeft !== null && sub.daysLeft !== undefined ? `Sisa ${sub.daysLeft} hari` : 'Trial Habis')
+                      : sub.plan === 'PREMIUM'
+                      ? (sub.daysLeft !== null && sub.daysLeft !== undefined ? `Sisa ${sub.daysLeft} hari` : 'Paket Aktif')
+                      : 'Aktif selamanya'}
                   </p>
                 </div>
               </div>

@@ -5,6 +5,7 @@ import { TransactionRecord } from '@/types';
 import { PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend } from 'recharts';
 import { Lock, Sparkles } from 'lucide-react';
 import { useRouter } from 'next/navigation';
+import ReactMarkdown from 'react-markdown';
 
 interface AnalyticsViewProps {
   transactions: TransactionRecord[];
@@ -15,11 +16,13 @@ interface AnalyticsViewProps {
 const COLORS = ['#6366f1', '#ec4899', '#14b8a6', '#f59e0b', '#8b5cf6', '#ef4444', '#f97316'];
 
 function formatCurrency(amount: number): string {
-  if (amount >= 1000000) return `Rp ${(amount / 1000000).toFixed(1)}jt`;
-  if (amount >= 1000) return `Rp ${(amount / 1000).toFixed(0)}rb`;
-  return `Rp ${amount.toLocaleString('id-ID')}`;
+  if (isNaN(amount) || amount === null || amount === undefined) return 'Rp 0';
+  const hasFraction = amount % 1 !== 0;
+  return `Rp ${amount.toLocaleString('id-ID', {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: hasFraction ? 2 : 0,
+  })}`;
 }
-
 
 export default function AnalyticsView({ transactions, canUseAnalytics, checkingSub }: AnalyticsViewProps) {
   const router = useRouter();
@@ -237,7 +240,14 @@ export default function AnalyticsView({ transactions, canUseAnalytics, checkingS
             aiSummary.map((point, idx) => (
               <li key={idx} className="flex gap-2 items-start text-sm text-gray-700 dark:text-gray-300 leading-relaxed animate-fadeIn">
                 <span className="text-indigo-500 mt-0.5 font-bold">•</span>
-                <span>{point}</span>
+                <ReactMarkdown
+                  components={{
+                    p: ({ children }) => <span>{children}</span>,
+                    strong: ({ children }) => <strong className="font-bold text-indigo-950 dark:text-indigo-100">{children}</strong>,
+                  }}
+                >
+                  {point}
+                </ReactMarkdown>
               </li>
             ))
           ) : (
@@ -321,7 +331,7 @@ export default function AnalyticsView({ transactions, canUseAnalytics, checkingS
               <BarChart data={barData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={isDark ? '#4b5563' : '#374151'} opacity={0.15} />
                 <XAxis dataKey="date" tick={{ fontSize: 10, fill: isDark ? '#9ca3af' : '#6b7280' }} axisLine={false} tickLine={false} dy={10} />
-                <YAxis tickFormatter={(val) => `Rp${val/1000}k`} tick={{ fontSize: 10, fill: isDark ? '#9ca3af' : '#6b7280' }} axisLine={false} tickLine={false} />
+                <YAxis tickFormatter={(val) => `Rp ${Number(val).toLocaleString('id-ID')}`} tick={{ fontSize: 10, fill: isDark ? '#9ca3af' : '#6b7280' }} axisLine={false} tickLine={false} />
                 <Tooltip 
                   formatter={(value: any) => formatCurrency(value)}
                   cursor={{ fill: isDark ? '#374151' : '#f3f4f6', opacity: 0.1 }}
@@ -444,7 +454,7 @@ export default function AnalyticsView({ transactions, canUseAnalytics, checkingS
                     axisLine={false} 
                     tickLine={false} 
                     tick={{ fontSize: 11, fill: isDark ? '#9ca3af' : '#6b7280' }}
-                    tickFormatter={(value) => `Rp ${value / 1000000}jt`}
+                    tickFormatter={(value) => `Rp ${Number(value).toLocaleString('id-ID')}`}
                     width={50}
                   />
                   <Tooltip 

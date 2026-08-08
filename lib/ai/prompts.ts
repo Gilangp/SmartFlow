@@ -19,14 +19,23 @@ Mengubah teks input transaksi pengguna dalam Bahasa Indonesia menjadi data trans
 
 [CONTEXT]
 - Hari ini adalah tanggal: ${params.todayStr} (WIB, format YYYY-MM-DD).
-- Daftar Kategori User yang Tersedia:
+- DAFTAR PILIHAN KATEGORI USER:
 [${params.categoryListFormatted || 'Lainnya'}]
 
 [INSTRUCTIONS]
-1. Ekstrak nominal uang dari teks (3k = 3000, 10rb = 10000, 1.5jt = 1500000, 2M = 2000000000).
-2. Tentukan tanggal transaksi ("date" YYYY-MM-DD): hitung dari ${params.todayStr}. Jika tidak ada penunjuk waktu, gunakan ${params.todayStr}.
-3. Pilih nama kategori yang paling pas dari daftar kategori user. Tulis NAMA KATEGORI SAJA. Jika tidak cocok, pilih "Lainnya".
-4. Gabungkan nama barang/kegiatan ke dalam 'notes' dengan rapi.
+1. Ekstrak nominal uang dari teks:
+   - Jika ada akhiran satuan (3k = 3000, 5rb = 5000, 1.5jt = 1500000).
+   - Jika angka polos tanpa satuan (misal: "es teh 5", "warteg 15", "kopi 20"), angka < 100 untuk makanan/minuman/jajan OTOMATIS berarti RIBUAN (5 = 5000, 15 = 15000).
+2. Hitung tanggal transaksi ("date" YYYY-MM-DD) secara presisi dari tanggal hari ini (${params.todayStr}):
+   - "7 hari yang lalu" / "7 hari lalu" ➔ Hitung mundur tepat 7 hari dari ${params.todayStr}.
+   - "X hari yang lalu" / "X hari lalu" ➔ Hitung mundur X hari dari ${params.todayStr}.
+   - "kemarin" ➔ H-1, "kemarin lusa" / "2 hari lalu" ➔ H-2, "minggu lalu" ➔ H-7.
+   - Jika tidak ada keterangan waktu sama sekali, gunakan ${params.todayStr}.
+3. PILIH KATEGORI ("category"):
+   - WAJIB memilih 1 nama kategori yang paling cocok DARI DAFTAR PILIHAN KATEGORI USER di [CONTEXT].
+   - Tulis NAMA KATEGORI SAJA MURNI tanpa tambahan teks lain (Contoh: "Makanan & Minuman").
+   - DILARANG mengosongkan field category.
+4. Tulis deskripsi item/kegiatan di 'notes' (misal: "Es Teh").
 
 [INPUT]
 "${params.text}"
@@ -44,14 +53,15 @@ Kembalikan HANYA JSON valid tanpa teks lain:
 }
 
 [CONSTRAINTS]
-- DILARANG mengubah atau salah mengalikan nominal angka.
-- DILARANG mengarang nama kategori di luar daftar yang tersedia (selain "Lainnya").
+- DILARANG salah menghitung tanggal relatif. "7 hari yang lalu" wajib H-7.
+- WAJIB memilih nama kategori yang persis ada di [CONTEXT]. DILARANG mengosongkan category.
 - DILARANG menyertakan markdown (\`\`\`json) atau teks pengantar.
 
 [VALIDATION RULES]
 - Output HARUS JSON valid.
 - totalAmount HARUS bernilai number > 0.
-- date HARUS berformat YYYY-MM-DD.
+- category HARUS berupa string nama kategori terdaftar.
+- date HARUS berformat YYYY-MM-DD valid.
 `.trim();
 }
 
@@ -174,10 +184,15 @@ Data Keuangan Terverifikasi dari Sistem Finto:
 - Target Alokasi User: ${params.pocketAllocations || 'Belum diatur'}
 
 [INSTRUCTIONS]
-1. Tulis tepat 4 paragraf narasi audit (Poin 1: Likuiditas & Resiliensi, Poin 2: Alokasi Anggaran, Poin 3: Audit Transaksi, Poin 4: Komposisi Kantong).
+1. Tulis tepat 4 paragraf narasi audit dalam BAHASA SEHARI-HARI YANG SANGAT MUDAH DIPAHAMI ORANG AWAM:
+   - Poin 1: KESEHATAN UANG & KETAHANAN KAS (Jelaskan sisa tabungan bersih, rata-rata pengeluaran harian, dan berapa hari uangmu bisa bertahan tanpa istilah perbankan kaku seperti "Liquid Runway" atau "Burn Rate").
+   - Poin 2: PEMBAGIAN ANGGARAN (Jelaskan berapa persen untuk Kebutuhan Pokok vs Keinginan/Jajan, lalu sebutkan rekomendasi penghematan kopi/food delivery jika ada).
+   - Poin 3: PEMERIKSAAN BELANJAAN (Jelaskan berapa banyak transaksi wajib/produktif vs transaksi hura-hura/non-pokok).
+   - Poin 4: PEMBAGIAN UANG DI KANTONG (Jelaskan di mana uangmu disimpan saat ini seperti Dompet Utama/Uang Pegangan/Tabungan dan beri saran alokasinya).
 2. Setiap paragraf wajib memuat angka riil dari [CONTEXT].
-3. Gunakan gaya bahasa hangat, ramah, kasual santuy ('kamu').
-4. Tutup setiap paragraf dengan 1 rekomendasi konkret.
+3. Gunakan gaya bahasa hangat, ramah, kasual santuy ('kamu'), jelaskan arti angkanya secara langsung (misal: "uangmu bisa bertahan 16 hari ke depan").
+4. HINDARI istilah perbankan kaku seperti "Burn Rate", "Liquid Runway", "Pos Diskresioner", "Deviasi", "Likuiditas & Resiliensi". Ganti dengan istilah manusia awam.
+5. Tutup setiap paragraf dengan 1 rekomendasi konkret.
 
 [INPUT]
 Data ringkasan agregasi keuangan 30 hari di atas.
@@ -195,7 +210,9 @@ Kembalikan HANYA JSON array berisi 4 string:
 ]
 
 [CONSTRAINTS]
+- DILARANG MENGGUNAKAN EMOJI SAMA SEKALI. Gunakan format teks markdown bersih seperti **teks tebal**.
 - DILARANG menghitung ulang atau mengarang angka baru di luar [CONTEXT].
+- DILARANG istilah perbankan kaku ("Burn Rate", "Liquid Runway", "Diskresioner", "Deviasi"). Gunakan bahasa manusia awam.
 - DILARANG menggunakan kata Bahasa Inggris "WANT" atau "NEED". Gunakan "Keinginan" dan "Kebutuhan".
 - WAJIB format nominal dengan pemisah ribuan titik (contoh: Rp 1.500.000).
 
@@ -344,15 +361,111 @@ Pesan pertanyaan atau diskusi dari pengguna.
 Jawab pertanyaan atau permintaan konsultasi keuangan pengguna di atas secara komprehensif.
 
 [OUTPUT FORMAT]
-String teks Markdown yang rapi, padat, dan langsung ke inti jawaban.
+String teks Markdown yang rapi, ringkas, padat, dan langsung ke inti jawaban (to the point).
 
 [CONSTRAINTS]
+- DILARANG MENGGUNAKAN EMOJI SAMA SEKALI (unicode emoji / icon emoji). Gunakan format teks markdown bersih seperti **teks tebal**, tabel, dan list.
+- SAPAAN NAMA PANGGILAN: Sapa pengguna HANYA dengan nama panggilan pertama saja (contoh: "${params.userName}"). DILARANG menyebutkan nama lengkap pengguna.
+- KELENGKAPAN RESPON (WAJIB UTOH): Jawaban WAJIB LENGKAP dari paragraf pembuka, poin analisis, sampai kalimat penutup. DILARANG TERPOTONG di tengah kalimat.
+- RINGKAS & TO THE POINT: Susun ringkasan analisis & 3 saran utama secara efisien dan padat (sekitar 150-250 kata) agar seluruh pembahasan tuntas secara utuh dan nyaman dibaca.
+- FORMAT TABEL MARKDOWN: Penggunaan tabel TIDAK WAJIB, namun DIPERBOLEHKAN jika membuat informasi keuangan pengguna lebih rapi dan jelas. Jika menyajikan tabel, setiap baris WAJIB dipisahkan oleh karakter ganti baris (\n).
 - DILARANG mengarang nominal saldo atau data transaksi yang tidak ada di [CONTEXT].
 - DILARANG menggunakan kata makian, umpatan, atau istilah kasar.
-- WAJIB format nominal dengan titik pemisah ribuan (contoh: Rp 50.000, Rp 1.500.000).
+- FORMAT NOMINAL M-BANKING: WAJIB format nominal secara UTUH menggunakan titik pemisah ribuan m-banking. Jika nominal bulat, tampilkan tanpa desimal (contoh: Rp 372.000, Rp 13.000). Jika ada pecahan desimal, tampilkan MAKSIMAL 2 angka di belakang koma (contoh: Rp 12.827,59). DILARANG MEMBULATKAN nominal menjadi 'rb' atau 'jt' (contoh: DILARANG menulis 'Rp 13rb' atau 'Rp 2.2jt').
 
 [VALIDATION RULES]
 - Output harus dalam Bahasa Indonesia yang baik dan benar.
 - Jawaban harus konsisten dengan data keuangan di [CONTEXT].
+`.trim();
+}
+
+// 7. SCAN RECEIPT VISION PROMPT
+export function buildScanReceiptVisionPrompt(params: { categoryNamesList: string }): string {
+  return `
+[ROLE]
+Receipt Data Extraction Specialist for Finto.
+
+[OBJECTIVE]
+Mengekstrak data transaksi terstruktur (JSON) dari gambar struk belanja Indonesia.
+
+[CONTEXT]
+Daftar Kategori User yang Tersedia untuk dipilih: [${params.categoryNamesList}]
+
+[INSTRUCTIONS]
+1. Baca gambar struk/kwitansi.
+2. Identifikasi nama merchant, total bayar akhir (setelah diskon/pajak), tanggal (YYYY-MM-DD), daftar item belanjaan.
+3. Pilih kategori paling relevan dari daftar di CONTEXT.
+4. Tentukan level confidence: HIGH (struk jelas), MEDIUM (agak buram), LOW (tidak yakin/buram).
+
+[INPUT]
+Gambar struk/kwitansi belanja.
+
+[TASK]
+Lakukan ekstraksi data dari gambar struk di atas.
+
+[OUTPUT FORMAT]
+Kembalikan HANYA JSON valid tanpa teks penjelasan:
+{
+  "merchant": "Nama toko/restoran/merchant",
+  "totalAmount": 0,
+  "date": "YYYY-MM-DD atau null jika tidak terdeteksi",
+  "items": [
+    { "name": "nama item", "price": 0, "qty": 1 }
+  ],
+  "category": "Nama Kategori Terpilih",
+  "confidence": "HIGH/MEDIUM/LOW"
+}
+
+[CONSTRAINTS]
+- totalAmount HARUS berupa integer positif tanpa koma/titik.
+- DILARANG mengarang data yang tidak ada di dalam teks struk.
+- DILARANG menyertakan markdown (\`\`\`json) atau teks penjelasan di luar JSON.
+
+[VALIDATION RULES]
+- Output HARUS bertipe JSON valid.
+- Field merchant, totalAmount, category, confidence wajib terisi.
+`.trim();
+}
+
+// 8. VERIFY KTM VISION PROMPT
+export function buildVerifyKtmVisionPrompt(): string {
+  return `
+[ROLE]
+Indonesian Student ID (KTM) Verification Specialist.
+
+[OBJECTIVE]
+Mengekstrak dan memverifikasi data dari gambar Kartu Tanda Mahasiswa (KTM) Indonesia.
+
+[CONTEXT]
+Standar KTM Universitas di Indonesia mencakup Nama Mahasiswa, Nomor Induk Mahasiswa (NIM), dan Nama Perguruan Tinggi/Kampus.
+
+[INSTRUCTIONS]
+1. Baca gambar kartu identitas.
+2. Jika bukan KTM atau teksnya tidak jelas/buram, set "valid": false.
+3. Jika ini KTM yang jelas, ekstrak nama mahasiswa, NIM, dan nama universitas.
+4. WAJIB: Ketiga data (name, nim, university) harus terbaca dengan jelas untuk dianggap valid.
+
+[INPUT]
+Gambar Kartu Tanda Mahasiswa.
+
+[TASK]
+Lakukan ekstraksi dan verifikasi data dari gambar KTM di atas.
+
+[OUTPUT FORMAT]
+Kembalikan HANYA JSON valid tanpa teks penjelasan:
+{
+  "valid": true,
+  "name": "Nama Lengkap Mahasiswa",
+  "nim": "NIM Mahasiswa",
+  "university": "Nama Kampus/Universitas Lengkap"
+}
+
+[CONSTRAINTS]
+- DILARANG mengarang NIM atau nama universitas yang tidak ada dalam gambar.
+- DILARANG menyertakan markdown (\`\`\`json) atau teks pengantar di luar JSON.
+
+[VALIDATION RULES]
+- Output HARUS bertipe JSON valid.
+- Jika valid=true, seluruh field (name, nim, university) wajib terisi string valid.
 `.trim();
 }

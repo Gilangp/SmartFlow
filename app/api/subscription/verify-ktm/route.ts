@@ -4,6 +4,7 @@ import { GoogleGenerativeAI } from '@google/generative-ai';
 import OpenAI from 'openai';
 import { prisma } from '@/lib/db';
 import { callHuggingFace, callHuggingFaceVision, extractJsonFromHfOutput } from '@/lib/huggingface';
+import { buildVerifyKtmPrompt, buildVerifyKtmVisionPrompt } from '@/lib/ai/prompts';
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY || '' });
@@ -111,20 +112,7 @@ export async function POST(request: NextRequest) {
     // ── 3. TAHAP 2: AI TEXT PARSING (jika OCR dapat raw text tapi regex gagal) ──
     // Hemat: kirim teks biasa, bukan gambar
     if (!isOcrSuccessful && rawText.trim().length > 20) {
-      const textPrompt = `
-Kamu adalah sistem pendeteksi KTM (Kartu Tanda Mahasiswa) Indonesia.
-Analisis teks berikut yang merupakan hasil OCR dari sebuah KTM.
-Ekstrak: Nama Mahasiswa, NIM (Nomor Induk Mahasiswa), dan Nama Universitas/Kampus.
-Ketiga field harus berhasil diekstrak. Jika salah satu tidak ditemukan, kembalikan valid=false.
-
-Teks OCR KTM:
-"""
-${rawText}
-"""
-
-Kembalikan HANYA JSON tanpa teks lain:
-{ "valid": true, "name": "Nama Lengkap Mahasiswa", "nim": "NIM-nya", "university": "Nama Kampus Lengkap" }
-      `.trim();
+      const textPrompt = buildVerifyKtmPrompt({ rawText });
 
       // ── 3a. GEMINI TEXT ───────────────────────────────────────────────────
       try {
@@ -206,14 +194,7 @@ Kembalikan HANYA JSON tanpa teks lain:
     if (!isOcrSuccessful) {
       console.log('[KTM] Tidak ada raw text memadai, beralih ke Vision Fallback...');
 
-      const visionPrompt = `
-Kamu adalah sistem pendeteksi Kartu Tanda Mahasiswa (KTM) Indonesia.
-Baca kartu identitas dari gambar ini. Jika gambar ini bukan KTM atau teksnya tidak jelas, kembalikan valid=false.
-Jika ini KTM yang jelas, ekstrak nama mahasiswa, NIM, dan nama Universitas/Kampus/Politeknik/Institut.
-WAJIB: Ketiganya (name, nim, university) harus terbaca dengan jelas.
-Kembalikan HANYA JSON ini tanpa teks lain:
-{ "valid": true, "name": "Nama Lengkap", "nim": "12345678", "university": "Nama Kampus" }
-      `.trim();
+      const visionPrompt = buildVerifyKtmVisionPrompt();
 
       let parsed: any = null;
 

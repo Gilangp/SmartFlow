@@ -12,7 +12,7 @@ export async function executeTextModel(
 ): Promise<AIResponse> {
   const model = AI_MODELS.TEXT;
   const temperature = options.temperature ?? 0.5;
-  const max_tokens = options.maxTokens ?? 1024;
+  const max_tokens = options.maxTokens ?? 3000;
 
   // Format messages to standard OpenAI array format
   const chatMessages: Array<{ role: string; content: string }> = [];
@@ -25,6 +25,69 @@ export async function executeTextModel(
       role: msg.role,
       content: textContent,
     });
+  }
+
+  // 0. Try 9Router (Local OpenAI Gateway Proxy) if NINE_ROUTER_API_KEY / LOCAL_AI_API_KEY is defined
+  const nineRouterKey = process.env.NINE_ROUTER_API_KEY || process.env.LOCAL_AI_API_KEY;
+  const nineRouterUrl = process.env.NINE_ROUTER_BASE_URL || 'http://localhost:20128/v1';
+
+  if (nineRouterKey) {
+    try {
+      const endpoint = `${nineRouterUrl.replace(/\/+$/, '')}/chat/completions`;
+      const nrRes = await fetch(endpoint, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${nineRouterKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: process.env.NINE_ROUTER_MODEL || 'gpt-3.5-turbo',
+          messages: chatMessages,
+          temperature,
+          max_tokens,
+          max_completion_tokens: max_tokens,
+          stream: false,
+        }),
+      });
+
+      if (nrRes.ok) {
+        const rawText = await nrRes.text();
+        let text = '';
+
+        try {
+          const nrData = JSON.parse(rawText);
+          text = nrData.choices?.[0]?.message?.content || '';
+        } catch {
+          // Robust SSE stream parser jika 9Router mengirimkan response format streaming (data: ...)
+          const lines = rawText.split('\n');
+          for (const line of lines) {
+            const trimmed = line.trim();
+            if (trimmed.startsWith('data:') && !trimmed.includes('[DONE]')) {
+              try {
+                const jsonStr = trimmed.replace(/^data:\s*/, '');
+                const parsed = JSON.parse(jsonStr);
+                const chunkContent = parsed.choices?.[0]?.delta?.content || parsed.choices?.[0]?.message?.content;
+                if (chunkContent) text += chunkContent;
+              } catch {
+                // Ignore malformed SSE line
+              }
+            }
+          }
+        }
+
+        if (text) {
+          console.log('[AI Gateway Provider] ✅ Berhasil via 9Router (Local Gateway).');
+          return {
+            success: true,
+            content: text.trim(),
+            modelUsed: '9router-local',
+            tokenUsed: 'PRIMARY',
+          };
+        }
+      }
+    } catch (nrErr: any) {
+      console.warn('[AI Gateway Provider] 9Router Local Gateway error:', nrErr.message);
+    }
   }
 
   // 1. Try Primary Model (zai-org/GLM-5.2) via HF Router API
@@ -137,7 +200,7 @@ export async function executeVisionModel(
 
   try {
     const { data, tokenLabel } = await callHuggingFaceAPI(model, payload, true); // Vision defaults to secondary token
-    
+
     let resultText = '';
     if (Array.isArray(data) && data[0]?.generated_text) {
       resultText = data[0].generated_text;
