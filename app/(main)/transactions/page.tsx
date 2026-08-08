@@ -1,22 +1,21 @@
 // app/transactions/page.tsx
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import AddExpenseModal from '@/components/AddExpenseModal';
 import AddIncomeModal from '@/components/AddIncomeModal';
 import ScanReceiptModal from '@/components/ScanReceiptModal';
 import TransactionDetailModal from '@/components/TransactionDetailModal';
+import CalendarRangePicker from '@/components/CalendarRangePicker';
 import { showInterstitial } from '@/lib/admob';
 import { TransactionRecord } from '@/types';
-import { ScanLine, Lock, Download, TrendingDown, TrendingUp, HelpCircle } from 'lucide-react';
+import { ScanLine, Lock, Download, TrendingDown, TrendingUp, HelpCircle, Calendar, Filter, ChevronDown } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { driver } from 'driver.js';
 import 'driver.js/dist/driver.css';
 
 import AnalyticsView from '@/components/AnalyticsView';
-
-
 
 function formatCurrency(amount: number): string {
   if (isNaN(amount) || amount === null || amount === undefined) return 'Rp 0';
@@ -43,6 +42,31 @@ export default function TransactionsPage() {
   const [checkingSub, setCheckingSub] = useState(true);
   const [viewMode, setViewMode] = useState<'list' | 'analytics'>('list');
   const [selectedTx, setSelectedTx] = useState<TransactionRecord | null>(null);
+
+  // Real M-Banking Period Filter States
+  const [periodPreset, setPeriodPreset] = useState<'TODAY' | 'LAST_7_DAYS' | 'THIS_MONTH' | 'BY_MONTH' | 'DATE_RANGE' | 'ALL'>('THIS_MONTH');
+  const [selectedMonth, setSelectedMonth] = useState<string>(''); // e.g. '2026-08'
+  const [startDate, setStartDate] = useState<string>(''); // YYYY-MM-DD
+  const [endDate, setEndDate] = useState<string>(''); // YYYY-MM-DD
+
+  // Derive unique months available in transactions
+  const availableMonths = useMemo(() => {
+    const monthsSet = new Set<string>();
+    const nowStr = new Date().toISOString().slice(0, 7);
+    monthsSet.add(nowStr);
+    transactions.forEach((tx) => {
+      if (tx.date && tx.date.length >= 7) {
+        monthsSet.add(tx.date.slice(0, 7));
+      }
+    });
+    return Array.from(monthsSet).sort((a, b) => b.localeCompare(a));
+  }, [transactions]);
+
+  useEffect(() => {
+    if (availableMonths.length > 0 && !selectedMonth) {
+      setSelectedMonth(availableMonths[0]);
+    }
+  }, [availableMonths, selectedMonth]);
 
   const runTransactionsTour = useCallback(() => {
     setViewMode('list');
@@ -141,7 +165,7 @@ export default function TransactionsPage() {
             setCanExportExcel(data.data.limits.canExportExcel);
           }
         })
-        .catch(() => {})
+        .catch(() => { })
         .finally(() => setCheckingSub(false));
     } else {
       setCheckingSub(false);
@@ -157,7 +181,7 @@ export default function TransactionsPage() {
         const res = await fetch('/api/auth/me', { headers: { Authorization: `Bearer ${token}` } });
         const profileData = await res.json();
         if (profileData.success && profileData.data.paydayDate) setPaydayDate(profileData.data.paydayDate);
-      } catch {}
+      } catch { }
     };
     fetchProfile();
   }, [getToken]);
@@ -183,19 +207,19 @@ export default function TransactionsPage() {
       router.push('/upgrade');
       return;
     }
-    
+
     try {
       const toastId = toast.loading('Sedang menyiapkan file CSV...');
       const res = await fetch('/api/transactions/export', {
         headers: { Authorization: `Bearer ${token}` }
       });
-      
+
       if (!res.ok) {
         toast.dismiss(toastId);
         toast.error('Gagal mengekspor data');
         return;
       }
-      
+
       const blob = await res.blob();
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
@@ -213,9 +237,38 @@ export default function TransactionsPage() {
   };
 
   const filtered = transactions.filter((tx) => {
-    if (!searchQuery) return true;
-    const q = searchQuery.toLowerCase();
-    return (tx.category?.toLowerCase().includes(q) || tx.pocket.toLowerCase().includes(q) || tx.notes?.toLowerCase().includes(q));
+    // Type Filter
+    if (filter !== 'ALL' && tx.type !== filter) return false;
+
+    // Search Query Filter
+    if (searchQuery) {
+      const q = searchQuery.toLowerCase();
+      const match = (tx.category?.toLowerCase().includes(q) || tx.pocket.toLowerCase().includes(q) || tx.notes?.toLowerCase().includes(q));
+      if (!match) return false;
+    }
+
+    // Real M-Banking Period Filter
+    const txDateStr = tx.date; // YYYY-MM-DD
+    const today = new Date();
+    const todayStr = today.toISOString().slice(0, 10);
+    const currentMonthStr = today.toISOString().slice(0, 7);
+
+    if (periodPreset === 'TODAY') {
+      if (txDateStr !== todayStr) return false;
+    } else if (periodPreset === 'LAST_7_DAYS') {
+      const txTime = new Date(txDateStr).getTime();
+      const sevenDaysAgo = today.getTime() - 7 * 24 * 60 * 60 * 1000;
+      if (txTime < sevenDaysAgo || txTime > today.getTime() + 86400000) return false;
+    } else if (periodPreset === 'THIS_MONTH') {
+      if (!txDateStr.startsWith(currentMonthStr)) return false;
+    } else if (periodPreset === 'BY_MONTH') {
+      if (selectedMonth && !txDateStr.startsWith(selectedMonth)) return false;
+    } else if (periodPreset === 'DATE_RANGE') {
+      if (startDate && txDateStr < startDate) return false;
+      if (endDate && txDateStr > endDate) return false;
+    }
+
+    return true;
   });
 
   const grouped = filtered.reduce((acc, tx) => {
@@ -237,13 +290,13 @@ export default function TransactionsPage() {
         <div className="max-w-7xl mx-auto px-5 py-4">
           <div className="flex items-center justify-between mb-4">
             <div id="tour-tx-tabs" className="bg-gray-100 dark:bg-gray-800 p-1 rounded-xl inline-flex">
-              <button 
+              <button
                 onClick={() => setViewMode('list')}
                 className={`px-4 py-1.5 rounded-lg text-sm font-medium transition ${viewMode === 'list' ? 'bg-white dark:bg-gray-700 shadow-sm text-gray-900 dark:text-white' : 'text-gray-500 hover:text-gray-700 dark:text-gray-400'}`}
               >
                 Daftar
               </button>
-              <button 
+              <button
                 onClick={() => setViewMode('analytics')}
                 className={`px-4 py-1.5 rounded-lg text-sm font-medium transition flex items-center gap-1.5 ${viewMode === 'analytics' ? 'bg-white dark:bg-gray-700 shadow-sm text-gray-900 dark:text-white' : 'text-gray-500 hover:text-gray-700 dark:text-gray-400'}`}
               >
@@ -252,15 +305,14 @@ export default function TransactionsPage() {
               </button>
             </div>
             <div className="flex items-center gap-2">
-              <button 
+              <button
                 id="tour-tx-export"
                 onClick={handleExport}
                 disabled={checkingSub}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition ${
-                  canExportExcel 
-                    ? 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100 dark:bg-emerald-900/30 dark:text-emerald-400 dark:hover:bg-emerald-900/50' 
-                    : 'bg-gray-100 text-gray-500 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-400'
-                }`}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition ${canExportExcel
+                  ? 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100 dark:bg-emerald-900/30 dark:text-emerald-400 dark:hover:bg-emerald-900/50'
+                  : 'bg-gray-100 text-gray-500 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-400'
+                  }`}
               >
                 {!canExportExcel && !checkingSub ? <Lock className="w-3.5 h-3.5" /> : <Download className="w-3.5 h-3.5" />}
                 <span className="hidden sm:inline">Export CSV</span>
@@ -292,97 +344,159 @@ export default function TransactionsPage() {
       <main className="max-w-7xl mx-auto px-5 py-6">
         {/* View Mode Content */}
         {viewMode === 'analytics' ? (
-          <AnalyticsView 
-            transactions={transactions} 
+          <AnalyticsView
+            transactions={transactions}
             canUseAnalytics={canExportExcel} // we use canExportExcel as proxy for Premium plan limit
             checkingSub={checkingSub}
           />
         ) : (
           <>
-            {/* Summary Cards */}
+            {/* Summary Cards & Integrated Action Buttons */}
             <div className="grid grid-cols-2 gap-3 mb-5">
-              <div className="bg-white dark:bg-gray-900 rounded-xl p-4 border border-gray-200 dark:border-gray-800 min-w-0">
-                <p className="text-xs text-gray-500 mb-1">Pemasukan</p>
-                <p className="text-base sm:text-lg font-bold text-emerald-600 dark:text-emerald-400 truncate">{formatCurrency(totalIncome)}</p>
-              </div>
-              <div className="bg-white dark:bg-gray-900 rounded-xl p-4 border border-gray-200 dark:border-gray-800 min-w-0">
-                <p className="text-xs text-gray-500 mb-1">Pengeluaran</p>
-                <p className="text-base sm:text-lg font-bold text-rose-600 dark:text-rose-400 truncate">{formatCurrency(totalExpense)}</p>
-              </div>
-            </div>
-
-            {/* Filter Tabs */}
-            <div className="flex gap-2 overflow-x-auto pb-5 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
-              {[
-                { value: 'ALL', label: 'Semua' },
-                { value: 'EXPENSE', label: 'Pengeluaran' },
-                { value: 'INCOME_ROUTINE', label: 'Gaji / Rutin' },
-                { value: 'INCOME_BONUS', label: 'Bonus' },
-              ].map((f) => (
+              {/* Card Pemasukan */}
+              <div className="bg-white dark:bg-gray-900 rounded-xl p-3.5 border border-gray-200 dark:border-gray-800 flex flex-col justify-between min-w-0 shadow-sm">
+                <div>
+                  <p className="text-[11px] font-semibold text-gray-500 dark:text-gray-400 mb-1">Pemasukan</p>
+                  <p className="text-base sm:text-lg font-bold text-emerald-600 dark:text-emerald-400 truncate">{formatCurrency(totalIncome)}</p>
+                </div>
                 <button
-                  key={f.value}
-                  onClick={() => setFilter(f.value as any)}
-                  className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-all flex-shrink-0 ${
-                    filter === f.value
-                      ? 'bg-indigo-600 text-white'
-                      : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-400 border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700'
-                  }`}
+                  onClick={() => setAddModalType('INCOME_ROUTINE')}
+                  className="mt-3 py-1.5 px-2 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 rounded-lg text-xs font-semibold transition active:scale-[0.98] flex items-center justify-center gap-1"
                 >
-                  {f.label}
+                  <TrendingUp className="w-3.5 h-3.5 text-emerald-500" />
+                  + Pemasukan
                 </button>
-              ))}
+              </div>
+
+              {/* Card Pengeluaran */}
+              <div className="bg-white dark:bg-gray-900 rounded-xl p-3.5 border border-gray-200 dark:border-gray-800 flex flex-col justify-between min-w-0 shadow-sm">
+                <div>
+                  <p className="text-[11px] font-semibold text-gray-500 dark:text-gray-400 mb-1">Pengeluaran</p>
+                  <p className="text-base sm:text-lg font-bold text-rose-600 dark:text-rose-400 truncate">{formatCurrency(totalExpense)}</p>
+                </div>
+                <button
+                  id="tour-tx-add-expense"
+                  onClick={() => setAddModalType('EXPENSE')}
+                  className="mt-3 py-1.5 px-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-semibold transition shadow-sm active:scale-[0.98] flex items-center justify-center gap-1"
+                >
+                  <TrendingDown className="w-3.5 h-3.5" />
+                  + Pengeluaran
+                </button>
+              </div>
             </div>
 
-             {/* Action Buttons */}
-             <div className="grid grid-cols-2 gap-3 mb-4">
-               <button
-                 id="tour-tx-add-expense"
-                 onClick={() => setAddModalType('EXPENSE')}
-                 className="py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-medium text-sm transition shadow-sm shadow-indigo-600/20 active:scale-[0.98] flex items-center justify-center gap-2"
-               >
-                 <TrendingDown className="w-4 h-4" />
-                 Catat Pengeluaran
-               </button>
-               <button
-                 onClick={() => setAddModalType('INCOME_ROUTINE')}
-                 className="py-2.5 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 text-emerald-600 dark:text-emerald-400 rounded-lg font-medium text-sm backdrop-blur-sm transition active:scale-[0.98] flex items-center justify-center gap-2"
-               >
-                 <TrendingUp className="w-4 h-4 text-emerald-500" />
-                 Catat Pemasukan
-               </button>
-             </div>
+            {/* Unified Transaction Filter Card (Periode & Tipe Transaksi) */}
+            <div className="bg-white dark:bg-gray-900 rounded-2xl p-4 border border-gray-200 dark:border-gray-800 shadow-sm mb-5">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-y-4 lg:gap-y-0 divide-y lg:divide-y-0 lg:divide-x divide-gray-100 dark:divide-gray-800/80 items-start">
+                {/* Section 1: Periode Transaksi */}
+                <div className="lg:pr-6">
+                  <div className="flex items-center gap-2 mb-2.5">
+                    <Calendar className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
+                    <span className="text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">Periode Transaksi</span>
+                  </div>
 
-            {/* Scan Struk Button */}
-            <button
-              id="tour-tx-scan-receipt"
-              onClick={() => {
-                if (!canScanReceipt) {
-                  toast.error('Fitur Scan Struk hanya untuk paket Student & Premium. Silakan verifikasi KTM atau upgrade!');
-                  router.push('/upgrade');
-                  return;
-                }
-                setShowScanModal(true);
-              }}
-              disabled={checkingSub}
-              className={`w-full mb-6 py-2.5 flex items-center justify-center gap-2 rounded-lg font-medium text-sm transition active:scale-[0.98] ${
-                !canScanReceipt && !checkingSub
-                  ? 'bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-500 border border-dashed border-gray-300 dark:border-gray-750 cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-700/50'
-                  : 'bg-white dark:bg-gray-900 border border-dashed border-indigo-300 dark:border-indigo-700 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-950/20'
-              }`}
-            >
-              {!canScanReceipt && !checkingSub ? (
-                <span className="flex items-center justify-center gap-2 text-center w-full px-2">
-                  <Lock className="w-4 h-4 flex-shrink-0 text-gray-400" />
-                  <span className="leading-tight">Scan Struk / Kwitansi (Khusus Student & Premium)</span>
-                </span>
-              ) : (
-                <span className="flex items-center justify-center gap-2 text-center w-full px-2">
-                  <ScanLine className="w-4 h-4 flex-shrink-0" />
-                  <span className="leading-tight">Scan Struk / Kwitansi</span>
-                </span>
+                  {/* Periode Preset Chips */}
+                  <div className="flex gap-2 overflow-x-auto pb-1 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] flex-nowrap">
+                    {[
+                      { id: 'TODAY', label: 'Hari Ini' },
+                      { id: 'LAST_7_DAYS', label: '7 Hari Terakhir' },
+                      { id: 'BY_MONTH', label: 'Pilih Bulan' },
+                      { id: 'DATE_RANGE', label: 'Pilih Tanggal' },
+                    ].map((chip) => {
+                      const isActive = periodPreset === chip.id;
+                      return (
+                        <button
+                          key={chip.id}
+                          onClick={() => setPeriodPreset(chip.id as any)}
+                          className={`px-3.5 py-1.5 rounded-lg text-xs font-medium transition-all flex-shrink-0 whitespace-nowrap ${isActive
+                            ? 'bg-indigo-600 text-white shadow-sm font-semibold'
+                            : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700'
+                            }`}
+                        >
+                          {chip.label}
+                        </button>
+                      );
+                    })}
+                  </div>
 
-              )}
-            </button>
+                  {/* Sub-Filters (Only expands when user explicitly clicks 'Pilih Bulan') */}
+                  {periodPreset === 'BY_MONTH' && (
+                    <div className="mt-3 pt-3 border-t border-gray-100 dark:border-gray-800/80">
+                      <div className="bg-gray-50/80 dark:bg-gray-800/50 p-3.5 rounded-xl border border-gray-200/60 dark:border-gray-700/60 flex items-center justify-between gap-3">
+                        <span className="text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider">
+                          Bulan Terpilih:
+                        </span>
+                        <div className="relative flex-1 max-w-[220px]">
+                          <select
+                            value={selectedMonth}
+                            onChange={(e) => {
+                              setSelectedMonth(e.target.value);
+                              setPeriodPreset('BY_MONTH');
+                            }}
+                            className="w-full appearance-none bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white text-xs font-semibold rounded-lg pl-3 pr-8 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 shadow-sm cursor-pointer"
+                          >
+                            {availableMonths.map((m: string) => {
+                              const [year, month] = m.split('-');
+                              const d = new Date(parseInt(year), parseInt(month) - 1, 1);
+                              const monthName = d.toLocaleDateString('id-ID', { month: 'long', year: 'numeric' });
+                              return (
+                                <option key={m} value={m}>
+                                  {monthName}
+                                </option>
+                              );
+                            })}
+                          </select>
+                          <ChevronDown className="w-3.5 h-3.5 text-gray-400 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Custom Popover Floating Calendar Range Picker */}
+                  {periodPreset === 'DATE_RANGE' && (
+                    <div className="mt-3 pt-3 border-t border-gray-100 dark:border-gray-800/80">
+                      <CalendarRangePicker
+                        startDate={startDate}
+                        endDate={endDate}
+                        onRangeSelect={(start, end) => {
+                          setStartDate(start);
+                          setEndDate(end);
+                        }}
+                      />
+                    </div>
+                  )}
+                </div>
+
+                {/* Section 2: Tipe Transaksi */}
+                <div className="pt-4 lg:pt-0 lg:pl-6">
+                  <div className="flex items-center gap-2 mb-2.5">
+                    <Filter className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
+                    <span className="text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">Tipe Transaksi</span>
+                  </div>
+
+                  {/* Tipe Transaksi Chips */}
+                  <div className="flex gap-2 overflow-x-auto pb-1 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] flex-nowrap">
+                    {[
+                      { value: 'ALL', label: 'Semua' },
+                      { value: 'EXPENSE', label: 'Pengeluaran' },
+                      { value: 'INCOME_ROUTINE', label: 'Gaji / Rutin' },
+                      { value: 'INCOME_BONUS', label: 'Bonus' },
+                    ].map((f) => (
+                      <button
+                        key={f.value}
+                        onClick={() => setFilter(f.value as any)}
+                        className={`px-3.5 py-1.5 rounded-lg text-xs font-medium transition-all flex-shrink-0 whitespace-nowrap ${filter === f.value
+                          ? 'bg-indigo-600 text-white shadow-sm font-semibold'
+                          : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700'
+                          }`}
+                      >
+                        {f.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
 
             {/* Transaction List */}
             {isLoading ? (
@@ -410,10 +524,10 @@ export default function TransactionsPage() {
                           if (t.type === 'EXPENSE') return acc - t.amount;
                           return acc; // TRANSFER tak ubah net harian (biasanya antar kantong)
                         }, 0);
-                        return dailyNet > 0 
-                          ? `+${formatCurrency(dailyNet)}` 
-                          : dailyNet < 0 
-                            ? `-${formatCurrency(Math.abs(dailyNet))}` 
+                        return dailyNet > 0
+                          ? `+${formatCurrency(dailyNet)}`
+                          : dailyNet < 0
+                            ? `-${formatCurrency(Math.abs(dailyNet))}`
                             : 'Rp 0';
                       })()}
                     </p>
@@ -422,10 +536,10 @@ export default function TransactionsPage() {
                     {grouped[date].map((tx) => {
                       const isTransferOut = tx.type === 'TRANSFER' && (tx.notes?.toLowerCase().includes('transfer to') || tx.notes?.toLowerCase().includes('transfer ke'));
                       const isTransferIn = tx.type === 'TRANSFER' && (tx.notes?.toLowerCase().includes('received from') || tx.notes?.toLowerCase().includes('transfer dari'));
-                      
+
                       const isExpenseStyle = tx.type === 'EXPENSE' || isTransferOut;
                       const isIncomeStyle = tx.type.startsWith('INCOME') || isTransferIn;
-                      
+
                       let title = tx.category || (tx.type === 'EXPENSE' ? 'Pengeluaran' : tx.type === 'INCOME_BONUS' ? 'Bonus' : tx.type === 'INCOME_ROUTINE' ? 'Pemasukan' : 'Transfer');
                       if (tx.type === 'TRANSFER') {
                         title = isTransferOut ? 'Transfer Keluar' : isTransferIn ? 'Transfer Masuk' : 'Transfer';
@@ -435,13 +549,13 @@ export default function TransactionsPage() {
                       const sign = isIncomeStyle ? '+' : isExpenseStyle ? '-' : '';
 
                       const bgClass = isExpenseStyle ? 'bg-rose-50 dark:bg-rose-500/10 text-rose-500' :
-                                      tx.type === 'INCOME_BONUS' ? 'bg-amber-50 dark:bg-amber-500/10 text-amber-500' :
-                                      isIncomeStyle ? 'bg-emerald-50 dark:bg-emerald-500/10 text-emerald-500' :
-                                      'bg-indigo-50 dark:bg-indigo-500/10 text-indigo-500';
+                        tx.type === 'INCOME_BONUS' ? 'bg-amber-50 dark:bg-amber-500/10 text-amber-500' :
+                          isIncomeStyle ? 'bg-emerald-50 dark:bg-emerald-500/10 text-emerald-500' :
+                            'bg-indigo-50 dark:bg-indigo-500/10 text-indigo-500';
 
                       const textClass = isIncomeStyle ? 'text-emerald-600 dark:text-emerald-400' :
-                                        isExpenseStyle ? 'text-rose-600 dark:text-rose-400' :
-                                        'text-indigo-600 dark:text-indigo-400';
+                        isExpenseStyle ? 'text-rose-600 dark:text-rose-400' :
+                          'text-indigo-600 dark:text-indigo-400';
 
                       return (
                         <div

@@ -15,9 +15,31 @@ const genAI = new GoogleGenerativeAI(
 
 import { buildRoastPrompt } from '@/lib/ai/prompts';
 
+function sanitizeRoastText(text: string): string {
+  let cleaned = text.trim().replace(/^["'`]|["'`]$/g, '');
+  if (!cleaned) return cleaned;
+
+  // Jika teks tidak diakhiri tanda titik, seru, atau tanya
+  if (!/[.!?]$/.test(cleaned)) {
+    const words = cleaned.split(/\s+/);
+    const lastWord = words[words.length - 1] || '';
+    // Jika kata terakhir terpotong di tengah (kurang dari 3 huruf), buang kata terpotong tersebut
+    if (lastWord.length <= 3 && words.length > 4) {
+      words.pop();
+      cleaned = words.join(' ') + '.';
+    } else {
+      cleaned = cleaned + '.';
+    }
+  }
+  return cleaned;
+}
+
 // ─── VALIDATION & STATIC FALLBACK ─────────────────────────────────────────────
 function isValidRoast(text: string): boolean {
-  if (!text || text.length < 15) return false;
+  if (!text || text.length < 90) return false;
+  const sentenceCount = (text.match(/[.!?]/g) || []).length;
+  if (sentenceCount < 2) return false;
+
   // Dilarang karakter asing: Mandarin, Arab, Jepang, Korea, Sirilik, atau Emoji
   const foreignScriptOrEmoji = /[\u0600-\u06FF|\u0400-\u04FF|\u3040-\u30FF|\uAC00-\uD7AF|\u4E00-\u9FFF]|\p{Emoji_Presentation}/u;
   if (foreignScriptOrEmoji.test(text)) return false;
@@ -35,17 +57,19 @@ function fallbackRoast(
   wantRatio: number,
   topWantCategories: string[]
 ): string {
-  const topCat = topWantCategories.length > 0 ? topWantCategories[0] : 'belanja konsumtif';
+  const topCat = topWantCategories.length > 0 ? topWantCategories[0] : 'jajan konsumtif';
+  const rp = (n: number) => `Rp ${Math.round(n).toLocaleString('id-ID')}`;
+
   if (balance <= 50000 || dailyAllowance < 15000) {
-    return `${userName}, saldo lu udah di titik kritis Rp ${balance.toLocaleString('id-ID')}. Saatnya full survival mode, rem total semua pengeluaran sampai gajian nanti.`;
+    return `${userName}, dompet kamu lagi dalam mode hemat nih dengan saldo ${rp(balance)}. Jatah harian tersisa ${rp(dailyAllowance)}/hari untuk bertahan sampai gajian. Yuk rem tipis-tipis dulu pengeluaran Keinginan biar tetep aman sampai akhir bulan.`;
   }
   if (todayExpense > dailyAllowance * 1.5 && dailyAllowance > 0) {
-    return `Parah lu ${userName}, hari ini aja udah habis Rp ${todayExpense.toLocaleString('id-ID')} yang melebihi 150% jatah harian lu. Besok wajib hemat atau akhir bulan bakal boncos berat.`;
+    return `Pengeluaran kamu hari ini tembus ${rp(todayExpense)}, padahal jatah harian ideal kamu di kisaran ${rp(dailyAllowance)}/hari. Ada bocor halus yang bikin dompet agak ketarik hari ini. Besok coba lebih chill dan utamakan kebutuhan pokok aja ya.`;
   }
   if (wantRatio > 50) {
-    return `${userName}, ${wantRatio}% pengeluaran lu sebulan ini habis buat Keinginan, terutama di pos ${topCat}. Coba tinjau ulang mana yang bisa dikurangi dulu.`;
+    return `${userName}, sekitar ${wantRatio}% pengeluaran kamu bulan ini lari ke pos Keinginan, terutama di ${topCat}. Angka ini agak melebihi alokasi sehat 30% buat kantong mahasiswa. Coba geser sebagian jajan ke tabungan biar arus kas kamu makin seimbang.`;
   }
-  return `Keuangan lu hari ini masih cukup aman, ${userName}. Pertahankan ritme hemat ini dan jangan sampai lengah atau impulsif pas akhir pekan.`;
+  return `Kondisi keuangan kamu hari ini terpantau aman banget, ${userName}! Saldo Dompet Utama masih ada ${rp(balance)} dengan jatah harian ${rp(dailyAllowance)}/hari. Pertahankan ritme ini biar dompet tetep tenang dan siap hadapi akhir pekan.`;
 }
 
 export async function GET(request: NextRequest) {
@@ -243,10 +267,10 @@ export async function GET(request: NextRequest) {
     try {
       const aiRes = await routeAICall(
         [{ role: 'user', content: prompt }],
-        { modelType: 'TEXT', temperature: 0.5, maxTokens: 600, timeoutMs: 25000 }
+        { modelType: 'TEXT', temperature: 0.5, maxTokens: 220, timeoutMs: 25000 }
       );
       if (aiRes.success && aiRes.content) {
-        let text = aiRes.content.trim().replace(/^["'`]|["'`]$/g, '');
+        let text = sanitizeRoastText(aiRes.content);
         if (isValidRoast(text)) {
           console.log(`[ROAST] ✅ Berhasil via ${aiRes.modelUsed} (${aiRes.tokenUsed}).`);
           return NextResponse.json({ success: true, data: { message: text } });
@@ -262,10 +286,10 @@ export async function GET(request: NextRequest) {
       const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
       const result = await model.generateContent({
         contents: [{ role: 'user', parts: [{ text: prompt }] }],
-        generationConfig: { temperature: 0.5, maxOutputTokens: 600 },
+        generationConfig: { temperature: 0.5, maxOutputTokens: 220 },
       });
       const response = await result.response;
-      let text = response.text().trim().replace(/^["'`]|["'`]$/g, '');
+      let text = sanitizeRoastText(response.text());
 
       if (isValidRoast(text)) {
         console.log('[ROAST] ✅ Berhasil via Gemini 2.0 Flash.');

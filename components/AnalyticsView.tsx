@@ -42,6 +42,7 @@ export default function AnalyticsView({ transactions, canUseAnalytics, checkingS
   const router = useRouter();
   const [trendData, setTrendData] = useState<any[]>([]);
   const [aiSummary, setAiSummary] = useState<string[] | null>(null);
+  const [aiSource, setAiSource] = useState<string | null>(null);
   const [aiLoading, setAiLoading] = useState(false);
   const [isDark, setIsDark] = useState(true);
 
@@ -95,6 +96,7 @@ export default function AnalyticsView({ transactions, canUseAnalytics, checkingS
                      const data = JSON.parse(jsonStr);
                      if (Array.isArray(data?.summary)) {
                        setAiSummary(data.summary);
+                       if (data?.source) setAiSource(data.source);
                        setAiLoading(false);
                      }
                    } catch (e) {}
@@ -290,42 +292,9 @@ export default function AnalyticsView({ transactions, canUseAnalytics, checkingS
               </li>
             ))
           ) : (
-            <>
-              <li className="flex gap-2 items-start text-sm text-gray-700 dark:text-gray-300 leading-relaxed">
-                <span className="text-indigo-500 mt-0.5 font-bold">•</span>
-                <span>
-                  {netFlow >= 0 ? (
-                    <>
-                      Kondisi keuanganmu <strong className="text-emerald-600 dark:text-emerald-400 font-bold">cukup sehat</strong> dengan sisa uang masuk bersih sebesar <strong className="text-emerald-600 dark:text-emerald-400 font-bold">{formatCurrency(netFlow)}</strong> bulan ini. Pemasukanmu mencatatkan <strong className="text-gray-900 dark:text-white font-bold">{formatCurrency(totalIncomeAll)}</strong> vs pengeluaran <strong className="text-gray-900 dark:text-white font-bold">{formatCurrency(totalExpense)}</strong>. <strong className="text-indigo-900 dark:text-indigo-200">Strategi:</strong> Segera sisihkan sebagian sisa arus kas ini minimal 10-20% ke dana darurat atau tabungan aset agar masa bertahan keuanganmu jauh lebih panjang.
-                    </>
-                  ) : (
-                    <>
-                      Kondisi keuanganmu mengalami <strong className="text-rose-600 dark:text-rose-400 font-bold">peringatan defisit</strong> sebesar <strong className="text-rose-600 dark:text-rose-400 font-bold">{formatCurrency(Math.abs(netFlow))}</strong> karena pengeluaran ({formatCurrency(totalExpense)}) melampaui pemasukan ({formatCurrency(totalIncomeAll)}). <strong className="text-rose-700 dark:text-rose-300">Opsi Pengaturan:</strong> Lakukan rem darurat pada pos belanja non-pokok dan fokuskan sisa saldo yang ada hanya untuk kebutuhan harian mendesak.
-                    </>
-                  )}
-                </span>
-              </li>
-              <li className="flex gap-2 items-start text-sm text-gray-700 dark:text-gray-300 leading-relaxed">
-                <span className="text-indigo-500 mt-0.5 font-bold">•</span>
-                <span>
-                  Pengeluaranmu saat ini didominasi <strong className="text-indigo-600 dark:text-indigo-400 font-bold">Kebutuhan pokok sebesar {needPercentage}%</strong> ({formatCurrency(totalNeedExpense)}), sementara <strong className="text-rose-500 font-bold">Keinginan atau jajan sebesar {wantPercentage}%</strong> ({formatCurrency(totalWantExpense)}). {wantPercentage > 30 ? <>Meski sudah ada pos kebutuhan, porsi jajanmu melebihi ambang 30%. <strong className="text-indigo-900 dark:text-indigo-200">Cara Mengatur:</strong> Turunkan anggaran jajan harian atau pesan makanan dari {formatCurrency(totalWantExpense)} menjadi maksimal {formatCurrency(totalExpense * 0.2)} bulan depan agar keuangan lebih stabil.</> : <>Kamu sudah sangat disiplin menjaga porsi jajan berada di bawah batas aman 30%. <strong className="text-emerald-700 dark:text-emerald-300">Saran:</strong> Pertahankan pola ini agar alokasi tabunganmu dapat bertambah konsisten.</>}
-                </span>
-              </li>
-              {highestCategory !== '-' && pieData.length > 0 && (
-                <li className="flex gap-2 items-start text-sm text-gray-700 dark:text-gray-300 leading-relaxed">
-                  <span className="text-indigo-500 mt-0.5 font-bold">•</span>
-                  <span>
-                    Kategori pengeluaran paling boros tercatat pada <strong className="text-indigo-600 dark:text-indigo-400 bg-indigo-100/60 dark:bg-indigo-900/40 px-1.5 py-0.5 rounded font-medium">{highestCategory}</strong> senilai <strong className="text-gray-900 dark:text-white font-bold">{formatCurrency(pieData[0].value)}</strong>{topExpenses.length > 0 ? <>, dengan transaksi terbesar tunggal untuk <strong className="text-rose-600 dark:text-rose-400 font-bold">{topExpenses[0].notes || topExpenses[0].category} ({formatCurrency(topExpenses[0].amount)})</strong></> : ''}. <strong className="text-indigo-900 dark:text-indigo-200">Masukan & Strategi:</strong> Evaluasi item pengeluaran di kategori {highestCategory} dan buat batas maksimal belanja harian untuk kategori tersebut.
-                  </span>
-                </li>
-              )}
-              <li className="flex gap-2 items-start text-sm text-gray-700 dark:text-gray-300 leading-relaxed">
-                <span className="text-indigo-500 mt-0.5 font-bold">•</span>
-                <span>
-                  Saat ini uangmu tersebar di <strong className="text-indigo-600 dark:text-indigo-400 font-bold">{pocketPieData.length > 0 ? pocketPieData.length : 'beberapa'} kantong keuangan</strong>. <strong className="text-indigo-900 dark:text-indigo-200">Rekomendasi Aksional:</strong> Pindahkan sebagian saldo mengendap di Dompet Utama secara berkala ke kantong Tabungan atau Kantong Impian khusus agar target saldo aman dan ketahanan finansialmu makin kokoh.
-                </span>
-              </li>
-            </>
+            <div className="py-3 text-center text-xs text-gray-500 dark:text-gray-400">
+              Belum ada data analisis AI. Silakan muat ulang halaman.
+            </div>
           )}
         </ul>
       </div>
