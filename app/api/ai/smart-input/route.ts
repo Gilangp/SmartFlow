@@ -8,6 +8,9 @@ import { routeAICall } from '@/lib/ai/router';
 import { buildSmartInputPrompt } from '@/lib/ai/prompts';
 
 
+export const dynamic = 'force-dynamic';
+export const maxDuration = 60;
+
 const genAI = new GoogleGenerativeAI(
   process.env.GEMINI_API_KEY || process.env.GOOGLE_AI_API_KEY || ''
 );
@@ -171,7 +174,7 @@ export async function POST(request: NextRequest) {
     try {
       const aiRes = await routeAICall(
         [{ role: 'user', content: prompt }],
-        { modelType: 'TEXT', temperature: 0.1 }
+        { modelType: 'TEXT', temperature: 0.1, maxTokens: 300, timeoutMs: 15000 }
       );
       if (aiRes.success && aiRes.content) {
         rawText = aiRes.content;

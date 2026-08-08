@@ -7,6 +7,7 @@ import { routeAICall } from '@/lib/ai/router';
 
 
 export const dynamic = 'force-dynamic';
+export const maxDuration = 60;
 
 const genAI = new GoogleGenerativeAI(
   process.env.GEMINI_API_KEY || process.env.GOOGLE_AI_API_KEY || ''
@@ -242,7 +243,7 @@ export async function GET(request: NextRequest) {
     try {
       const aiRes = await routeAICall(
         [{ role: 'user', content: prompt }],
-        { modelType: 'TEXT', temperature: 0.5 }
+        { modelType: 'TEXT', temperature: 0.5, maxTokens: 600, timeoutMs: 25000 }
       );
       if (aiRes.success && aiRes.content) {
         let text = aiRes.content.trim().replace(/^["'`]|["'`]$/g, '');
@@ -261,7 +262,7 @@ export async function GET(request: NextRequest) {
       const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
       const result = await model.generateContent({
         contents: [{ role: 'user', parts: [{ text: prompt }] }],
-        generationConfig: { temperature: 0.5 },
+        generationConfig: { temperature: 0.5, maxOutputTokens: 600 },
       });
       const response = await result.response;
       let text = response.text().trim().replace(/^["'`]|["'`]$/g, '');

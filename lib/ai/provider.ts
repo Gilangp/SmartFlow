@@ -11,8 +11,8 @@ export async function executeTextModel(
   options: AICallOptions = {}
 ): Promise<AIResponse> {
   const model = AI_MODELS.TEXT;
-  const temperature = options.temperature ?? 0.5;
-  const max_tokens = options.maxTokens ?? 3000;
+  const temperature = options.temperature ?? 0.4;
+  const max_tokens = options.maxTokens ?? 600;
 
   // Format messages to standard OpenAI array format
   const chatMessages: Array<{ role: string; content: string }> = [];
@@ -34,21 +34,31 @@ export async function executeTextModel(
   if (nineRouterKey) {
     try {
       const endpoint = `${nineRouterUrl.replace(/\/+$/, '')}/chat/completions`;
-      const nrRes = await fetch(endpoint, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${nineRouterKey}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          model: process.env.NINE_ROUTER_MODEL || 'gpt-3.5-turbo',
-          messages: chatMessages,
-          temperature,
-          max_tokens,
-          max_completion_tokens: max_tokens,
-          stream: false,
-        }),
-      });
+      const timeoutMs = options.timeoutMs || 30000;
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), timeoutMs);
+
+      let nrRes: Response;
+      try {
+        nrRes = await fetch(endpoint, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${nineRouterKey}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            model: process.env.NINE_ROUTER_MODEL || 'gpt-3.5-turbo',
+            messages: chatMessages,
+            temperature,
+            max_tokens,
+            max_completion_tokens: max_tokens,
+            stream: false,
+          }),
+          signal: controller.signal,
+        });
+      } finally {
+        clearTimeout(timer);
+      }
 
       if (nrRes.ok) {
         const rawText = await nrRes.text();

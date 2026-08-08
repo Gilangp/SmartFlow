@@ -7,6 +7,7 @@ import { getDaysLeftInCycle } from '@/lib/financial-calculations';
 import { getUserSubscription } from '@/lib/subscription';
 
 export const dynamic = 'force-dynamic';
+export const maxDuration = 60;
 
 // 🛡️ In-memory Store untuk membatasi Kuota Chat AI harian per User (Hemat Biaya API Developer)
 const dailyChatStore = new Map<string, { date: string; count: number }>();
@@ -157,36 +158,55 @@ export async function POST(request: NextRequest) {
       { role: 'user' as const, content: message },
     ];
 
-    const aiRes = await routeAICall(formattedMessages, { modelType: 'TEXT', temperature: 0.4, maxTokens: 3000 });
+    // ── STREAMING RESPONSE ARCHITECTURE FOR CHAT (Option 1 + Option 3) ─────────
+    const stream = new ReadableStream({
+      async start(controller) {
+        const encoder = new TextEncoder();
 
-    if (aiRes.success && aiRes.content) {
-      return NextResponse.json({
-        success: true,
-        data: {
-          reply: aiRes.content,
-          modelUsed: aiRes.modelUsed,
-          tokenUsed: aiRes.tokenUsed,
-        },
-      });
-    }
+        // 1. Coba routeAICall dengan maxTokens: 600 untuk balasan instan
+        try {
+          const aiRes = await routeAICall(formattedMessages, {
+            modelType: 'TEXT',
+            temperature: 0.4,
+            maxTokens: 600,
+            timeoutMs: 25000,
+          });
 
-    // Smart Intent-Aware Fallback Response (jika provider AI eksternal sedang rate-limited / slow)
-    const fallbackReply = generateSmartChatFallback(
-      message,
-      firstName,
-      mainBalance,
-      totalWealth,
-      dailyAllowance,
-      daysLeft,
-      user.pockets
-    );
+          if (aiRes.success && aiRes.content) {
+            console.log(`[AI CHAT] ✅ Streamed AI reply via ${aiRes.modelUsed}.`);
+            controller.enqueue(
+              encoder.encode(`data: ${JSON.stringify({ content: aiRes.content, modelUsed: aiRes.modelUsed })}\n\n`)
+            );
+            controller.close();
+            return;
+          }
+        } catch (err: any) {
+          console.warn('[AI CHAT] Route AI call error:', err.message);
+        }
 
-    return NextResponse.json({
-      success: true,
-      data: {
-        reply: fallbackReply,
-        modelUsed: 'finto-financial-engine',
-        tokenUsed: 'PRIMARY',
+        // 2. Smart Intent Fallback (0ms instant response jika AI error / rate limited)
+        const fallbackReply = generateSmartChatFallback(
+          message,
+          firstName,
+          mainBalance,
+          totalWealth,
+          dailyAllowance,
+          daysLeft,
+          user.pockets
+        );
+
+        controller.enqueue(
+          encoder.encode(`data: ${JSON.stringify({ content: fallbackReply, modelUsed: 'finto-financial-engine' })}\n\n`)
+        );
+        controller.close();
+      }
+    });
+
+    return new NextResponse(stream, {
+      headers: {
+        'Content-Type': 'text/event-stream',
+        'Cache-Control': 'no-cache, no-transform',
+        'Connection': 'keep-alive',
       },
     });
 

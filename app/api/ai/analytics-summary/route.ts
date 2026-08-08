@@ -8,6 +8,7 @@ import { startOfMonth, subMonths, endOfMonth } from 'date-fns';
 
 
 export const dynamic = 'force-dynamic';
+export const maxDuration = 60; // Izinkan waktu eksekusi hingga 60 detik di Vercel/Next.js
 
 const genAI = new GoogleGenerativeAI(
   process.env.GEMINI_API_KEY || process.env.GOOGLE_AI_API_KEY || ''
@@ -272,53 +273,70 @@ export async function GET(request: NextRequest) {
       pocketAllocations,
     });
 
-    // ── AI Call ─────────────────────────────────────────────────────────────
-    const pointKeyNumbers = [
-      [rp(netFlow30), rp(Math.round(burnRate)), `${savingRate}%`, `${liquidRunway}`, `${runwayMonths}`, rp(totalWealth), rp(targetBuffer2x)].filter(Boolean) as string[],
-      [`${needRatio}%`, `${wantRatio}%`, rp(need30), rp(want30)].filter(Boolean) as string[],
-      [rp(totalProductive), rp(totalDiscretionary), rp(potentialSaving)].filter(Boolean) as string[],
-      [rp(totalWealth), `${user.pockets.length}`, ...user.pockets.map(p => `${Math.round((Number(p.balance) / (totalWealth || 1)) * 100)}%`), ...user.pockets.map(p => `${p.allocation}%`)].filter(Boolean) as string[]
-    ];
+    // ── STREAMING RESPONSE ARCHITECTURE (Option 1 + Option 3) ────────────────
+    const stream = new ReadableStream({
+      async start(controller) {
+        const encoder = new TextEncoder();
 
-    // 1. DEEPSEEK-V4-FLASH VIA AI GATEWAY (UTAMA)
-    try {
-      const aiRes = await routeAICall(
-        [{ role: 'user', content: prompt }],
-        { modelType: 'TEXT', temperature: 0.4 }
-      );
-      if (aiRes.success && aiRes.content) {
-        const parsed = extractJsonFromOutput(aiRes.content);
-        if (Array.isArray(parsed) && isValidAiReport(parsed)) {
-          console.log(`[ANALYTICS-AI] ✅ Berhasil via ${aiRes.modelUsed} (${aiRes.tokenUsed}).`);
-          return NextResponse.json({ success: true, data: { summary: parsed.slice(0, 4), source: aiRes.modelUsed } });
+        // Step 1: Kirim data instan kalkulasi backend langsung dalam 0ms
+        controller.enqueue(
+          encoder.encode(`data: ${JSON.stringify({ summary: fallbackSummary, source: 'INSTANT_CALCULATED' })}\n\n`)
+        );
+
+        // Step 2: Panggil 9Router / AI Gateway utama
+        try {
+          const aiRes = await routeAICall(
+            [{ role: 'user', content: prompt }],
+            { modelType: 'TEXT', temperature: 0.4, maxTokens: 600, timeoutMs: 25000 }
+          );
+          if (aiRes.success && aiRes.content) {
+            const parsed = extractJsonFromOutput(aiRes.content);
+            if (Array.isArray(parsed) && isValidAiReport(parsed)) {
+              console.log(`[ANALYTICS-AI] ✅ Streamed AI via ${aiRes.modelUsed} (${aiRes.tokenUsed}).`);
+              controller.enqueue(
+                encoder.encode(`data: ${JSON.stringify({ summary: parsed.slice(0, 4), source: aiRes.modelUsed })}\n\n`)
+              );
+              controller.close();
+              return;
+            }
+          }
+        } catch (err: any) {
+          console.warn('[ANALYTICS-AI] Gateway error:', err.message);
         }
+
+        // Step 3: Fallback ke Gemini 2.0 Flash
+        try {
+          const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
+          const result = await model.generateContent({
+            contents: [{ role: 'user', parts: [{ text: prompt }] }],
+            generationConfig: { temperature: 0.4, maxOutputTokens: 600 },
+          });
+          const rawText = result.response.text();
+          const parsed = extractJsonFromOutput(rawText);
+
+          if (Array.isArray(parsed) && isValidAiReport(parsed)) {
+            console.log('[ANALYTICS-AI] ✅ Streamed AI via Gemini 2.0 Flash.');
+            controller.enqueue(
+              encoder.encode(`data: ${JSON.stringify({ summary: parsed.slice(0, 4), source: 'GEMINI' })}\n\n`)
+            );
+            controller.close();
+            return;
+          }
+        } catch (err: any) {
+          console.warn('[ANALYTICS-AI] Gemini error:', err.message);
+        }
+
+        controller.close();
       }
-      console.warn('[ANALYTICS-AI] AI Gateway output tidak valid.');
-    } catch (err: any) {
-      console.warn('[ANALYTICS-AI] AI Gateway gagal, beralih ke Gemini...', err.message);
-    }
+    });
 
-    // 2. Gemini 2.0 Flash (Fallback)
-    try {
-      const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
-      const result = await model.generateContent({
-        contents: [{ role: 'user', parts: [{ text: prompt }] }],
-        generationConfig: { temperature: 0.4 },
-      });
-      const rawText = result.response.text();
-      const parsed = extractJsonFromOutput(rawText);
-
-      if (Array.isArray(parsed) && isValidAiReport(parsed)) {
-        console.log('[ANALYTICS-AI] ✅ Berhasil via Gemini 2.0 Flash.');
-        return NextResponse.json({ success: true, data: { summary: parsed.slice(0, 4), source: 'GEMINI' } });
-      }
-      console.warn('[ANALYTICS-AI] Gemini output tidak valid.');
-    } catch (err: any) {
-      console.warn('[ANALYTICS-AI] Gemini gagal, beralih ke fallback...', err.message);
-    }
-
-    // 3. Rule-based fallback — 100% akurat, semua angka dari backend
-    return NextResponse.json({ success: true, data: { summary: fallbackSummary, source: 'FALLBACK' } });
+    return new NextResponse(stream, {
+      headers: {
+        'Content-Type': 'text/event-stream',
+        'Cache-Control': 'no-cache, no-transform',
+        'Connection': 'keep-alive',
+      },
+    });
 
   } catch (error) {
     console.error('ANALYTICS SUMMARY ERROR:', error);

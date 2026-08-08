@@ -74,6 +74,7 @@ export default function AiChatModal() {
         content: m.content,
       }));
 
+      const assistantMsgId = (Date.now() + 1).toString();
       const res = await fetch('/api/ai/chat', {
         method: 'POST',
         headers: {
@@ -86,25 +87,46 @@ export default function AiChatModal() {
         }),
       });
 
-      const data = await res.json();
+      if (!res.body) {
+        setIsLoading(false);
+        return;
+      }
 
-      if (data.success && data.data?.reply) {
-        const aiMsg: ChatMessage = {
-          id: (Date.now() + 1).toString(),
-          role: 'assistant',
-          content: data.data.reply,
-          timestamp: new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }),
-          modelUsed: data.data.modelUsed,
-        };
-        setMessages(prev => [...prev, aiMsg]);
-      } else {
-        const errorMsg: ChatMessage = {
-          id: (Date.now() + 1).toString(),
-          role: 'assistant',
-          content: data.message || 'Maaf, terjadi masalah saat menghubungkan ke Finto AI.',
-          timestamp: new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }),
-        };
-        setMessages(prev => [...prev, errorMsg]);
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n\n');
+        buffer = lines.pop() || '';
+
+        for (const line of lines) {
+          const trimmed = line.trim();
+          if (trimmed.startsWith('data:')) {
+            try {
+              const jsonStr = trimmed.replace(/^data:\s*/, '');
+              const data = JSON.parse(jsonStr);
+
+              if (data.content) {
+                const aiMsg: ChatMessage = {
+                  id: assistantMsgId,
+                  role: 'assistant',
+                  content: data.content,
+                  timestamp: new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }),
+                  modelUsed: data.modelUsed,
+                };
+                setMessages(prev => {
+                  const filtered = prev.filter(m => m.id !== assistantMsgId);
+                  return [...filtered, aiMsg];
+                });
+                setIsLoading(false);
+              }
+            } catch (e) {}
+          }
+        }
       }
     } catch {
       const errorMsg: ChatMessage = {
