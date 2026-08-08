@@ -20,10 +20,10 @@ function formatMarkdownContent(text: string): string {
 }
 
 const QUICK_PROMPTS = [
-  'Berapa jatah harian saya hari ini?',
-  'Bagaimana kondisi alokasi kantong saya?',
-  'Berapa total sisa saldo di Dompet Utama & Tabungan?',
-  'Berikan saran penghematan minggu ini',
+  'Sisa jatah harian saya berapa?',
+  'Analisis pengeluaran terbanyak bulan ini',
+  'Berapa dana yang bisa saya tabung bulan ini?',
+  'Saran penghematan terbaik untuk saya',
 ];
 
 export default function AiChatModal() {
@@ -150,7 +150,7 @@ export default function AiChatModal() {
       {/* Floating Toggle Button */}
       <button
         onClick={() => setIsOpen(true)}
-        className={`fixed bottom-36 right-4 z-40 md:bottom-10 md:right-8 p-3.5 rounded-full bg-gradient-to-r from-indigo-600 via-indigo-500 to-purple-600 text-white shadow-xl shadow-indigo-500/30 hover:shadow-indigo-500/50 hover:scale-105 transition-all duration-300 flex items-center gap-2 group ${
+        className={`fixed bottom-28 right-4 z-40 md:bottom-8 md:right-8 p-3.5 rounded-full bg-gradient-to-r from-indigo-600 via-indigo-500 to-purple-600 text-white shadow-xl shadow-indigo-500/30 hover:shadow-indigo-500/50 hover:scale-105 transition-all duration-300 flex items-center gap-2 group ${
           isOpen ? 'scale-0 opacity-0 pointer-events-none' : 'scale-100 opacity-100'
         }`}
         aria-label="Tanya Finto AI"
@@ -254,16 +254,16 @@ export default function AiChatModal() {
                       {msg.role === 'user' ? <User className="w-4 h-4" /> : <Bot className="w-4 h-4" />}
                     </div>
 
-                    <div className={`max-w-[80%] space-y-1 ${msg.role === 'user' ? 'text-right' : ''}`}>
+                    <div className={`max-w-[80%] space-y-1 ${msg.role === 'user' ? 'flex flex-col items-end' : ''}`}>
                       <div
-                        className={`p-3.5 rounded-2xl text-xs leading-relaxed ${
+                        className={`p-3.5 rounded-2xl text-xs leading-relaxed text-left ${
                           msg.role === 'user'
                             ? 'bg-indigo-600 text-white rounded-tr-none'
                             : 'bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-200 border border-gray-100 dark:border-gray-800 rounded-tl-none shadow-sm'
                         }`}
                       >
                         {msg.role === 'user' ? (
-                          <p className="whitespace-pre-wrap">{msg.content}</p>
+                          <p className="whitespace-pre-wrap text-left">{msg.content}</p>
                         ) : (
                           <ReactMarkdown
                             remarkPlugins={[remarkGfm]}

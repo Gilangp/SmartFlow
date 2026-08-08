@@ -113,7 +113,7 @@ export default function Home() {
     {
       icon: <TrendingUp className="w-6 h-6 text-indigo-600 dark:text-indigo-400" />,
       title: 'Analitik & Jatah Harian',
-      description: 'Pantau arus kas dengan grafik memukau dan dapatkan perhitungan batas aman pengeluaran harianmu agar tidak boncos.',
+      description: 'Pantau arus kas dengan grafik memukau dan dapatkan perhitungan batas aman pengeluaran harianmu agar pengeluaran tetap seimbang.',
       metric: 'Real-time tracking'
     }
   ];
@@ -128,7 +128,7 @@ export default function Home() {
     {
       name: 'Andi Wijaya',
       role: 'Teknik Informatika, UGM',
-      quote: 'Dulu selalu boncos akhir bulan. Sejak pakai Finto dan sistem kantongnya, 3 bulan nabung 40% lebih banyak.',
+      quote: 'Dulu pengeluaran selalu melebihi anggaran di akhir bulan. Sejak pakai Finto dan sistem kantongnya, 3 bulan nabung 40% lebih banyak.',
       rating: 5
     },
     {

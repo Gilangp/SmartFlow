@@ -18,13 +18,55 @@ function rp(n: number) {
   return `Rp ${Math.round(n).toLocaleString('id-ID')}`;
 }
 
+function parseAiAnalyticsSummary(output: string): string[] | null {
+  if (!output || typeof output !== 'string') return null;
+
+  // 1. Coba JSON parse terlebih dahulu
+  const jsonParsed = extractJsonFromOutput(output);
+  if (Array.isArray(jsonParsed) && jsonParsed.length > 0) {
+    const validItems = jsonParsed.map(item => String(item).trim()).filter(s => s.length > 10);
+    if (validItems.length > 0) return validItems.slice(0, 4);
+  }
+
+  // 2. Bersihkan markdown codeblock
+  let cleanText = output
+    .replace(/```[a-z]*\s*/gi, '')
+    .replace(/```/g, '')
+    .trim();
+
+  // 3. Coba pisah berdasarkan bullet points atau nomor (•, -, *, 1., 2.)
+  const bulletSplit = cleanText
+    .split(/(?:\r?\n\s*|\A)(?:[•\-\*]|\d+[\.\)])\s+/)
+    .map(s => s.trim())
+    .filter(s => s.length > 15);
+
+  if (bulletSplit.length > 0) {
+    return bulletSplit.slice(0, 4);
+  }
+
+  // 4. Coba pisah berdasarkan ganti paragraf (\n\n)
+  const paragraphSplit = cleanText
+    .split(/\r?\n\s*\r?\n/)
+    .map(s => s.trim())
+    .filter(s => s.length > 15);
+
+  if (paragraphSplit.length > 0) {
+    return paragraphSplit.slice(0, 4);
+  }
+
+  if (cleanText.length > 15) {
+    return [cleanText];
+  }
+
+  return null;
+}
+
 function isValidAiReport(summary: any): boolean {
-  if (!Array.isArray(summary) || summary.length < 4) return false;
+  if (!Array.isArray(summary) || summary.length === 0) return false;
   
-  // Periksa setiap poin (paragraf 1 sampai 4) agar berisi teks narasi yang memadai (> 15 karakter)
-  for (let i = 0; i < 4; i++) {
-    const text = String(summary[i] || '').trim();
-    if (text.length < 15) return false;
+  for (const item of summary) {
+    const text = String(item || '').trim();
+    if (text.length < 10) return false;
   }
   return true;
 }
@@ -273,24 +315,19 @@ export async function GET(request: NextRequest) {
       pocketAllocations,
     });
 
-    // ── STREAMING RESPONSE ARCHITECTURE (Option 1 + Option 3) ────────────────
+    // ── STREAMING RESPONSE ARCHITECTURE ────────────────
     const stream = new ReadableStream({
       async start(controller) {
         const encoder = new TextEncoder();
 
-        // Step 1: Kirim data instan kalkulasi backend langsung dalam 0ms
-        controller.enqueue(
-          encoder.encode(`data: ${JSON.stringify({ summary: fallbackSummary, source: 'INSTANT_CALCULATED' })}\n\n`)
-        );
-
-        // Step 2: Panggil 9Router / AI Gateway utama
+        // 1. Panggil 9Router / AI Gateway utama
         try {
           const aiRes = await routeAICall(
             [{ role: 'user', content: prompt }],
-            { modelType: 'TEXT', temperature: 0.4, maxTokens: 600, timeoutMs: 25000 }
+            { modelType: 'TEXT', temperature: 0.4, maxTokens: 600, timeoutMs: 45000 }
           );
           if (aiRes.success && aiRes.content) {
-            const parsed = extractJsonFromOutput(aiRes.content);
+            const parsed = parseAiAnalyticsSummary(aiRes.content);
             if (Array.isArray(parsed) && isValidAiReport(parsed)) {
               console.log(`[ANALYTICS-AI] ✅ Streamed AI via ${aiRes.modelUsed} (${aiRes.tokenUsed}).`);
               controller.enqueue(
@@ -304,7 +341,7 @@ export async function GET(request: NextRequest) {
           console.warn('[ANALYTICS-AI] Gateway error:', err.message);
         }
 
-        // Step 3: Fallback ke Gemini 2.0 Flash
+        // 2. Fallback ke Gemini 2.0 Flash
         try {
           const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
           const result = await model.generateContent({
@@ -312,7 +349,7 @@ export async function GET(request: NextRequest) {
             generationConfig: { temperature: 0.4, maxOutputTokens: 600 },
           });
           const rawText = result.response.text();
-          const parsed = extractJsonFromOutput(rawText);
+          const parsed = parseAiAnalyticsSummary(rawText);
 
           if (Array.isArray(parsed) && isValidAiReport(parsed)) {
             console.log('[ANALYTICS-AI] ✅ Streamed AI via Gemini 2.0 Flash.');
@@ -326,6 +363,10 @@ export async function GET(request: NextRequest) {
           console.warn('[ANALYTICS-AI] Gemini error:', err.message);
         }
 
+        // 3. Hanya jika SEMUA AI gagal/error, baru kirimkan data kalkulasi backend sebagai cadangan
+        controller.enqueue(
+          encoder.encode(`data: ${JSON.stringify({ summary: fallbackSummary, source: 'BACKEND_FALLBACK' })}\n\n`)
+        );
         controller.close();
       }
     });
