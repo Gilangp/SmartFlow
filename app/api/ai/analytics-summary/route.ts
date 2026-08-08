@@ -17,32 +17,13 @@ function rp(n: number) {
   return `Rp ${Math.round(n).toLocaleString('id-ID')}`;
 }
 
-function isValidAiReport(summary: any, pointKeyNumbers: string[][]): boolean {
-  if (!Array.isArray(summary) || summary.length < 4 || typeof summary[0] !== 'string') return false;
+function isValidAiReport(summary: any): boolean {
+  if (!Array.isArray(summary) || summary.length < 4) return false;
   
-  // Periksa setiap poin (paragraf 1 sampai 4) agar minimal ada 1 angka representatif per paragraf
+  // Periksa setiap poin (paragraf 1 sampai 4) agar berisi teks narasi yang memadai (> 15 karakter)
   for (let i = 0; i < 4; i++) {
-    const text = String(summary[i] || '');
-    if (!/Rp\s*\d+|\d+%/.test(text)) return false; // Setiap paragraf wajib punya nominal Rp atau persentase
-    
-    const candidates = pointKeyNumbers[i] || [];
-    const validCandidates = candidates.filter(numStr => {
-      if (!numStr) return false;
-      const c = numStr.replace(/\s+/g, '').replace(/\./g, '');
-      return c !== 'Rp0' && c !== '0%' && c !== '0';
-    });
-    if (validCandidates.length === 0) continue;
-
-    let matchedInPoint = false;
-    for (const numStr of validCandidates) {
-      const cleanNum = numStr.replace(/\s+/g, '').replace(/\./g, '');
-      const cleanText = text.replace(/\s+/g, '').replace(/\./g, '');
-      if (cleanText.includes(cleanNum)) {
-        matchedInPoint = true;
-        break;
-      }
-    }
-    if (!matchedInPoint) return false;
+    const text = String(summary[i] || '').trim();
+    if (text.length < 15) return false;
   }
   return true;
 }
@@ -242,19 +223,19 @@ export async function GET(request: NextRequest) {
     // 100% akurat karena semua angka dari backend)
     // ════════════════════════════════════════════════════
     const wantCapFallbackText = wantCapRecs.length > 0
-      ? `Kategori Keinginan (konsumtif) terboros & rekomendasi batas anggaran:\n` + wantCapRecs.map(r => `  • ${r.name}: turunkan dari ${rp(r.actual)} → ${rp(r.recommended)} (hemat ${rp(r.saving)}/bulan)`).join('\n')
-      : 'Tidak ada pengeluaran Keinginan (konsumtif) tercatat dalam periode ini.';
+      ? `Meski sudah irit, kamu bisa lebih hemat dengan merem pengeluaran jajan:\n` + wantCapRecs.map(r => `• ${r.name}: turunkan dari ${rp(r.actual)} → ${rp(r.recommended)} (hemat ${rp(r.saving)}/bulan)`).join('\n')
+      : 'Kamu sudah sangat disiplin karena tidak ada pengeluaran Keinginan berlebih periode ini.';
 
     const incomeNote = isIncomeAveraged ? ' (diperhitungkan dari rata-rata kiriman historis karena kiriman utama bulan ini belum masuk / bersifat sporadis)' : '';
 
     const fallbackSummary = [
-      `[LIKUIDITAS & RESILIENSI] Net Flow 30 hari: ${netFlow30 >= 0 ? '+' : ''}${rp(netFlow30)}. Savings Rate kamu ${savingRate}%${incomeNote} — klasifikasi: ${savingRateLabel}. Burn Rate harian ${rp(burnRate)}, Liquid Runway (ketahanan kas total) mencapai ${liquidRunway} hari (setara ${runwayMonths} bulan pengeluaran). ${isBuffer2xMet ? `Total saldo di kantong-kantongmu (${rp(totalWealth)}) sudah berada di zona aman mahasiswa karena melebihi target ideal 2× pengeluaran bulanan (${rp(targetBuffer2x)}).` : `Total saldo di kantong-kantongmu (${rp(totalWealth)}) masih kurang ${rp(bufferGap2x)} dari target ideal mahasiswa 2× pengeluaran bulanan (${rp(targetBuffer2x)}). Rekomendasi: pertahankan disiplin menabung dan alokasikan minimal ${rp(Math.round(bufferGap2x / 3))}/bulan selama 3 bulan ke depan untuk memperkuat ketahanan kasmu.`}`,
+      `Kondisi keuanganmu ${netFlow30 >= 0 ? `cukup sehat dengan sisa uang masuk bersih sebesar **${rp(netFlow30)}** bulan ini.` : `mengalami defisit sebesar **${rp(Math.abs(netFlow30))}** bulan ini.`} Kamu menghabiskan rata-rata **${rp(Math.round(burnRate))}** setiap hari, sehingga total uang **${rp(totalWealth)}** yang kamu miliki sekarang cukup untuk bertahan selama **${liquidRunway} hari** ke depan. ${isBuffer2xMet ? `Total saldomu sudah di zona aman karena melebihi target ideal 2× pengeluaran (${rp(targetBuffer2x)}).` : `Total saldomu masih kurang **${rp(bufferGap2x)}** untuk mencapai target saldo aman (${rp(targetBuffer2x)}). Pertahankan disiplin menabung dan sisihkan minimal **${rp(Math.round(bufferGap2x / 3))}/bulan** agar masa bertahanmu lebih panjang.`}`,
 
-      `[ALOKASI ANGGARAN] Rasio aktual: Kebutuhan ${needRatio}% (ideal ≤50%, deviasi ${needDeviation >= 0 ? '+' : ''}${needDeviation}%), Keinginan ${wantRatio}% (ideal ≤30%, deviasi ${wantDeviation >= 0 ? '+' : ''}${wantDeviation}%).\n${wantCapFallbackText}`,
+      `Pengeluaranmu saat ini didominasi **Kebutuhan pokok sebesar ${needRatio}%** (${rp(need30)}), sementara **Keinginan atau jajan sebesar ${wantRatio}%** (${rp(want30)}). ${wantCapFallbackText} Mulai terapkan batas jajan tersebut bulan depan agar pengeluaran lebih terkendali.`,
 
-      `[AUDIT TRANSAKSI] Dari 8 transaksi terbesar: ${productive.length} transaksi produktif/kewajiban (${rp(totalProductive)}) dan ${discretionary.length} transaksi diskresioner (${rp(totalDiscretionary)}). Potensi penghematan 30% dari pos diskresioner: ${rp(potentialSaving)}/bulan. ${discretionary[0] ? `Transaksi diskresioner terbesar: ${discretionary[0].category?.name || 'Lainnya'} sebesar ${rp(Number(discretionary[0].amount))}.` : ''}`,
+      `Selama sebulan ini, dari 8 transaksi terbesar: kamu melakukan **${productive.length} transaksi produktif/kewajiban** (${rp(totalProductive)}) dan **${discretionary.length} transaksi hura-hura/non-pokok** (${rp(totalDiscretionary)}). ${potentialSaving > 0 ? `Potensi penghematan 30% dari belanja non-pokok: **${rp(potentialSaving)}/bulan**.` : 'Kamu sudah sangat disiplin dalam memprioritaskan hal penting dibandingkan keinginan sesaat.'} Pertahankan kebiasaan belanja hanya untuk hal yang benar-benar bermanfaat.`,
 
-      `[KOMPOSISI KANTONG & ALOKASI] Total kekayaan bersihmu ${rp(totalWealth)} terbagi dalam ${user.pockets.length} kantong aktif dengan distribusi saldo aktual: ${actualPocketDistribution}. Target persentase alokasi yang kamu atur sendiri di Finto adalah: ${pocketAllocations || 'Belum diatur (masih 0%)'}. ${user.pockets.length <= 2 ? 'Kamu saat ini menggunakan format kantong bawaan/template Finto. Evaluasi apakah proporsi saldomu sudah selaras dengan target alokasi yang ditetapkan.' : 'Dengan kantong yang sudah kamu kustomisasi, pastikan pembagian saldo rutin dilakukan sesuai proporsi alokasi agar tujuan keuangan tiap kantong tercapai dengan disiplin!'}`,
+      `Saat ini uangmu sebesar **${rp(totalWealth)}** tersebar di ${user.pockets.length} kantong aktif: **${actualPocketDistribution}**. Target alokasi yang kamu atur: ${pocketAllocations || 'Belum diatur'}. ${user.pockets.length <= 2 ? 'Pastikan pembagian saldo rutin dilakukan ke kantong tabungan khusus agar target saldo aman bisa segera tercapai.' : 'Dengan kantong yang sudah kamu atur, pastikan pembagian saldo dilakukan konsisten sesuai proporsi alokasinya!'}`,
     ];
 
     // ════════════════════════════════════════════════════
@@ -307,12 +288,12 @@ export async function GET(request: NextRequest) {
       );
       if (aiRes.success && aiRes.content) {
         const parsed = extractJsonFromOutput(aiRes.content);
-        if (Array.isArray(parsed) && isValidAiReport(parsed, pointKeyNumbers)) {
+        if (Array.isArray(parsed) && isValidAiReport(parsed)) {
           console.log(`[ANALYTICS-AI] ✅ Berhasil via ${aiRes.modelUsed} (${aiRes.tokenUsed}).`);
           return NextResponse.json({ success: true, data: { summary: parsed.slice(0, 4), source: aiRes.modelUsed } });
         }
       }
-      console.warn('[ANALYTICS-AI] AI Gateway output tidak valid atau halusinasi angka.');
+      console.warn('[ANALYTICS-AI] AI Gateway output tidak valid.');
     } catch (err: any) {
       console.warn('[ANALYTICS-AI] AI Gateway gagal, beralih ke Gemini...', err.message);
     }
@@ -327,7 +308,7 @@ export async function GET(request: NextRequest) {
       const rawText = result.response.text();
       const parsed = extractJsonFromOutput(rawText);
 
-      if (Array.isArray(parsed) && isValidAiReport(parsed, pointKeyNumbers)) {
+      if (Array.isArray(parsed) && isValidAiReport(parsed)) {
         console.log('[ANALYTICS-AI] ✅ Berhasil via Gemini 2.0 Flash.');
         return NextResponse.json({ success: true, data: { summary: parsed.slice(0, 4), source: 'GEMINI' } });
       }
