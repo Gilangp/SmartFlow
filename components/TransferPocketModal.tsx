@@ -17,7 +17,12 @@ interface TransferPocketModalProps {
 }
 
 function formatCurrency(amount: number): string {
-  return `Rp ${amount.toLocaleString('id-ID')}`;
+  if (isNaN(amount) || amount === null || amount === undefined) return 'Rp 0';
+  const hasFraction = amount % 1 !== 0;
+  return `Rp ${amount.toLocaleString('id-ID', {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: hasFraction ? 2 : 0,
+  })}`;
 }
 
 export default function TransferPocketModal({ pockets, onClose, onSuccess, token }: TransferPocketModalProps) {

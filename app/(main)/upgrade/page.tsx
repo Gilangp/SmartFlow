@@ -12,6 +12,7 @@ interface SubscriptionData {
   status: string;
   isActive: boolean;
   isExpired: boolean;
+  expiresAt: string | Date | null;
   daysLeft: number | null;
 }
 
@@ -245,14 +246,77 @@ export default function UpgradePage() {
             Dapatkan kontrol penuh atas keuanganmu dengan fitur premium yang dirancang khusus untuk mahasiswa dan profesional muda.
           </p>
         </div>
-        {/* Banner Trial expired */}
-        {sub?.isExpired && (
+
+        {/* 👑 VIP Banner untuk PREMIUM Active */}
+        {sub?.plan === 'PREMIUM' && sub?.isActive && (
+          <div className="bg-gradient-to-r from-indigo-600 via-purple-600 to-indigo-700 rounded-3xl p-6 md:p-8 text-white shadow-xl max-w-3xl mx-auto relative overflow-hidden">
+            <div className="absolute -right-10 -bottom-10 opacity-10 pointer-events-none">
+              <Crown className="w-64 h-64 text-white" />
+            </div>
+            <div className="relative z-10 flex items-start gap-4">
+              <div className="w-12 h-12 rounded-2xl bg-white/20 backdrop-blur-md flex items-center justify-center flex-shrink-0">
+                <Crown className="w-7 h-7 text-amber-300" />
+              </div>
+              <div className="space-y-1">
+                <div className="flex items-center gap-2">
+                  <h3 className="text-xl md:text-2xl font-bold flex items-center gap-2">
+                    <span>Kamu Adalah Member Premium!</span>
+                    <Sparkles className="w-5 h-5 text-amber-300" />
+                  </h3>
+                </div>
+                <p className="text-indigo-100 text-xs md:text-sm leading-relaxed max-w-xl">
+                  Terima kasih telah mendukung SmartFlow V2. Akun kamu memiliki akses penuh tanpa batas ke Scan Struk AI, Ekspor Excel, Unlimited Transaksi, & Priority AI Support.
+                </p>
+                {sub.expiresAt && (
+                  <p className="text-xs text-indigo-200 pt-3 flex items-center gap-1.5 font-medium">
+                    <Sparkles className="w-3.5 h-3.5 text-amber-300" />
+                    <span>Masa aktif berlaku hingga: <strong>{new Date(sub.expiresAt).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}</strong></span>
+                  </p>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* 🎓 Banner STUDENT Active */}
+        {sub?.plan === 'STUDENT' && sub?.isActive && (
+          <div className="bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800/50 rounded-2xl p-5 max-w-2xl mx-auto flex items-start gap-4 shadow-sm">
+            <div className="w-10 h-10 rounded-xl bg-emerald-100 dark:bg-emerald-900/50 flex items-center justify-center flex-shrink-0 text-emerald-600 dark:text-emerald-400">
+              <GraduationCap className="w-6 h-6" />
+            </div>
+            <div>
+              <h3 className="font-bold text-emerald-900 dark:text-emerald-200 text-sm flex items-center gap-2">
+                <span>Paket Student Aktif</span>
+                <span className="bg-emerald-200 dark:bg-emerald-800 text-emerald-800 dark:text-emerald-100 text-[10px] px-2 py-0.5 rounded-full font-bold">Gratis Selamanya</span>
+              </h3>
+              <p className="text-xs text-emerald-700 dark:text-emerald-400 mt-1 leading-relaxed">
+                Kamu terverifikasi sebagai mahasiswa. Nikmati Scan Struk AI dan jatah 200 transaksi per bulan. Butuh transaksi tanpa batas & ekspor Excel? Upgrade ke Premium di bawah kapan saja.
+              </p>
+            </div>
+          </div>
+        )}
+
+        {/* Banner Trial expired (Hanya untuk plan TRIAL) */}
+        {sub?.isExpired && sub?.plan === 'TRIAL' && (
           <div className="bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 rounded-2xl p-4 flex items-start gap-3 max-w-2xl mx-auto">
             <Shield className="w-5 h-5 text-amber-500 flex-shrink-0 mt-0.5" />
             <div>
               <p className="font-semibold text-amber-800 dark:text-amber-300 text-sm">Trial kamu sudah habis</p>
               <p className="text-xs text-amber-700 dark:text-amber-400 mt-0.5">
-                Verifikasi KTM untuk Student Plan gratis, atau upgrade ke Premium.
+                Verifikasi KTM untuk Student Plan gratis selamanya, atau upgrade ke Premium tanpa batas.
+              </p>
+            </div>
+          </div>
+        )}
+
+        {/* Banner Premium expired */}
+        {sub?.isExpired && sub?.plan === 'PREMIUM' && (
+          <div className="bg-indigo-50 dark:bg-indigo-950/20 border border-indigo-200 dark:border-indigo-800 rounded-2xl p-4 flex items-start gap-3 max-w-2xl mx-auto">
+            <Shield className="w-5 h-5 text-indigo-500 flex-shrink-0 mt-0.5" />
+            <div>
+              <p className="font-semibold text-indigo-800 dark:text-indigo-300 text-sm">Masa Langganan Premium Berakhir</p>
+              <p className="text-xs text-indigo-700 dark:text-indigo-400 mt-0.5">
+                Perpanjang langganan Premium kamu untuk terus menikmati ekspor Excel dan transaksi tanpa batas.
               </p>
             </div>
           </div>
@@ -265,7 +329,7 @@ export default function UpgradePage() {
             <div>
               <p className="font-semibold text-orange-800 dark:text-orange-300 text-sm">Trial hampir habis!</p>
               <p className="text-xs text-orange-700 dark:text-orange-400 mt-0.5">
-                Sisa {sub?.daysLeft} hari. Verifikasi KTM sekarang sebelum terlambat.
+                Sisa {sub?.daysLeft ?? 0} hari. Verifikasi KTM sekarang atau upgrade ke Premium agar fitur tidak terkunci.
               </p>
             </div>
           </div>
@@ -275,14 +339,17 @@ export default function UpgradePage() {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-stretch">
         {packages.map((pkg) => {
           const colors = colorMap[pkg.color as keyof typeof colorMap];
-          const isCurrentPlan = sub?.plan === pkg.id;
+          const isCurrentPlan = sub?.plan === pkg.id && (pkg.id !== 'PREMIUM' || sub?.isActive);
+          const isHigherPlanThanUser = 
+            (sub?.plan === 'PREMIUM' && pkg.id !== 'PREMIUM') ||
+            (sub?.plan === 'STUDENT' && pkg.id === 'TRIAL');
 
           return (
             <div
               key={pkg.id}
-              className={`bg-white dark:bg-gray-900 rounded-2xl border-2 ${colors.border} p-6 relative flex flex-col transition-all duration-300 hover:shadow-xl ${pkg.popular ? 'md:-translate-y-4 shadow-md z-10' : 'hover:-translate-y-1'}`}
+              className={`bg-white dark:bg-gray-900 rounded-2xl border-2 ${colors.border} p-6 relative flex flex-col transition-all duration-300 hover:shadow-xl ${pkg.popular && sub?.plan !== 'PREMIUM' ? 'md:-translate-y-4 shadow-md z-10' : 'hover:-translate-y-1'}`}
             >
-              {pkg.popular && (
+              {pkg.popular && sub?.plan !== 'PREMIUM' && (
                 <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-emerald-600 text-white text-[10px] font-bold tracking-wider uppercase px-3 py-1 rounded-full shadow-sm">
                   Paling Populer
                 </div>
@@ -327,24 +394,30 @@ export default function UpgradePage() {
                 ))}
               </ul>
 
-
               <button
                 onClick={() => {
-                  if (pkg.ctaAction === 'ktm' && !isCurrentPlan) setKtmOpen(true);
+                  if (pkg.ctaAction === 'ktm' && !isCurrentPlan && !isHigherPlanThanUser) setKtmOpen(true);
                   if (pkg.ctaAction === 'premium' && !isCurrentPlan) handleUpgradePremium();
                 }}
                 disabled={
                   isCurrentPlan ||
+                  isHigherPlanThanUser ||
                   pkg.ctaAction === null ||
                   checkoutLoading
                 }
                 className={`w-full py-3 mt-auto rounded-xl font-bold text-sm transition-all duration-200 ${
-                  isCurrentPlan
+                  isCurrentPlan || isHigherPlanThanUser
                     ? 'bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-600 cursor-default'
                     : colors.btn
                 }`}
               >
-                {isCurrentPlan ? '✓ Paket Aktif' : (checkoutLoading && pkg.ctaAction === 'premium') ? 'Memproses...' : pkg.cta}
+                {isCurrentPlan
+                  ? '✓ Paket Aktif'
+                  : isHigherPlanThanUser
+                  ? 'Termasuk di Paketmu'
+                  : (checkoutLoading && pkg.ctaAction === 'premium')
+                  ? 'Memproses...'
+                  : pkg.cta}
               </button>
             </div>
           );

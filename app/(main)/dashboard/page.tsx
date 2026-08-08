@@ -13,16 +13,15 @@ import { Sun, Moon, HelpCircle, Loader2, Coins, ChevronRight, TrendingDown, Tren
 import ReactMarkdown from 'react-markdown';
 
 function formatCurrency(amount: number): string {
-  if (amount >= 1_000_000_000_000) return `Rp ${(amount / 1_000_000_000_000).toFixed(1)}T`;
-  if (amount >= 1_000_000_000) return `Rp ${(amount / 1_000_000_000).toFixed(1)}M`;
-  if (amount >= 1_000_000) return `Rp ${(amount / 1_000_000).toFixed(1)}jt`;
-  if (amount >= 1_000) return `Rp ${(amount / 1_000).toFixed(0)}rb`;
-  return `Rp ${amount.toLocaleString('id-ID')}`;
+  if (isNaN(amount) || amount === null || amount === undefined) return 'Rp 0';
+  const hasFraction = amount % 1 !== 0;
+  return `Rp ${amount.toLocaleString('id-ID', {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: hasFraction ? 2 : 0,
+  })}`;
 }
 
-function formatCurrencyFull(amount: number): string {
-  return `Rp ${amount.toLocaleString('id-ID', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
-}
+
 
 const statusConfig = {
   GREEN: { 
@@ -355,7 +354,7 @@ export default function DashboardPage() {
                       Jatah Hari Ini
                     </p>
                     <p className="text-3xl font-bold text-white tracking-tight">
-                      {formatCurrencyFull(dailyMetrics.dailyAllowance)}
+                      {formatCurrency(dailyMetrics.dailyAllowance)}
                     </p>
                   </div>
                   <div className={`px-3 py-1.5 rounded-full backdrop-blur-md border transition-all ${status.badgeBg} ${status.badgeBorder} ${status.badgeGlow}`}>

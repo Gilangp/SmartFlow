@@ -4,7 +4,7 @@ import OpenAI from 'openai';
 import { generateKtmToken } from '@/lib/auth';
 import { callHuggingFace, extractJsonFromHfOutput } from '@/lib/huggingface';
 import { routeAICall } from '@/lib/ai/router';
-import { buildVerifyKtmPrompt } from '@/lib/ai/prompts';
+import { buildVerifyKtmPrompt, buildVerifyKtmVisionPrompt } from '@/lib/ai/prompts';
 
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
@@ -183,45 +183,7 @@ export async function POST(request: NextRequest) {
     // ── TAHAP 3: Vision Fallback (jika tidak ada raw text sama sekali) ────────
     if (!isOcrSuccessful) {
       console.log('[KTM] Tidak ada raw text yang memadai, beralih ke Vision Fallback...');
-      const visionPrompt = `
-[ROLE]
-Indonesian Student ID (KTM) Verification Specialist.
-
-[OBJECTIVE]
-Mengekstrak dan memverifikasi data dari gambar Kartu Tanda Mahasiswa (KTM) Indonesia.
-
-[CONTEXT]
-Standar KTM Universitas di Indonesia mencakup Nama Mahasiswa, Nomor Induk Mahasiswa (NIM), dan Nama Perguruan Tinggi/Kampus.
-
-[INSTRUCTIONS]
-1. Baca gambar kartu identitas.
-2. Jika bukan KTM atau teksnya tidak jelas/buram, set "valid": false.
-3. Jika ini KTM yang jelas, ekstrak nama mahasiswa, NIM, dan nama universitas.
-4. WAJIB: Ketiga data (name, nim, university) harus terbaca dengan jelas untuk dianggap valid.
-
-[INPUT]
-Gambar Kartu Tanda Mahasiswa.
-
-[TASK]
-Lakukan ekstraksi dan verifikasi data dari gambar KTM di atas.
-
-[OUTPUT FORMAT]
-Kembalikan HANYA JSON valid tanpa teks lain:
-{
-  "valid": true,
-  "name": "Nama Lengkap Mahasiswa",
-  "nim": "NIM-nya",
-  "university": "Nama Kampus Lengkap"
-}
-
-[CONSTRAINTS]
-- DILARANG mengarang data yang tidak ada di gambar. Gunakan null jika tidak pasti.
-- DILARANG menyertakan markdown (\`\`\`json) atau teks penjelasan di luar JSON.
-
-[VALIDATION RULES]
-- Output HARUS berupa JSON valid.
-- Jika "valid" adalah true, maka field name, nim, dan university wajib terisi string yang valid.
-`.trim();
+      const visionPrompt = buildVerifyKtmVisionPrompt();
 
       let parsed: any = null;
 

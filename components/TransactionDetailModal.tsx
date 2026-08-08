@@ -11,8 +11,13 @@ interface TransactionDetailModalProps {
   onClose: () => void;
 }
 
-function formatCurrencyFull(amount: number): string {
-  return `Rp ${amount.toLocaleString('id-ID', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
+function formatCurrency(amount: number): string {
+  if (isNaN(amount) || amount === null || amount === undefined) return 'Rp 0';
+  const hasFraction = amount % 1 !== 0;
+  return `Rp ${amount.toLocaleString('id-ID', {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: hasFraction ? 2 : 0,
+  })}`;
 }
 
 function formatDate(dateStr: string): string {
@@ -76,7 +81,7 @@ export default function TransactionDetailModal({ transaction: tx, onClose }: Tra
 === BUKTI TRANSAKSI SMARTFLOW ===
 Status  : BERHASIL
 Jenis   : ${typeLabel}
-Nominal : ${sign}${formatCurrencyFull(tx.amount)}
+Nominal : ${sign}${formatCurrency(tx.amount)}
 Kategori: ${tx.category || 'Lainnya'} ${tx.categoryType ? `(${tx.categoryType === 'NEED' ? 'Kebutuhan' : 'Keinginan'})` : ''}
 Kantong : ${tx.pocket}
 Tanggal : ${formatDate(tx.date)} (${formatTime(tx.createdAt)})
@@ -141,7 +146,7 @@ ${tx.notes ? `Catatan : ${tx.notes}\n` : ''}ID Tx   : ${tx.id}
           <div className={`py-3 px-5 rounded-2xl inline-flex items-center gap-2 border ${amountBgClass} shadow-sm`}>
             <Icon className={`w-6 h-6 ${amountColorClass}`} strokeWidth={2.5} />
             <span className={`text-2xl sm:text-3xl font-black tracking-tight ${amountColorClass}`}>
-              {sign}{formatCurrencyFull(tx.amount)}
+              {sign}{formatCurrency(tx.amount)}
             </span>
           </div>
         </div>

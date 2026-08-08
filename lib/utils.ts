@@ -3,12 +3,12 @@
  */
 
 export function formatCurrency(amount: number): string {
-  return new Intl.NumberFormat('id-ID', {
-    style: 'currency',
-    currency: 'IDR',
+  if (isNaN(amount) || amount === null || amount === undefined) return 'Rp 0';
+  const hasFraction = amount % 1 !== 0;
+  return `Rp ${amount.toLocaleString('id-ID', {
     minimumFractionDigits: 0,
-    maximumFractionDigits: 2,
-  }).format(amount);
+    maximumFractionDigits: hasFraction ? 2 : 0,
+  })}`;
 }
 
 export function formatDate(date: Date | string): string {

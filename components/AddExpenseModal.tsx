@@ -271,9 +271,16 @@ export default function AddExpenseModal({ onClose, onSuccess, prefill }: AddExpe
       const data = await res.json();
       if (data.success && data.data) {
         const extracted = data.data;
-        const matchedCat = categories.find(
-          (c) => c.name.toLowerCase() === extracted.category?.toLowerCase()
-        );
+        const targetCat = (extracted.category || '').toLowerCase();
+        const matchedCat = categories.find((c) => {
+          const cName = c.name.toLowerCase();
+          if (cName === targetCat) return true;
+          if (targetCat && (cName.includes(targetCat) || targetCat.includes(cName))) return true;
+          if ((targetCat.includes('minum') || targetCat.includes('es teh') || targetCat.includes('kopi')) && 
+              (cName.includes('makan') || cName.includes('minum') || cName.includes('kuliner') || cName.includes('jajan'))) return true;
+          return false;
+        }) || categories[0];
+
         setForm((f) => ({
           ...f,
           amount: String(extracted.amount || ''),
