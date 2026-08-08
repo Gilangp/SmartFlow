@@ -6,6 +6,8 @@ import { Crown, GraduationCap, Zap, ChevronRight, Tag, Loader2, HelpCircle } fro
 import Link from 'next/link';
 import { driver } from 'driver.js';
 import 'driver.js/dist/driver.css';
+import KtmVerifyModal from '@/components/KtmVerifyModal';
+
 
 interface SubscriptionData {
   plan: 'TRIAL' | 'STUDENT' | 'PREMIUM';
@@ -185,6 +187,19 @@ export default function ProfilePage() {
 
 
 
+  const [isKtmModalOpen, setIsKtmModalOpen] = useState(false);
+
+  const handleKtmSuccess = () => {
+    setMessage({ text: 'Selamat! Akun kamu berhasil di-upgrade ke Paket STUDENT!', type: 'success' });
+    // Refresh profile & subscription
+    const token = getToken();
+    if (token) {
+      fetch('/api/subscription', { headers: { Authorization: `Bearer ${token}` } })
+        .then(r => r.json())
+        .then(d => { if (d.success) setSub(d.data); });
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="min-h-screen bg-white dark:bg-gray-950 flex items-center justify-center">
@@ -260,9 +275,20 @@ export default function ProfilePage() {
                 </div>
               </div>
               
-              <Link href="/upgrade" className="flex items-center text-xs font-semibold px-3 py-1.5 rounded-lg bg-white dark:bg-gray-800 shadow-sm border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition">
-                Upgrade <ChevronRight className="w-3 h-3 ml-0.5" />
-              </Link>
+              <div className="flex items-center gap-2">
+                {sub.plan === 'TRIAL' && (
+                  <button
+                    onClick={() => setIsKtmModalOpen(true)}
+                    className="flex items-center text-xs font-semibold px-3 py-1.5 rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 transition shadow-sm"
+                  >
+                    <GraduationCap className="w-3.5 h-3.5 mr-1" />
+                    KTM
+                  </button>
+                )}
+                <Link href="/upgrade" className="flex items-center text-xs font-semibold px-3 py-1.5 rounded-lg bg-white dark:bg-gray-800 shadow-sm border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition">
+                  Upgrade <ChevronRight className="w-3 h-3 ml-0.5" />
+                </Link>
+              </div>
             </div>
           )}
         </div>
@@ -339,6 +365,15 @@ export default function ProfilePage() {
         <p className="text-center text-xs text-gray-400 py-4">
           Finto v1.0 — Untuk mahasiswa Indonesia
         </p>
+
+        {/* KTM Verification Modal */}
+        <KtmVerifyModal
+          isOpen={isKtmModalOpen}
+          onClose={() => setIsKtmModalOpen(false)}
+          onSuccess={handleKtmSuccess}
+          token={getToken() || ''}
+          userName={profile.name}
+        />
       </main>
     </div>
   );

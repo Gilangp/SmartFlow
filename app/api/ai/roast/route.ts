@@ -2,8 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { verifyToken, extractTokenFromHeader } from '@/lib/auth';
 import { prisma } from '@/lib/db';
 import { GoogleGenerativeAI } from '@google/generative-ai';
-import { callHuggingFace } from '@/lib/huggingface';
 import { getDaysLeftInCycle } from '@/lib/financial-calculations';
+import { routeAICall } from '@/lib/ai/router';
+
 
 export const dynamic = 'force-dynamic';
 
@@ -11,102 +12,7 @@ const genAI = new GoogleGenerativeAI(
   process.env.GEMINI_API_KEY || process.env.GOOGLE_AI_API_KEY || ''
 );
 
-// ─── PROMPT BUILDER ───────────────────────────────────────────────────────────
-function buildRoastPrompt({
-  userName,
-  balance,
-  totalWealth,
-  dailyAllowance,
-  daysLeftInMonth,
-  todayExpense,
-  yesterdayExpense,
-  last7DayExpense,
-  last30DayExpense,
-  last30DayIncome,
-  avgDailySpend7Days,
-  wantSpend30Days,
-  needSpend30Days,
-  topWantCategories,
-  spendingAlert,
-  expenses,
-  tone,
-  isGoodSpendingStatus,
-  isBrokeStatus,
-  todayDateStr,
-}: {
-  userName: string;
-  balance: number;
-  totalWealth: number;
-  dailyAllowance: number;
-  daysLeftInMonth: number;
-  todayExpense: number;
-  yesterdayExpense: number;
-  last7DayExpense: number;
-  last30DayExpense: number;
-  last30DayIncome: number;
-  avgDailySpend7Days: number;
-  wantSpend30Days: number;
-  needSpend30Days: number;
-  topWantCategories: string[];
-  spendingAlert?: string;
-  expenses: string[];
-  tone: string;
-  isGoodSpendingStatus: boolean;
-  isBrokeStatus: boolean;
-  todayDateStr: string;
-}) {
-  const wantRatio = last30DayExpense > 0 ? Math.round((wantSpend30Days / last30DayExpense) * 100) : 0;
-
-  return `
-Kamu adalah Finto, asisten finansial sekaligus sahabat dekat user yang jujur, blak-blakan, dan ceplas-ceplos.
-
-Nama user: ${userName}
-
-Gaya Komunikasi:
-- WAJIB gunakan Bahasa Indonesia yang rapi dan benar. Boleh pakai bahasa gaul anak muda Indonesia (Gen-Z) seperti: "gue", "lu", "dong", "sih", "nih", "ngab", "kuy", "cuan", "bocor", "boncos", "receh", "ngerem", "overthinking", "healing", "mager". Ini semua boleh karena sudah diserap jadi bahasa gaul Indonesia.
-- DILARANG KERAS menggunakan kata-kata atau istilah bahasa Inggris seperti "WANT", "NEED", "which is...", "basically", "literally", "btw", "fyi", "anyway", "so yeah", dll. Untuk kategori atau jenis pengeluaran, WAJIB gunakan istilah bahasa Indonesia: "Keinginan" (atau belanja konsumtif, gaya hidup, jajan) dan "Kebutuhan" (atau belanja pokok, esensial, kewajiban). Jangan pernah menyebut kata "WANT" atau "NEED" dalam hasil roasting!
-- DILARANG menggunakan karakter/huruf asing: Mandarin, Arab, Korea, Jepang, atau huruf non-latin apapun.
-- Boleh sedikit pedas/kasar ala sindiran teman dekat (misalnya: "ya ampun", "parah lu", "tobat deh", "gilaaa"), tapi JANGAN menggunakan kata-kata umpatan, makian berat, atau kata yang menyinggung SARA.
-- WAJIB nol typo. Tulis kata dengan benar: "dengan" bukan "dngan", "banget" bukan "bnget", "udah" boleh karena sudah umum, "gimana" boleh. Tapi jangan potong kata secara sembarangan.
-- Nada bicara saat ini: ${tone}.
-- PERKETAT roasting: Kalau user boros, sindir SPESIFIK dengan menyebut nama kategori atau kebiasaan boros yang ada di data. Jangan pakai sindiran generik yang bisa berlaku untuk siapa saja.
-- Jika kondisi AMAN/HEMAT: berikan pujian TAPI selipkan peringatan spesifik dari tren data (rasio belanja konsumtif/Keinginan, rata-rata harian, dll). Jangan terlalu manis.
-- Jika kondisi KRITIS: jangan basa-basi, langsung ke fakta, akhiri dengan 1 saran konkret yang actionable.
-- Perhatikan catatan transaksi: jika pengeluaran besar untuk hal penting (kesehatan, pendidikan, keluarga, obat, sedekah), JANGAN disindir. Berikan empati. Sindir hanya untuk pengeluaran Keinginan/konsumtif (non-esensial).
-- PENTING: Hari ini adalah ${todayDateStr}. Bedakan dengan tegas mana transaksi hari ini vs hari sebelumnya. Jangan salah tuduh!
-
-Data Keuangan Lengkap:
-- Nama: ${userName}
-- Sisa Saldo Dompet Utama: Rp ${balance.toLocaleString('id-ID')}
-- Total Kekayaan Semua Kantong: Rp ${totalWealth.toLocaleString('id-ID')}
-- Jatah Harian Ideal: Rp ${Math.round(dailyAllowance).toLocaleString('id-ID')}/hari
-- Sisa Hari ke Gajian: ${daysLeftInMonth} hari
-- Pengeluaran Hari Ini: Rp ${todayExpense.toLocaleString('id-ID')}
-- Pengeluaran Kemarin: Rp ${yesterdayExpense.toLocaleString('id-ID')}
-- Total Pengeluaran 7 Hari Terakhir: Rp ${last7DayExpense.toLocaleString('id-ID')}
-- Total Pengeluaran 30 Hari Terakhir: Rp ${last30DayExpense.toLocaleString('id-ID')}
-- Total Pemasukan 30 Hari Terakhir: Rp ${last30DayIncome.toLocaleString('id-ID')}
-- Rata-rata Pengeluaran Harian (7 hari): Rp ${Math.round(avgDailySpend7Days).toLocaleString('id-ID')}/hari
-- Pengeluaran Keinginan (Konsumtif/Gaya Hidup) 30 Hari: Rp ${wantSpend30Days.toLocaleString('id-ID')} (${wantRatio}% dari total belanja)
-- Pengeluaran Kebutuhan (Pokok/Esensial) 30 Hari: Rp ${needSpend30Days.toLocaleString('id-ID')}
-- Kategori Boros Teratas (Keinginan): ${topWantCategories.length > 0 ? topWantCategories.join(', ') : 'Tidak ada'}
-${spendingAlert ? `\nALERT SISTEM: ${spendingAlert}` : ''}
-
-Rincian 15 Transaksi Pengeluaran Terbaru (semua kantong):
-${expenses.slice(-15).join('\n')}
-
-Aturan Output:
-- WAJIB singkat: maksimal 2-3 kalimat saja, padat, langsung ke inti.
-- Sebutkan angka/kategori SPESIFIK dari data — JANGAN pakai sindiran generik yang bisa berlaku untuk siapa saja.
-- WAJIB format nominal dengan titik sebagai pemisah ribuan (Rp 15.000, Rp 500.000, Rp 1.200.000). Jangan pernah tulis nominal tanpa pemisah.
-- JANGAN gunakan emoji apapun.
-- WAJIB bahasa Indonesia. Boleh pakai bahasa gaul Gen-Z Indonesia yang sudah umum (contoh: boncos, bocor, cuan, kuy, mager, ngerem, gue, lu, nih, sih, dong). DILARANG mencampurkan kata atau frasa bahasa Inggris murni yang bukan serapan (dilarang: WANT, NEED, basically, literally, btw, anyway, which is, so yeah, fyi, goals, vibes, dll). Gunakan istilah "Keinginan" (atau belanja konsumtif) dan "Kebutuhan" (atau belanja pokok/esensial).
-- WAJIB nol typo dan nol pemenggalan kata sembarangan. Kata harus ditulis dengan benar dan lengkap.
-- Jangan memanggil user dengan "bestie" — panggil dengan "lu", "kamu", atau nama user saja.
-- Boleh sedikit pedas/blak-blakan, tapi JANGAN menggunakan kata makian berat atau kata yang kasar berlebihan.
-- Output langsung — tanpa tanda kutip di awal/akhir, tanpa kata pengantar, tanpa penjelasan tambahan.
-`.trim();
-}
+import { buildRoastPrompt } from '@/lib/ai/prompts';
 
 // ─── VALIDATION & STATIC FALLBACK ─────────────────────────────────────────────
 function isValidRoast(text: string): boolean {
@@ -130,10 +36,10 @@ function fallbackRoast(
 ): string {
   const topCat = topWantCategories.length > 0 ? topWantCategories[0] : 'belanja konsumtif';
   if (balance <= 50000 || dailyAllowance < 15000) {
-    return `${userName}, saldo lu udah di titik kritis Rp ${balance.toLocaleString('id-ID')}. Saatnya full survival mode, ngerem total semua pengeluaran sampai gajian nanti.`;
+    return `${userName}, saldo lu udah di titik kritis Rp ${balance.toLocaleString('id-ID')}. Saatnya full survival mode, rem total semua pengeluaran sampai gajian nanti.`;
   }
   if (todayExpense > dailyAllowance * 1.5 && dailyAllowance > 0) {
-    return `Parah lu ${userName}, hari ini aja udah habis Rp ${todayExpense.toLocaleString('id-ID')} yang melebihi 150% jatah harian lu. Besok wajib ngerem atau akhir bulan bakal boncos berat.`;
+    return `Parah lu ${userName}, hari ini aja udah habis Rp ${todayExpense.toLocaleString('id-ID')} yang melebihi 150% jatah harian lu. Besok wajib hemat atau akhir bulan bakal boncos berat.`;
   }
   if (wantRatio > 50) {
     return `${userName}, ${wantRatio}% pengeluaran lu sebulan ini habis buat Keinginan, terutama di pos ${topCat}. Coba tinjau ulang mana yang bisa dikurangi dulu.`;
@@ -321,32 +227,41 @@ export async function GET(request: NextRequest) {
       balance,
       totalWealth,
       dailyAllowance,
-      daysLeftInMonth,
-      todayExpense,
-      yesterdayExpense,
-      last7DayExpense,
-      last30DayExpense,
-      last30DayIncome,
       avgDailySpend7Days,
-      wantSpend30Days,
-      needSpend30Days,
+      wantRatio,
       topWantCategories,
       spendingAlert,
       expenses: expenseList,
       tone: selectedTone,
-      isGoodSpendingStatus,
-      isBrokeStatus,
       todayDateStr,
     });
 
     // ── AI CALL — BERTINGKAT ─────────────────────────────────────────────────
 
-    // 1. GEMINI 2.0 FLASH (UTAMA)
+    // 1. DEEPSEEK-V4-FLASH VIA AI GATEWAY (UTAMA)
+    try {
+      const aiRes = await routeAICall(
+        [{ role: 'user', content: prompt }],
+        { modelType: 'TEXT', temperature: 0.5 }
+      );
+      if (aiRes.success && aiRes.content) {
+        let text = aiRes.content.trim().replace(/^["'`]|["'`]$/g, '');
+        if (isValidRoast(text)) {
+          console.log(`[ROAST] ✅ Berhasil via ${aiRes.modelUsed} (${aiRes.tokenUsed}).`);
+          return NextResponse.json({ success: true, data: { message: text } });
+        }
+      }
+      throw new Error('AI Gateway output failed quality validation');
+    } catch (gatewayErr: any) {
+      console.warn('[ROAST] AI Gateway gagal atau tidak valid, beralih ke Gemini 2.0 Flash...', gatewayErr.message);
+    }
+
+    // 2. GEMINI 2.0 FLASH (FALLBACK)
     try {
       const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
       const result = await model.generateContent({
         contents: [{ role: 'user', parts: [{ text: prompt }] }],
-        generationConfig: { temperature: 0.5 }, // Suhu 0.5 untuk konsistensi bahasa & meminimalkan halusinasi
+        generationConfig: { temperature: 0.5 },
       });
       const response = await result.response;
       let text = response.text().trim().replace(/^["'`]|["'`]$/g, '');
@@ -357,20 +272,7 @@ export async function GET(request: NextRequest) {
       }
       throw new Error('Gemini output failed quality validation');
     } catch (geminiError: any) {
-      console.warn('[ROAST] Gemini gagal atau tidak valid, beralih ke Hugging Face...', geminiError.message);
-    }
-
-    // 2. HUGGING FACE (FALLBACK)
-    try {
-      const hfText = await callHuggingFace(prompt, { maxNewTokens: 200, temperature: 0.5 });
-      const cleaned = hfText.replace(/^["'`]|["'`]$/g, '').trim();
-      if (isValidRoast(cleaned)) {
-        console.log('[ROAST] ✅ Berhasil via Hugging Face.');
-        return NextResponse.json({ success: true, data: { message: cleaned } });
-      }
-      throw new Error('Hugging Face output failed quality validation');
-    } catch (hfError: any) {
-      console.warn('[ROAST] Hugging Face gagal atau tidak valid, beralih ke static fallback...', hfError.message);
+      console.warn('[ROAST] Gemini gagal atau tidak valid, beralih ke static fallback...', geminiError.message);
     }
 
     // 3. STATIC FALLBACK (SAFETY NET - PERSONALIZED)

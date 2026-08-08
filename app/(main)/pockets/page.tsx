@@ -116,7 +116,7 @@ export default function PocketsPage() {
         {
           popover: {
             title: 'Sistem Kantong Cerdas',
-            description: 'Di halaman ini, kamu bisa membagi uangmu ke dalam kantong-kantong khusus (2 kantong default + kantong kustom) untuk kedisiplinan finansial yang lebih baik.',
+            description: 'Di halaman ini, kamu bisa membagi uangmu ke dalam kantong-kantong khusus (2 kantong bawaan: Dompet Utama & Tabungan, serta bebas kamu tambah dengan kantong kustom).',
             side: 'bottom' as const,
             align: 'start' as const
           }
@@ -125,16 +125,7 @@ export default function PocketsPage() {
           element: '#tour-pocket-MAIN',
           popover: {
             title: 'Dompet Utama',
-            description: 'Ini saldo jajan harianmu. Pengeluaran rutin harian dipotong dari sini, dan jatah harianmu dihitung murni dari saldo ini.',
-            side: 'bottom' as const,
-            align: 'start' as const
-          }
-        }] : []),
-        ...(document.querySelector('#tour-pocket-EMERGENCY') ? [{
-          element: '#tour-pocket-EMERGENCY',
-          popover: {
-            title: 'Dana Darurat',
-            description: 'Tabungan khusus untuk musibah atau kebutuhan mendesak. Tarik dana ini hanya saat keadaan benar-benar darurat ya!',
+            description: 'Ini saldo jajan dan operasional harianmu. Pengeluaran rutin harian dipotong dari sini, dan jatah harianmu dihitung murni dari saldo ini.',
             side: 'bottom' as const,
             align: 'start' as const
           }
@@ -148,20 +139,11 @@ export default function PocketsPage() {
             align: 'start' as const
           }
         }] : []),
-        ...(document.querySelector('#tour-pocket-WISHLIST') ? [{
-          element: '#tour-pocket-WISHLIST',
-          popover: {
-            title: 'Wishlist / Target Impian',
-            description: 'Kumpulkan uang untuk barang idamanmu di sini. Tentukan target nominal dan pantau progress bar-nya hingga 100%!',
-            side: 'bottom' as const,
-            align: 'start' as const
-          }
-        }] : []),
         ...(document.querySelector('#tour-allocation-btn') ? [{
           element: '#tour-allocation-btn',
           popover: {
             title: 'Alokasi Pemasukan Otomatis',
-            description: 'Atur persentase di sini agar setiap uang masuk otomatis dibagi ke masing-masing kantong (misal 50% Utama, 20% Tabungan, 30% Wishlist).',
+            description: 'Atur persentase di sini agar setiap uang masuk otomatis dibagi ke masing-masing kantong (misal 70% Utama, 30% Tabungan).',
             side: 'bottom' as const,
             align: 'start' as const
           }
@@ -179,7 +161,7 @@ export default function PocketsPage() {
           element: '#tour-add-pocket-btn',
           popover: {
             title: 'Tambah Kantong Kustom',
-            description: 'Butuh kantong tambahan diluar 2 kantong default (Utama & Tabungan)? Buat kantong kustom atau target impianmu sendiri di sini.',
+            description: 'Butuh kantong tambahan diluar 2 kantong bawaan (Utama & Tabungan)? Buat kantong kustom atau target impianmu sendiri di sini.',
             side: 'bottom' as const,
             align: 'start' as const
           }
@@ -263,7 +245,7 @@ export default function PocketsPage() {
   };
 
   const sortedPockets = [...pockets].sort((a, b) => {
-    const order = ['MAIN', 'EMERGENCY', 'SAVINGS', 'WISHLIST', 'CUSTOM'];
+    const order = ['MAIN', 'SAVINGS', 'EMERGENCY', 'WISHLIST', 'CUSTOM'];
     const indexA = order.indexOf(a.type);
     const indexB = order.indexOf(b.type);
     if (indexA === indexB) return a.name.localeCompare(b.name);

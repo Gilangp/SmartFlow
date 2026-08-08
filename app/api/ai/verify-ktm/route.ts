@@ -3,6 +3,9 @@ import { GoogleGenerativeAI } from '@google/generative-ai';
 import OpenAI from 'openai';
 import { generateKtmToken } from '@/lib/auth';
 import { callHuggingFace, extractJsonFromHfOutput } from '@/lib/huggingface';
+import { routeAICall } from '@/lib/ai/router';
+import { buildVerifyKtmPrompt } from '@/lib/ai/prompts';
+
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY || '' });
@@ -94,69 +97,61 @@ export async function POST(request: NextRequest) {
     // ── TAHAP 2: AI TEXT PARSING (jika OCR dapat raw text tapi regex gagal) ──
     // Hemat: kirim teks biasa, bukan gambar
     if (!isOcrSuccessful && rawText.trim().length > 20) {
-      const textPrompt = `
-Kamu adalah sistem pendeteksi KTM (Kartu Tanda Mahasiswa) Indonesia.
-Analisis teks berikut yang merupakan hasil OCR dari sebuah KTM.
-Ekstrak: Nama Mahasiswa, NIM (Nomor Induk Mahasiswa), dan Nama Universitas/Kampus.
-Ketiga field harus berhasil diekstrak. Jika salah satu tidak ditemukan, kembalikan valid=false.
+      const textPrompt = buildVerifyKtmPrompt({ rawText });
 
-Teks OCR KTM:
-"""
-${rawText}
-"""
-
-Kembalikan HANYA JSON tanpa teks lain:
-{ "valid": true, "name": "Nama Lengkap Mahasiswa", "nim": "NIM-nya", "university": "Nama Kampus Lengkap" }
-      `.trim();
-
-      // ── 2a. GEMINI TEXT ────────────────────────────────────────────────────
+      // ── 2a. AI GATEWAY (UTAMA) ─────────────────────────────────────────────
       try {
-        console.log('[KTM] Memproses raw text dengan Gemini 2.0 Flash (Text Mode)...');
-        const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
-        const result = await model.generateContent(textPrompt);
-        const responseText = result.response.text();
-        const cleaned = responseText.replace(/```json/g, '').replace(/```/g, '').trim();
-        let parsed: any = null;
+        console.log('[KTM] Memproses raw text via AI Gateway...');
+        const aiRes = await routeAICall(
+          [{ role: 'user', content: textPrompt }],
+          { modelType: 'TEXT', temperature: 0.1 }
+        );
 
-        try { parsed = JSON.parse(cleaned); } catch {
-          const match = cleaned.match(/\{[\s\S]*\}/);
-          if (match) parsed = JSON.parse(match[0]);
-        }
-
-        if (parsed?.valid && parsed?.nim && parsed?.name && parsed?.university) {
-          extractedName = parsed.name;
-          extractedNim = parsed.nim;
-          extractedUniv = parsed.university;
-          isOcrSuccessful = true;
-          console.log('[KTM] ✅ Berhasil via Gemini Text Mode.');
-        } else {
-          throw new Error('Gemini Text tidak menghasilkan data KTM yang valid');
-        }
-      } catch (geminiTextErr: any) {
-        console.warn('[KTM] Gemini Text Mode gagal:', geminiTextErr.message);
-      }
-
-      // ── 2b. HUGGING FACE TEXT (jika Gemini Text gagal) ─────────────────────
-      if (!isOcrSuccessful) {
-        try {
-          console.log('[KTM] Memproses raw text dengan Hugging Face (Text Mode)...');
-          const hfOutput = await callHuggingFace(textPrompt, {
-            maxNewTokens: 200,
-            temperature: 0.1,
-          });
-          const parsed = extractJsonFromHfOutput(hfOutput);
+        if (aiRes.success && aiRes.content) {
+          const cleaned = aiRes.content.replace(/```json/g, '').replace(/```/g, '').trim();
+          let parsed: any = null;
+          try { parsed = JSON.parse(cleaned); } catch {
+            const match = cleaned.match(/\{[\s\S]*\}/);
+            if (match) parsed = JSON.parse(match[0]);
+          }
 
           if (parsed?.valid && parsed?.nim && parsed?.name && parsed?.university) {
-            extractedName = parsed.name as string;
-            extractedNim = parsed.nim as string;
-            extractedUniv = parsed.university as string;
+            extractedName = parsed.name;
+            extractedNim = parsed.nim;
+            extractedUniv = parsed.university;
             isOcrSuccessful = true;
-            console.log('[KTM] ✅ Berhasil via Hugging Face Text Mode.');
+            console.log(`[KTM] ✅ Berhasil via ${aiRes.modelUsed} (${aiRes.tokenUsed}).`);
           } else {
-            throw new Error('Hugging Face tidak menghasilkan data KTM yang valid');
+            throw new Error('AI Gateway tidak menghasilkan data KTM yang valid');
           }
-        } catch (hfErr: any) {
-          console.warn('[KTM] Hugging Face Text Mode gagal:', hfErr.message);
+        } else {
+          throw new Error(aiRes.error || 'AI Gateway text call failed');
+        }
+      } catch (gatewayTextErr: any) {
+        console.warn('[KTM] AI Gateway Text Mode gagal, beralih ke Gemini 2.0 Flash...', gatewayTextErr.message);
+
+        // ── 2b. GEMINI TEXT (FALLBACK) ─────────────────────────────────────────
+        try {
+          const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
+          const result = await model.generateContent(textPrompt);
+          const responseText = result.response.text();
+          const cleaned = responseText.replace(/```json/g, '').replace(/```/g, '').trim();
+          let parsed: any = null;
+
+          try { parsed = JSON.parse(cleaned); } catch {
+            const match = cleaned.match(/\{[\s\S]*\}/);
+            if (match) parsed = JSON.parse(match[0]);
+          }
+
+          if (parsed?.valid && parsed?.nim && parsed?.name && parsed?.university) {
+            extractedName = parsed.name;
+            extractedNim = parsed.nim;
+            extractedUniv = parsed.university;
+            isOcrSuccessful = true;
+            console.log('[KTM] ✅ Berhasil via Gemini Text Mode.');
+          }
+        } catch (geminiTextErr: any) {
+          console.warn('[KTM] Gemini Text Mode gagal:', geminiTextErr.message);
         }
       }
 
@@ -189,13 +184,44 @@ Kembalikan HANYA JSON tanpa teks lain:
     if (!isOcrSuccessful) {
       console.log('[KTM] Tidak ada raw text yang memadai, beralih ke Vision Fallback...');
       const visionPrompt = `
-Kamu adalah sistem pendeteksi KTM Indonesia.
-Baca kartu identitas dari gambar ini. Jika bukan KTM atau teksnya tidak jelas, kembalikan valid=false.
-Jika ini adalah KTM yang jelas, ekstrak nama mahasiswa, NIM, dan nama Universitas/Kampus.
-WAJIB: Ketiganya (name, nim, university) harus terbaca dengan jelas. Jika ada salah satu yang kosong atau tidak terbaca, kembalikan valid=false.
-Kembalikan HANYA JSON ini tanpa teks lain:
-{ "valid": true, "name": "Nama Lengkap", "nim": "12345678", "university": "Nama Kampus" }
-      `.trim();
+[ROLE]
+Indonesian Student ID (KTM) Verification Specialist.
+
+[OBJECTIVE]
+Mengekstrak dan memverifikasi data dari gambar Kartu Tanda Mahasiswa (KTM) Indonesia.
+
+[CONTEXT]
+Standar KTM Universitas di Indonesia mencakup Nama Mahasiswa, Nomor Induk Mahasiswa (NIM), dan Nama Perguruan Tinggi/Kampus.
+
+[INSTRUCTIONS]
+1. Baca gambar kartu identitas.
+2. Jika bukan KTM atau teksnya tidak jelas/buram, set "valid": false.
+3. Jika ini KTM yang jelas, ekstrak nama mahasiswa, NIM, dan nama universitas.
+4. WAJIB: Ketiga data (name, nim, university) harus terbaca dengan jelas untuk dianggap valid.
+
+[INPUT]
+Gambar Kartu Tanda Mahasiswa.
+
+[TASK]
+Lakukan ekstraksi dan verifikasi data dari gambar KTM di atas.
+
+[OUTPUT FORMAT]
+Kembalikan HANYA JSON valid tanpa teks lain:
+{
+  "valid": true,
+  "name": "Nama Lengkap Mahasiswa",
+  "nim": "NIM-nya",
+  "university": "Nama Kampus Lengkap"
+}
+
+[CONSTRAINTS]
+- DILARANG mengarang data yang tidak ada di gambar. Gunakan null jika tidak pasti.
+- DILARANG menyertakan markdown (\`\`\`json) atau teks penjelasan di luar JSON.
+
+[VALIDATION RULES]
+- Output HARUS berupa JSON valid.
+- Jika "valid" adalah true, maka field name, nim, dan university wajib terisi string yang valid.
+`.trim();
 
       let parsed: any = null;
 

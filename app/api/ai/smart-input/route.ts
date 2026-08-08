@@ -4,6 +4,9 @@ import { GoogleGenerativeAI } from '@google/generative-ai';
 import OpenAI from 'openai';
 import { prisma } from '@/lib/db';
 import { callHuggingFace } from '@/lib/huggingface';
+import { routeAICall } from '@/lib/ai/router';
+import { buildSmartInputPrompt } from '@/lib/ai/prompts';
+
 
 const genAI = new GoogleGenerativeAI(
   process.env.GEMINI_API_KEY || process.env.GOOGLE_AI_API_KEY || ''
@@ -130,70 +133,41 @@ export async function POST(request: NextRequest) {
     const nowWib = new Date();
     const todayStr = nowWib.toLocaleDateString('en-CA', { timeZone: 'Asia/Jakarta' });
 
-    // 🔹 PROMPT (lebih ketat & akurat untuk klasifikasi NEED vs WANT & deteksi tanggal)
-    const prompt = `
-Kamu adalah parser data keuangan Indonesia yang sangat pintar dan akurat.
-
-Tugas:
-Ekstrak semua nominal dari teks, hitung total pengeluaran, tentukan kategori yang paling pas, hitung tanggal transaksi yang dimaksud, dan rapihkan catatan (notes).
-
-Rules:
-- Hari ini adalah tanggal ${todayStr} (format YYYY-MM-DD, waktu WIB).
-- Deteksi tanggal dari teks input pada kolom "date" (dalam format YYYY-MM-DD):
-  • Jika user menyebut waktu relatif seperti "kemarin"/"semalam" (berarti hari sebelum hari ini), "2 hari kemarin"/"2 hari lalu" (berarti 2 hari sebelum hari ini), "3 hari lalu", dsb., hitung tanggalnya dengan tepat dari hari ini (${todayStr}).
-  • Jika user menyebut tanggal spesifik (misal: "tgl 5", "5 Juli", "5/7"), konversi ke YYYY-MM-DD pada tahun yang sesuai.
-  • Jika tidak ada keterangan waktu/tanggal di teks, gunakan tanggal hari ini: "${todayStr}".
-- 3k = 3000
-- 10rb = 10000
-- 20 ribu = 20000
-- 1.5jt = 1500000
-- 2M / 2 miliar = 2000000000
-- Dalam Indonesia: 'k'/'rb'/'ribu' = 1.000, 'jt'/'juta' = 1.000.000, 'm'/'M'/'miliar' = 1.000.000.000 (Miliar), 't' = Triliun.
-- PENTING UNTUK KATEGORI: Perhatikan tipe (NEED vs WANT) pada daftar kategori di bawah. Jangan masukkan belanja konsumtif/lifestyle/jajan (kopi kafe, boba, game, belanja online, nongkrong) ke kategori NEED! Belanja konsumtif HARUS masuk ke kategori bertipe WANT. Sebaliknya, pengeluaran wajib/pokok (makan utama sehari-hari, transportasi/bensin, tagihan, listrik, kesehatan/obat, pendidikan) masukkan ke kategori bertipe NEED.
-- Pada kolom "category" di JSON output, TULIS NAMA KATEGORI-NYA SAJA (tanpa tambahan keterangan NEED/WANT di dalam kurung, contoh: jika di daftar ada "Makanan & Dapur (NEED...)", maka tulis "Makanan & Dapur" saja). Jika tidak ada yang cocok, tulis "Lainnya".
-- Output HARUS JSON valid
-- Jangan gunakan markdown
-- Jangan tambahkan penjelasan
-- Gabungkan nama barang/kegiatan ke dalam 'notes' dengan rapi dan jelas. Jika ada lebih dari satu kegiatan/barang, pisahkan dengan koma dan spasi (, ) (contoh: "makan siang, isi bensin, beli pulsa"). Jangan masukkan kata waktu seperti "kemarin" atau "2 hari lalu" ke dalam notes jika sudah diproses ke kolom date.
-
-Daftar Kategori User yang Tersedia:
-[${categoryListFormatted || 'Lainnya'}]
-
-Format JSON:
-{
-  "totalAmount": number,
-  "category": string,
-  "date": "YYYY-MM-DD",
-  "notes": string
-}
-
-Input:
-"${text}"
-`;
+    // 🔹 PROMPT (Standard Finto AI 9-Component Framework)
+    const prompt = buildSmartInputPrompt({
+      todayStr,
+      categoryListFormatted,
+      text,
+    });
 
     let rawText = '';
 
-    // ── 1. GEMINI 2.0 FLASH (UTAMA) ──────────────────────────────────────────
+    // ── 1. DEEPSEEK-V4-FLASH VIA AI GATEWAY (UTAMA) ──────────────────────────
     try {
-      const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
-      const result = await model.generateContent(prompt);
-      const response = await result.response;
-      rawText = response.text();
-      console.log('[SMART INPUT] ✅ Berhasil via Gemini 2.0 Flash.');
-    } catch (geminiError: any) {
-      console.warn('[SMART INPUT] Gemini gagal, beralih ke Hugging Face...', geminiError.message);
+      const aiRes = await routeAICall(
+        [{ role: 'user', content: prompt }],
+        { modelType: 'TEXT', temperature: 0.1 }
+      );
+      if (aiRes.success && aiRes.content) {
+        rawText = aiRes.content;
+        console.log(`[SMART INPUT] ✅ Berhasil via ${aiRes.modelUsed} (${aiRes.tokenUsed}).`);
+      } else {
+        throw new Error(aiRes.error || 'AI Gateway returned empty response');
+      }
+    } catch (gatewayErr: any) {
+      console.warn('[SMART INPUT] AI Gateway gagal, beralih ke Gemini 2.0 Flash...', gatewayErr.message);
 
-      // ── 2. HUGGING FACE (FALLBACK GRATIS) ──────────────────────────────────
+      // ── 2. GEMINI 2.0 FLASH (FALLBACK) ──────────────────────────────────────
       try {
-        rawText = await callHuggingFace(prompt, {
-          maxNewTokens: 256,
-          temperature: 0.1, // Suhu rendah untuk JSON yang konsisten
-        });
-        console.log('[SMART INPUT] ✅ Berhasil via Hugging Face.');
-      } catch (hfError: any) {
-        console.warn('[SMART INPUT] Hugging Face gagal, beralih ke OpenAI...', hfError.message);
+        const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
+        const result = await model.generateContent(prompt);
+        const response = await result.response;
+        rawText = response.text();
+        console.log('[SMART INPUT] ✅ Berhasil via Gemini 2.0 Flash.');
+      } catch (geminiError: any) {
+        console.warn('[SMART INPUT] Gemini gagal, beralih ke OpenAI...', geminiError.message);
 
-        // ── 3. OPENAI GPT-4O-MINI (FALLBACK BERBAYAR) ──────────────────────
+        // ── 3. OPENAI GPT-4O-MINI (FALLBACK BERBAYAR) ─────────────────────────
         try {
           const openaiResponse = await openai.chat.completions.create({
             model: 'gpt-4o-mini',
@@ -203,7 +177,7 @@ Input:
           console.log('[SMART INPUT] ✅ Berhasil via OpenAI gpt-4o-mini.');
         } catch (openaiError: any) {
           console.warn('[SMART INPUT] OpenAI juga gagal. Menggunakan regex fallback.', openaiError.message);
-          // ── 4. REGEX LOKAL (SAFETY NET) ──────────────────────────────────
+          // ── 4. REGEX LOKAL (SAFETY NET) ────────────────────────────────────
           const fallback = fallbackParser(text);
           return NextResponse.json({
             success: true,

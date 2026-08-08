@@ -2,8 +2,10 @@ import { NextRequest, NextResponse } from 'next/server';
 import { verifyToken, extractTokenFromHeader } from '@/lib/auth';
 import { prisma } from '@/lib/db';
 import { GoogleGenerativeAI } from '@google/generative-ai';
-import { callHuggingFace, extractJsonFromHfOutput } from '@/lib/huggingface';
+import { routeAICall, extractJsonFromOutput } from '@/lib/ai/router';
+import { buildAnalyticsSummaryPrompt } from '@/lib/ai/prompts';
 import { startOfMonth, subMonths, endOfMonth } from 'date-fns';
+
 
 export const dynamic = 'force-dynamic';
 
@@ -259,56 +261,35 @@ export async function GET(request: NextRequest) {
     // PROMPT: LLM = NARRATOR, BUKAN KALKULATOR
     // Semua angka sudah pasti benar dari backend
     // ════════════════════════════════════════════════════
-    const prompt = `Anda adalah Asisten Keuangan Pribadi (Finto Financial Mentor & Buddy) untuk Mahasiswa Indonesia. Tugas Anda HANYA menyusun narasi dalam Bahasa Indonesia yang hangat, ramah, dan kasual santuy dari data yang sudah dikalkulasi oleh sistem. DILARANG menghitung ulang, mengestimasi, atau mengarang angka sendiri. Gunakan HANYA angka yang tersedia di bawah ini.
-
-=== DATA TERVERIFIKASI DARI SISTEM ===
-
-[POIN 1 — LIKUIDITAS & RESILIENSI (SKALA MAHASISWA)]
-- Net Flow 30 hari: ${netFlow30 >= 0 ? '+' : ''}${rp(netFlow30)}
-- Savings Rate: ${savingRate}% → Klasifikasi: ${savingRateLabel}${incomeNote}
-- Burn Rate harian: ${rp(Math.round(burnRate))}
-- Liquid Runway (ketahanan kas total di seluruh kantong): ${liquidRunway} hari (${runwayMonths} bulan pengeluaran)
-- Total Kas/Saldo Tersedia: ${rp(totalWealth)}
-- Target ideal mahasiswa 2× pengeluaran bulanan (antisipasi telat kiriman/darurat): ${rp(targetBuffer2x)} → Status: ${isBuffer2xMet ? 'Sudah tercapai & aman' : `Masih kurang ${rp(bufferGap2x)}`}
-- Rekomendasi tindakan utama: ${isBuffer2xMet ? 'Pertahankan disiplin kas dan alokasikan surplus ke tujuan tabungan masa depan.' : `Prioritaskan menyisihkan minimal ${rp(Math.round(bufferGap2x / 3))}/bulan selama 3 bulan ke depan agar ketahanan kas mencapai 2× pengeluaran bulanan.`}
-
-[POIN 2 — ALOKASI ANGGARAN]
-- Kebutuhan (Pokok/Esensial): ${rp(need30)} = ${needRatio}% dari total pengeluaran (ideal ≤50%, deviasi ${needDeviation >= 0 ? '+' : ''}${needDeviation}poin)
-- Keinginan (Konsumtif/Gaya Hidup): ${rp(want30)} = ${wantRatio}% dari total pengeluaran (ideal ≤30%, deviasi ${wantDeviation >= 0 ? '+' : ''}${wantDeviation}poin)
-- Alokasi tabungan aktual: ${savingsAlloc}% dari pemasukan (ideal mahasiswa ≥10-15%)
-- Top 3 Keinginan (konsumtif) terboros:${top3Want.length > 0 ? '\n' + top3Want.map(([n, v]) => `  • ${n}: ${rp(v)}`).join('\n') : ' Tidak ada'}
-- Top 3 Kebutuhan (esensial) terbesar:${top3Need.length > 0 ? '\n' + top3Need.map(([n, v]) => `  • ${n}: ${rp(v)}`).join('\n') : ' Tidak ada'}
-- Rekomendasi batas anggaran Keinginan:${wantCapRecs.length > 0 ? '\n' + wantCapRecs.map(r => `  • ${r.name}: kurangi dari ${rp(r.actual)} → ${rp(r.recommended)} (hemat ${rp(r.saving)}/bulan)`).join('\n') : ' Tidak ada pengeluaran Keinginan'}
-
-[POIN 3 — AUDIT TRANSAKSI DISKRESIONER]
-Jumlah transaksi produktif/kewajiban: ${productive.length} (total ${rp(totalProductive)})
-Jumlah transaksi diskresioner: ${discretionary.length} (total ${rp(totalDiscretionary)})
-Potensi penghematan (30% dari diskresioner): ${rp(potentialSaving)}/bulan
-Detail 8 transaksi terbesar:
-${top8Lines}
-
-[POIN 4 — KOMPOSISI KANTONG & ALOKASI DINAMIS]
-- Total kekayaan bersih: ${rp(totalWealth)}
-- Jumlah & nama kantong aktif milik user: ${user.pockets.length} kantong (${user.pockets.map(p => p.name).join(', ')})
-- Distribusi saldo aktual per kantong: ${actualPocketDistribution}
-- Target persentase alokasi yang diatur user di Finto: ${pocketAllocations || 'Belum diatur (masih 0%)'}
-${expenseGrowth !== null ? `- Tren pengeluaran bulan ini vs bulan lalu: ${expenseGrowth > 0 ? '+' : ''}${expenseGrowth}% (${rp(expenseLastMonth)} → ${rp(expenseThisMonth)})` : ''}
-${incomeGrowth !== null ? `- Tren pemasukan bulan ini vs bulan lalu: ${incomeGrowth > 0 ? '+' : ''}${incomeGrowth}% (${rp(incomeLastMonth)} → ${rp(incomeThisMonth)})` : ''}
-
-=== INSTRUKSI NARASI ===
-Tulis tepat 4 paragraf analisis (satu per poin). Setiap paragraf:
-1. Buka dengan temuan utama menggunakan angka yang tersedia di atas
-2. Berikan konteks/interpretasi berdasarkan benchmark yang disebutkan (terutama skala mahasiswa dan alokasi kantong Finto)
-3. Tutup dengan 1 rekomendasi tindakan konkret menggunakan angka yang sudah ada
-
-ATURAN KERAS:
-- HANYA gunakan angka dari data di atas — DILARANG menghitung atau mengarang angka baru
-- DILARANG menggunakan kata bahasa Inggris "WANT" atau "NEED". Gunakan selalu istilah Bahasa Indonesia: "Keinginan" (atau pengeluaran konsumtif/gaya hidup/jajan) dan "Kebutuhan" (atau pengeluaran pokok/esensial/wajib).
-- Gaya bahasa: Hangat, ramah, dan kasual santuy ala teman mentor finansial (gunakan sapaan 'kamu', mengalir natural, tidak kaku/klinis, mudah dipahami mahasiswa). Hindari emoji berlebihan agar tetap rapi dan profesional namun nyaman dibaca.
-- PENTING UNTUK POIN 4: Analisis komposisi kantong secara DINAMIS sesuai dengan kantong nyata yang dimiliki user (jangan mengasumsikan atau menuntut user harus punya kantong tertentu seperti Dana Darurat atau Wishlist jika user tidak membuatnya). Evaluasi apakah pembagian saldo aktual di kantong-kantong user sudah selaras dengan target persentase alokasi yang mereka tetapkan sendiri!
-- Format nominal: Rp 1.500.000 (titik sebagai pemisah ribuan)
-- Output: JSON array berisi 4 string. Tidak ada teks di luar array JSON.
-OUTPUT:`;
+    const prompt = buildAnalyticsSummaryPrompt({
+      netFlow30,
+      rp,
+      savingRate,
+      savingRateLabel,
+      incomeNote,
+      burnRate,
+      liquidRunway,
+      runwayMonths,
+      totalWealth,
+      targetBuffer2x,
+      isBuffer2xMet,
+      bufferGap2x,
+      need30,
+      needRatio,
+      needDeviation,
+      want30,
+      wantRatio,
+      wantDeviation,
+      wantCapRecs,
+      productiveLength: productive.length,
+      totalProductive,
+      discretionaryLength: discretionary.length,
+      totalDiscretionary,
+      potentialSaving,
+      pocketsLength: user.pockets.length,
+      actualPocketDistribution,
+      pocketAllocations,
+    });
 
     // ── AI Call ─────────────────────────────────────────────────────────────
     const pointKeyNumbers = [
@@ -318,37 +299,41 @@ OUTPUT:`;
       [rp(totalWealth), `${user.pockets.length}`, ...user.pockets.map(p => `${Math.round((Number(p.balance) / (totalWealth || 1)) * 100)}%`), ...user.pockets.map(p => `${p.allocation}%`)].filter(Boolean) as string[]
     ];
 
-    // 1. Gemini
+    // 1. DEEPSEEK-V4-FLASH VIA AI GATEWAY (UTAMA)
+    try {
+      const aiRes = await routeAICall(
+        [{ role: 'user', content: prompt }],
+        { modelType: 'TEXT', temperature: 0.4 }
+      );
+      if (aiRes.success && aiRes.content) {
+        const parsed = extractJsonFromOutput(aiRes.content);
+        if (Array.isArray(parsed) && isValidAiReport(parsed, pointKeyNumbers)) {
+          console.log(`[ANALYTICS-AI] ✅ Berhasil via ${aiRes.modelUsed} (${aiRes.tokenUsed}).`);
+          return NextResponse.json({ success: true, data: { summary: parsed.slice(0, 4), source: aiRes.modelUsed } });
+        }
+      }
+      console.warn('[ANALYTICS-AI] AI Gateway output tidak valid atau halusinasi angka.');
+    } catch (err: any) {
+      console.warn('[ANALYTICS-AI] AI Gateway gagal, beralih ke Gemini...', err.message);
+    }
+
+    // 2. Gemini 2.0 Flash (Fallback)
     try {
       const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
       const result = await model.generateContent({
         contents: [{ role: 'user', parts: [{ text: prompt }] }],
-        generationConfig: { temperature: 0.4 }, // suhu rendah = lebih presisi, kurang hallucination
+        generationConfig: { temperature: 0.4 },
       });
       const rawText = result.response.text();
-      const parsed = extractJsonFromHfOutput(rawText);
+      const parsed = extractJsonFromOutput(rawText);
 
       if (Array.isArray(parsed) && isValidAiReport(parsed, pointKeyNumbers)) {
         console.log('[ANALYTICS-AI] ✅ Berhasil via Gemini 2.0 Flash.');
         return NextResponse.json({ success: true, data: { summary: parsed.slice(0, 4), source: 'GEMINI' } });
       }
-      console.warn('[ANALYTICS-AI] Gemini output tidak valid atau halusinasi angka.');
+      console.warn('[ANALYTICS-AI] Gemini output tidak valid.');
     } catch (err: any) {
-      console.warn('[ANALYTICS-AI] Gemini gagal, coba Hugging Face...', err.message);
-    }
-
-    // 2. Hugging Face
-    try {
-      const hfText = await callHuggingFace(prompt, { maxNewTokens: 600, temperature: 0.4 });
-      const parsed = extractJsonFromHfOutput(hfText);
-
-      if (Array.isArray(parsed) && isValidAiReport(parsed, pointKeyNumbers)) {
-        console.log('[ANALYTICS-AI] ✅ Berhasil via Hugging Face.');
-        return NextResponse.json({ success: true, data: { summary: parsed.slice(0, 4), source: 'HUGGINGFACE' } });
-      }
-      console.warn('[ANALYTICS-AI] Hugging Face output tidak valid atau halusinasi angka.');
-    } catch (err: any) {
-      console.warn('[ANALYTICS-AI] Hugging Face gagal, beralih ke fallback...', err.message);
+      console.warn('[ANALYTICS-AI] Gemini gagal, beralih ke fallback...', err.message);
     }
 
     // 3. Rule-based fallback — 100% akurat, semua angka dari backend

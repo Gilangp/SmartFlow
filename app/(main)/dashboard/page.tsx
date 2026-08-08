@@ -10,6 +10,7 @@ import { DashboardData } from '@/types';
 import { driver } from 'driver.js';
 import 'driver.js/dist/driver.css';
 import { Sun, Moon, HelpCircle, Loader2, Coins, ChevronRight, TrendingDown, TrendingUp } from 'lucide-react';
+import ReactMarkdown from 'react-markdown';
 
 function formatCurrency(amount: number): string {
   if (amount >= 1_000_000_000_000) return `Rp ${(amount / 1_000_000_000_000).toFixed(1)}T`;
@@ -116,7 +117,7 @@ export default function DashboardPage() {
           element: '#tour-pockets',
           popover: {
             title: 'Sistem Kantong Cerdas',
-            description: 'Keuangan kamu dibagi ke dalam kantong-kantong cerdas (secara default: Dompet Utama dan Tabungan, serta bebas kamu tambah sendiri seperti Dana Darurat atau Wishlist). Ini membantu alokasi keuangan yang lebih disiplin.',
+            description: 'Keuangan kamu dibagi ke dalam 2 kantong bawaan (Dompet Utama dan Tabungan) serta bebas kamu tambah sendiri dengan kantong kustom sesuai kebutuhanmu.',
             side: 'top' as const,
             align: 'start' as const
           }
@@ -325,15 +326,17 @@ export default function DashboardPage() {
                   )}
                 </button>
               </div>
-              <p className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed mt-1">
+              <div className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed mt-1">
                 {aiRoast ? (
-                  <>&ldquo;{aiRoast}&rdquo;</>
+                  <div className="prose dark:prose-invert max-w-none text-sm font-normal text-gray-700 dark:text-gray-300 leading-relaxed">
+                    <ReactMarkdown>{aiRoast}</ReactMarkdown>
+                  </div>
                 ) : aiLoading ? (
                   <span className="text-gray-500 dark:text-gray-400 italic">Sedang menganalisis keuanganmu...</span>
                 ) : (
                   <span className="text-gray-500 dark:text-gray-400 italic">Klik tombol untuk melihat analisis AI.</span>
                 )}
-              </p>
+              </div>
             </div>
           </div>
         </div>
@@ -424,7 +427,7 @@ export default function DashboardPage() {
               <div className="grid grid-cols-2 gap-4">
                 {[...dailyMetrics.pocketSummary]
                   .sort((a, b) => {
-                    const order = ['MAIN', 'EMERGENCY', 'SAVINGS', 'WISHLIST', 'CUSTOM'];
+                    const order = ['MAIN', 'SAVINGS', 'EMERGENCY', 'WISHLIST', 'CUSTOM'];
                     return order.indexOf(a.type) - order.indexOf(b.type);
                   })
                   .slice(0, 4)
