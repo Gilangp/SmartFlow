@@ -232,7 +232,7 @@ export default function AnalyticsView({ transactions, canUseAnalytics, checkingS
       <div className="bg-indigo-50 dark:bg-indigo-500/10 rounded-2xl p-5 border border-indigo-100 dark:border-indigo-500/20 shadow-sm relative overflow-hidden">
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-full bg-indigo-600 flex items-center justify-center text-white shadow-sm">
+            <div className="w-8 h-8 rounded-full bg-indigo-600 flex items-center justify-center text-white shadow-sm -mt-0.5 shrink-0">
               <Sparkles className="w-4 h-4 text-white" />
             </div>
             <h3 className="font-semibold text-indigo-900 dark:text-indigo-300">Executive Summary</h3>
