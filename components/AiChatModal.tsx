@@ -37,6 +37,127 @@ export default function AiChatModal() {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, []);
 
+  // Draggable Floating Assist Ball State
+  const [position, setPosition] = useState<{ x: number; y: number } | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
+  const [dragStart, setDragStart] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
+  const [hasMoved, setHasMoved] = useState(false);
+  const buttonRef = useRef<HTMLButtonElement>(null);
+
+  // Helper boundary function ensuring button never overlaps Sidebar (256px on Desktop) or Bottom Nav (85px on Mobile)
+  const getScreenBounds = (buttonWidth = 50, buttonHeight = 50) => {
+    const isDesktop = typeof window !== 'undefined' && window.innerWidth >= 768;
+    const windowWidth = typeof window !== 'undefined' ? window.innerWidth : 1280;
+    const windowHeight = typeof window !== 'undefined' ? window.innerHeight : 800;
+
+    // Desktop left sidebar is 256px wide (md:pl-64) -> minX = 266px
+    const minX = isDesktop ? 266 : 10;
+    const maxX = Math.max(minX, windowWidth - buttonWidth - 10);
+    const minY = 65;
+    // Mobile bottom nav is ~75px high -> maxY = windowHeight - buttonHeight - 85px
+    const maxY = Math.max(minY, windowHeight - buttonHeight - (isDesktop ? 24 : 85));
+
+    return { minX, maxX, minY, maxY, windowWidth, windowHeight };
+  };
+
+  // Load saved position from localStorage
+  useEffect(() => {
+    try {
+      const savedPos = localStorage.getItem('finto_ai_ball_pos');
+      if (savedPos) {
+        const parsed = JSON.parse(savedPos);
+        if (typeof parsed.x === 'number' && typeof parsed.y === 'number') {
+          const { minX, maxX, minY, maxY } = getScreenBounds(50, 50);
+          const clampedX = Math.min(Math.max(minX, parsed.x), maxX);
+          const clampedY = Math.min(Math.max(minY, parsed.y), maxY);
+          setPosition({ x: clampedX, y: clampedY });
+        }
+      }
+    } catch {}
+  }, []);
+
+  const handlePointerDown = (e: React.PointerEvent<HTMLButtonElement>) => {
+    setIsDragging(true);
+    setHasMoved(false);
+    
+    const rect = e.currentTarget.getBoundingClientRect();
+    setDragStart({
+      x: e.clientX - rect.left,
+      y: e.clientY - rect.top,
+    });
+    
+    try {
+      e.currentTarget.setPointerCapture(e.pointerId);
+    } catch {}
+  };
+
+  const handlePointerMove = (e: React.PointerEvent<HTMLButtonElement>) => {
+    if (!isDragging) return;
+    
+    const newX = e.clientX - dragStart.x;
+    const newY = e.clientY - dragStart.y;
+    
+    const buttonWidth = e.currentTarget.offsetWidth || 50;
+    const buttonHeight = e.currentTarget.offsetHeight || 50;
+    const { minX, maxX, minY, maxY } = getScreenBounds(buttonWidth, buttonHeight);
+
+    const clampedX = Math.min(Math.max(minX, newX), maxX);
+    const clampedY = Math.min(Math.max(minY, newY), maxY);
+
+    setHasMoved(true);
+    setPosition({ x: clampedX, y: clampedY });
+  };
+
+  const handlePointerUp = (e: React.PointerEvent<HTMLButtonElement>) => {
+    if (!isDragging) return;
+    setIsDragging(false);
+    try {
+      e.currentTarget.releasePointerCapture(e.pointerId);
+    } catch {}
+
+    if (position) {
+      const buttonWidth = e.currentTarget.offsetWidth || 50;
+      const buttonHeight = e.currentTarget.offsetHeight || 50;
+      const { minX, maxX, minY, maxY } = getScreenBounds(buttonWidth, buttonHeight);
+
+      // Distance to each 4 boundaries (Left, Right, Top, Bottom)
+      const distLeft = Math.abs(position.x - minX);
+      const distRight = Math.abs(maxX - position.x);
+      const distTop = Math.abs(position.y - minY);
+      const distBottom = Math.abs(maxY - position.y);
+
+      const minDistance = Math.min(distLeft, distRight, distTop, distBottom);
+
+      let snappedX = position.x;
+      let snappedY = position.y;
+
+      if (minDistance === distLeft) {
+        snappedX = minX;
+        snappedY = Math.min(Math.max(minY, position.y), maxY);
+      } else if (minDistance === distRight) {
+        snappedX = maxX;
+        snappedY = Math.min(Math.max(minY, position.y), maxY);
+      } else if (minDistance === distTop) {
+        snappedY = minY;
+        snappedX = Math.min(Math.max(minX, position.x), maxX);
+      } else if (minDistance === distBottom) {
+        snappedY = maxY;
+        snappedX = Math.min(Math.max(minX, position.x), maxX);
+      }
+
+      const snappedPos = { x: snappedX, y: snappedY };
+
+      setPosition(snappedPos);
+      try {
+        localStorage.setItem('finto_ai_ball_pos', JSON.stringify(snappedPos));
+      } catch {}
+    }
+
+    if (!hasMoved) {
+      setIsOpen(true);
+    }
+  };
+
   useEffect(() => {
     if (isOpen) {
       scrollToBottom();
@@ -147,19 +268,43 @@ export default function AiChatModal() {
 
   return (
     <>
-      {/* Floating Toggle Button */}
+      {/* Floating Draggable Assist Ball */}
       <button
-        onClick={() => setIsOpen(true)}
-        className={`fixed bottom-28 right-4 z-40 md:bottom-8 md:right-8 p-3.5 rounded-full bg-gradient-to-r from-indigo-600 via-indigo-500 to-purple-600 text-white shadow-xl shadow-indigo-500/30 hover:shadow-indigo-500/50 hover:scale-105 transition-all duration-300 flex items-center gap-2 group ${
-          isOpen ? 'scale-0 opacity-0 pointer-events-none' : 'scale-100 opacity-100'
-        }`}
+        ref={buttonRef}
+        onPointerDown={handlePointerDown}
+        onPointerMove={handlePointerMove}
+        onPointerUp={handlePointerUp}
+        onClick={(e) => {
+          if (hasMoved) {
+            e.preventDefault();
+            e.stopPropagation();
+          }
+        }}
+        style={
+          position
+            ? {
+                position: 'fixed',
+                left: `${position.x}px`,
+                top: `${position.y}px`,
+                right: 'auto',
+                bottom: 'auto',
+                touchAction: 'none',
+                transition: isDragging
+                  ? 'none'
+                  : 'left 0.35s cubic-bezier(0.34, 1.56, 0.64, 1), top 0.2s ease-out',
+              }
+            : undefined
+        }
+        className={`fixed z-40 p-3.5 rounded-full bg-gradient-to-r from-indigo-600 via-indigo-500 to-purple-600 text-white shadow-2xl shadow-indigo-500/40 hover:shadow-indigo-500/60 active:scale-95 transition-transform duration-75 flex items-center gap-2 group cursor-grab active:cursor-grabbing select-none ${
+          !position ? 'bottom-28 right-4 md:bottom-8 md:right-8' : ''
+        } ${isOpen ? 'scale-0 opacity-0 pointer-events-none' : 'scale-100 opacity-100'}`}
         aria-label="Tanya Finto AI"
       >
-        <div className="relative">
-          <Sparkles className="w-5 h-5 animate-pulse" />
+        <div className="relative pointer-events-none flex items-center justify-center">
+          <Sparkles className="w-5 h-5 animate-pulse text-white" />
           <span className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
         </div>
-        <span className="text-xs font-semibold pr-1 hidden sm:inline-block">Tanya Finto AI</span>
+        <span className="text-xs font-bold pr-1 hidden sm:inline-block pointer-events-none">Tanya Finto AI</span>
       </button>
 
       {/* Mobile Backdrop Overlay */}
