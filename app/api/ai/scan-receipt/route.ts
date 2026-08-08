@@ -5,12 +5,24 @@ import OpenAI from 'openai';
 import { prisma } from '@/lib/db';
 import { getUserSubscription } from '@/lib/subscription';
 import { callHuggingFace, callHuggingFaceVision, extractJsonFromHfOutput } from '@/lib/huggingface';
+import { callNineRouterVision } from '@/lib/ninerouter';
 import { routeAICall } from '@/lib/ai/router';
 import { buildScanReceiptPrompt, buildScanReceiptVisionPrompt } from '@/lib/ai/prompts';
 
 
+export const maxDuration = 60;
+
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY || '' });
+
+function withTimeout<T>(promise: Promise<T>, ms: number = 5000): Promise<T> {
+  return Promise.race([
+    promise,
+    new Promise<T>((_, reject) =>
+      setTimeout(() => reject(new Error(`Timeout setelah ${ms}ms`)), ms)
+    ),
+  ]);
+}
 
 // POST /api/ai/scan-receipt
 // Strategi Hybrid Bertingkat:
@@ -82,11 +94,12 @@ export async function POST(request: NextRequest) {
         formData.append('file', blob, `receipt.${extension}`);
 
         const ocrApiKey = process.env.OCR_API_KEY || '';
+        // Berikan waktu hingga 18 detik agar HuggingFace Space sempat bangun dari cold start
         const ocrResponse = await fetch(`${ocrBackendUrl}/api/v1/scan/struk`, {
           method: 'POST',
           body: formData,
           headers: ocrApiKey ? { 'X-API-Key': ocrApiKey } : {},
-          signal: AbortSignal.timeout(20000),
+          signal: AbortSignal.timeout(18000),
         });
 
         if (ocrResponse.ok) {
@@ -212,60 +225,54 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // ── 6. TAHAP 2B: FALLBACK VISION (JIKA TIDAK ADA RAW TEXT SAMA SEKALI) ───
-    // Hanya digunakan jika FastAPI OCR tidak bisa menghasilkan teks apapun
+    // ── 6. TAHAP 2B: FALLBACK VISION (HF Router Qwen Vision → NineRouter finto) ───
     if (!parsed) {
       console.log('[SCAN] Tidak ada raw text dari OCR. Menggunakan Vision fallback...');
 
       const visionPrompt = buildScanReceiptVisionPrompt({ categoryNamesList });
 
-      // ── 6a. GEMINI VISION ───────────────────────────────────────────────────
+      // ── 6a. HUGGING FACE QWEN VISION (Qwen3-VL / Qwen2.5-VL via HF Router) ─────
       try {
-        const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
-        const result = await model.generateContent([
-          {
-            inlineData: {
-              data: cleanBase64,
-              mimeType: finalMimeType as 'image/jpeg' | 'image/png' | 'image/webp' | 'image/heic',
-            },
-          },
-          visionPrompt,
-        ]);
-
-        const responseText = result.response.text();
-        const cleaned = responseText.replace(/```json/g, '').replace(/```/g, '').trim();
-
-        try { parsed = JSON.parse(cleaned); } catch {
-          const match = cleaned.match(/\{[\s\S]*\}/);
-          if (match) parsed = JSON.parse(match[0]);
+        console.log('[SCAN] Mencoba Hugging Face Qwen Vision (HF Router)...');
+        const hfVisionOutput = await withTimeout(
+          callHuggingFaceVision(visionPrompt, cleanBase64, finalMimeType),
+          7000
+        );
+        parsed = extractJsonFromHfOutput(hfVisionOutput);
+        if (parsed?.totalAmount) {
+          console.log('[SCAN] ✅ Berhasil diproses via Hugging Face Qwen Vision.');
+        } else {
+          parsed = null;
+          throw new Error('HF Vision tidak menghasilkan totalAmount yang valid');
         }
+      } catch (hfVisionErr: any) {
+        console.warn('[SCAN] Hugging Face Vision gagal:', hfVisionErr.message);
 
-        console.log('[SCAN] ✅ Berhasil diproses via Gemini Vision Fallback.');
-      } catch (visionErr: any) {
-        console.warn('[SCAN] Gemini Vision fallback gagal:', visionErr.message);
-
-        // ── 6b. HUGGING FACE VISION (jika Gemini Vision gagal) ────────────────
+        // ── 6b. NINEROUTER VISION (Model finto via NINE_ROUTER_MODEL) ────────────
         if (!parsed) {
           try {
-            console.log('[SCAN] Mencoba Hugging Face Vision...');
-            const hfVisionOutput = await callHuggingFaceVision(visionPrompt, cleanBase64, finalMimeType);
-            parsed = extractJsonFromHfOutput(hfVisionOutput);
-            if (parsed?.totalAmount) {
-              console.log('[SCAN] ✅ Berhasil diproses via Hugging Face Vision.');
-            } else {
-              parsed = null;
-              throw new Error('HF Vision tidak menghasilkan totalAmount yang valid');
+            console.log('[SCAN] Mencoba NineRouter Vision (model finto)...');
+            const nrOutput = await callNineRouterVision(visionPrompt, cleanBase64, finalMimeType);
+            if (nrOutput) {
+              parsed = extractJsonFromHfOutput(nrOutput);
+              if (parsed?.totalAmount) {
+                console.log('[SCAN] ✅ Berhasil diproses via NineRouter (model finto).');
+              } else {
+                parsed = null;
+              }
             }
-          } catch (hfVisionErr: any) {
-            console.warn('[SCAN] Hugging Face Vision gagal:', hfVisionErr.message);
+          } catch (nrErr: any) {
+            console.warn('[SCAN] NineRouter Vision gagal:', nrErr.message);
           }
         }
+      }
 
-        // ── 6c. OPENAI VISION ─────────────────────────────────────────────────
-        if (!parsed && process.env.OPENAI_API_KEY) {
-          try {
-            console.log('[SCAN] Beralih ke OpenAI gpt-4o-mini (Vision Mode)...');
-            const completion = await openai.chat.completions.create({
+      // ── 6c. OPENAI VISION (Fallback Opsional) ───────────────────────────
+      if (!parsed && process.env.OPENAI_API_KEY) {
+        try {
+          console.log('[SCAN] Beralih ke OpenAI gpt-4o-mini (Vision Mode)...');
+          const completion = await withTimeout(
+            openai.chat.completions.create({
               model: 'gpt-4o-mini',
               messages: [
                 {
@@ -277,26 +284,18 @@ export async function POST(request: NextRequest) {
                 },
               ],
               response_format: { type: 'json_object' },
-            });
-            const content = completion.choices[0]?.message?.content || '{}';
-            parsed = JSON.parse(content);
-            if (parsed?.totalAmount) {
-              console.log('[SCAN] ✅ Berhasil diproses via OpenAI gpt-4o-mini (Vision Mode).');
-            } else {
-              parsed = null;
-            }
-          } catch (openaiErr: any) {
-            console.error('[SCAN] OpenAI Vision fallback juga gagal:', openaiErr.message);
-            return NextResponse.json({
-              success: false,
-              message: 'Gagal membaca struk. Pastikan foto jelas, tidak buram, dan seluruh struk terlihat.',
-            }, { status: 422 });
+            }),
+            6000
+          );
+          const content = completion.choices[0]?.message?.content || '{}';
+          parsed = JSON.parse(content);
+          if (parsed?.totalAmount) {
+            console.log('[SCAN] ✅ Berhasil diproses via OpenAI gpt-4o-mini (Vision Mode).');
+          } else {
+            parsed = null;
           }
-        } else {
-          return NextResponse.json({
-            success: false,
-            message: 'Gagal membaca struk. Pastikan foto jelas, tidak buram, dan seluruh struk terlihat.',
-          }, { status: 422 });
+        } catch (openaiErr: any) {
+          console.error('[SCAN] OpenAI Vision fallback juga gagal:', openaiErr.message);
         }
       }
     }
