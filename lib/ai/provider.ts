@@ -47,7 +47,7 @@ export async function executeTextModel(
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            model: process.env.NINE_ROUTER_MODEL || 'gpt-3.5-turbo',
+            model: process.env.NINE_ROUTER_MODEL || 'finto',
             messages: chatMessages,
             temperature,
             max_tokens,
@@ -86,11 +86,11 @@ export async function executeTextModel(
         }
 
         if (text) {
-          console.log('[AI Gateway Provider] ✅ Berhasil via 9Router (Local Gateway).');
+          console.log('[AI Gateway Provider] ✅ Berhasil via 9Router Gateway.');
           return {
             success: true,
             content: text.trim(),
-            modelUsed: '9router-local',
+            modelUsed: process.env.NINE_ROUTER_MODEL || 'finto',
             tokenUsed: 'PRIMARY',
           };
         }
@@ -106,7 +106,7 @@ export async function executeTextModel(
       temperature,
       maxTokens: max_tokens,
       useSecondaryToken: options.useSecondaryToken,
-      timeoutMs: 8500,
+      timeoutMs: 15000,
     });
 
     if (text) {
@@ -130,7 +130,7 @@ export async function executeTextModel(
         temperature,
         maxTokens: max_tokens,
         useSecondaryToken: options.useSecondaryToken,
-        timeoutMs: 6000,
+        timeoutMs: 12000,
       });
 
       if (text) {
@@ -195,6 +195,58 @@ export async function executeVisionModel(
   prompt: string,
   options: AICallOptions = {}
 ): Promise<AIResponse> {
+  // 0. Try 9Router (finto / custom vision model)
+  const nineRouterKey = process.env.NINE_ROUTER_API_KEY || process.env.LOCAL_AI_API_KEY;
+  const nineRouterUrl = process.env.NINE_ROUTER_BASE_URL || 'http://localhost:20128/v1';
+
+  if (nineRouterKey) {
+    try {
+      const endpoint = `${nineRouterUrl.replace(/\/+$/, '')}/chat/completions`;
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), options.timeoutMs || 20000);
+
+      const nrRes = await fetch(endpoint, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${nineRouterKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: process.env.NINE_ROUTER_MODEL || 'finto',
+          messages: [
+            {
+              role: 'user',
+              content: [
+                { type: 'text', text: prompt || 'Ekstrak detail teks dari gambar ini.' },
+                { type: 'image_url', image_url: { url: imageUrl } },
+              ],
+            },
+          ],
+          temperature: options.temperature ?? 0.2,
+          max_tokens: options.maxTokens ?? 1024,
+        }),
+        signal: controller.signal,
+      });
+      clearTimeout(timer);
+
+      if (nrRes.ok) {
+        const nrData = await nrRes.json();
+        const text = nrData.choices?.[0]?.message?.content || '';
+        if (text) {
+          console.log('[AI Gateway Provider Vision] ✅ Berhasil via 9Router Gateway.');
+          return {
+            success: true,
+            content: text.trim(),
+            modelUsed: process.env.NINE_ROUTER_MODEL || 'finto',
+            tokenUsed: 'PRIMARY',
+          };
+        }
+      }
+    } catch (nrErr: any) {
+      console.warn('[AI Gateway Provider Vision] 9Router error:', nrErr.message);
+    }
+  }
+
   const model = AI_MODELS.VISION;
 
   const payload = {

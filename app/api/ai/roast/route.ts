@@ -13,11 +13,23 @@ const genAI = new GoogleGenerativeAI(
   process.env.GEMINI_API_KEY || process.env.GOOGLE_AI_API_KEY || ''
 );
 
+function withTimeout<T>(promise: Promise<T>, ms: number = 15000): Promise<T> {
+  return Promise.race([
+    promise,
+    new Promise<T>((_, reject) =>
+      setTimeout(() => reject(new Error(`Timeout setelah ${ms}ms`)), ms)
+    ),
+  ]);
+}
+
 import { buildRoastPrompt } from '@/lib/ai/prompts';
 
 function sanitizeRoastText(text: string): string {
   let cleaned = text.trim().replace(/^["'`]|["'`]$/g, '');
   if (!cleaned) return cleaned;
+
+  // Hapus otomatis emoji jika ada agar tetap mematuhi aturan tanpa emoji
+  cleaned = cleaned.replace(/[\u{1F600}-\u{1F64F}\u{1F300}-\u{1F5FF}\u{1F680}-\u{1F6FF}\u{1F1E0}-\u{1F1FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}]|\p{Emoji_Presentation}/gu, '').trim();
 
   // Jika teks tidak diakhiri tanda titik, seru, atau tanya
   if (!/[.!?]$/.test(cleaned)) {
@@ -36,14 +48,15 @@ function sanitizeRoastText(text: string): string {
 
 // ─── VALIDATION & STATIC FALLBACK ─────────────────────────────────────────────
 function isValidRoast(text: string): boolean {
-  if (!text || text.length < 90) return false;
+  if (!text || text.length < 70) return false;
   const sentenceCount = (text.match(/[.!?]/g) || []).length;
   if (sentenceCount < 2) return false;
 
-  // Dilarang karakter asing: Mandarin, Arab, Jepang, Korea, Sirilik, atau Emoji
+  // Dilarang aksara asing (Mandarin, Arab, Jepang, Korea, Sirilik) dan DILARANG Emoji
   const foreignScriptOrEmoji = /[\u0600-\u06FF|\u0400-\u04FF|\u3040-\u30FF|\uAC00-\uD7AF|\u4E00-\u9FFF]|\p{Emoji_Presentation}/u;
   if (foreignScriptOrEmoji.test(text)) return false;
-  // Dilarang awalan bahasa Inggris atau kata pengantar yang umum keluar dari LLM
+
+  // Dilarang awalan bahasa Inggris atau kata pengantar AI yang kaku
   const englishOrIntro = /^(here is|sure,|as an ai|based on|basically|literally|btw|fyi|anyway)/i;
   if (englishOrIntro.test(text)) return false;
   return true;
@@ -263,11 +276,12 @@ export async function GET(request: NextRequest) {
 
     // ── AI CALL — BERTINGKAT ─────────────────────────────────────────────────
 
-    // 1. DEEPSEEK-V4-FLASH VIA AI GATEWAY (UTAMA)
+    // 1. AI GATEWAY (UTAMA: Hugging Face Router / NineRouter / DeepSeek)
     try {
+      console.log('[ROAST] Memanggil AI Gateway...');
       const aiRes = await routeAICall(
         [{ role: 'user', content: prompt }],
-        { modelType: 'TEXT', temperature: 0.5, maxTokens: 220, timeoutMs: 25000 }
+        { modelType: 'TEXT', temperature: 0.5, maxTokens: 400, timeoutMs: 30000 }
       );
       if (aiRes.success && aiRes.content) {
         let text = sanitizeRoastText(aiRes.content);
@@ -283,13 +297,19 @@ export async function GET(request: NextRequest) {
 
     // 2. GEMINI 2.0 FLASH (FALLBACK)
     try {
-      const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
-      const result = await model.generateContent({
-        contents: [{ role: 'user', parts: [{ text: prompt }] }],
-        generationConfig: { temperature: 0.5, maxOutputTokens: 220 },
-      });
-      const response = await result.response;
-      let text = sanitizeRoastText(response.text());
+      console.log('[ROAST] Memanggil Gemini 2.0 Flash (timeout 20s)...');
+      const geminiPromise = (async () => {
+        const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
+        const result = await model.generateContent({
+          contents: [{ role: 'user', parts: [{ text: prompt }] }],
+          generationConfig: { temperature: 0.5, maxOutputTokens: 400 },
+        });
+        const response = await result.response;
+        return response.text();
+      })();
+
+      const responseText = await withTimeout(geminiPromise, 20000);
+      let text = sanitizeRoastText(responseText);
 
       if (isValidRoast(text)) {
         console.log('[ROAST] ✅ Berhasil via Gemini 2.0 Flash.');

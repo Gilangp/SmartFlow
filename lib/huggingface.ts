@@ -15,12 +15,12 @@
  * ─────────────────────────────────────────────────────────────────────────────
  */
 
-// Model aktif di Hugging Face Serverless Router yang tercepat & terbukti stabil
+// Model aktif di Hugging Face Serverless Router (mendukung model kustom Finto via env)
 export const HF_MODELS = {
-  /** Model utama: Sangat cepat, pintar, dan sangat stabil di HF Router */
-  TEXT_FAST: 'Qwen/Qwen2.5-7B-Instruct',
+  /** Model utama: Mendukung model kustom Finto via HF_MODEL_TEXT */
+  TEXT_FAST: process.env.HF_MODEL_TEXT || 'Qwen/Qwen2.5-7B-Instruct',
 
-  /** Model fallback ke-1: Llama 3.1 8B Instruct, sangat bagus untuk JSON & teks */
+  /** Model fallback ke-1: Llama 3.1 8B Instruct */
   TEXT_MEDIUM: 'meta-llama/Llama-3.1-8B-Instruct',
 
   /** Model fallback ke-2: DeepSeek R1 Distill Qwen 7B */
@@ -195,10 +195,14 @@ export async function callHuggingFaceVision(
   mimeType: string = 'image/jpeg',
   options: HfTextOptions = {}
 ): Promise<string> {
-  const VISION_MODELS = [
-    'Qwen/Qwen2-VL-7B-Instruct',
-    'meta-llama/Llama-3.2-11B-Vision-Instruct',
-  ];
+  const VISION_MODELS = Array.from(
+    new Set([
+      process.env.HF_MODEL_VISION || 'Qwen/Qwen3-VL-8B-Instruct',
+      'Qwen/Qwen2.5-VL-7B-Instruct',
+      'Qwen/Qwen2-VL-7B-Instruct',
+      'meta-llama/Llama-3.2-11B-Vision-Instruct',
+    ].filter(Boolean) as string[])
+  );
 
   const tokens = [
     { key: process.env.HF_TOKEN_PRIMARY, label: 'PRIMARY' },

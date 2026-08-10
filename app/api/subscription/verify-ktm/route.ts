@@ -4,16 +4,30 @@ import { GoogleGenerativeAI } from '@google/generative-ai';
 import OpenAI from 'openai';
 import { prisma } from '@/lib/db';
 import { callHuggingFace, callHuggingFaceVision, extractJsonFromHfOutput } from '@/lib/huggingface';
+import { callNineRouterVision } from '@/lib/ninerouter';
 import { buildVerifyKtmPrompt, buildVerifyKtmVisionPrompt } from '@/lib/ai/prompts';
+
+// Izinkan durasi eksekusi Vercel Serverless Function hingga 60 detik (mencegah 503 Timeout)
+export const maxDuration = 60;
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY || '' });
 
+// Helper timeout wrapper untuk AI API calls
+function withTimeout<T>(promise: Promise<T>, ms: number = 5000): Promise<T> {
+  return Promise.race([
+    promise,
+    new Promise<T>((_, reject) =>
+      setTimeout(() => reject(new Error(`Timeout setela ${ms}ms`)), ms)
+    ),
+  ]);
+}
+
 // POST /api/subscription/verify-ktm
 // Strategi Hybrid Bertingkat:
-//   1. FastAPI OCR (gratis) → Regex lokal
-//   2. Jika regex gagal tapi ada raw text → Gemini Text → HF Text → OpenAI Text
-//   3. Jika tidak ada raw text → Vision Fallback (Gemini Vision → OpenAI Vision)
+//   1. FastAPI OCR (gratis di HF Space) → Regex lokal (Timeout 4s fail-fast jika cold start)
+//   2. Jika regex gagal tapi ada raw text → Qwen Text (HF Router) → OpenAI Text
+//   3. Jika tidak ada raw text → Qwen Vision Fallback (HF Router) → OpenAI Vision
 //   4. Jika sukses → Simpan ke DB & Upgrade plan ke STUDENT
 export async function POST(request: NextRequest) {
   try {
@@ -55,11 +69,12 @@ export async function POST(request: NextRequest) {
         formData.append('file', blob, `ktm.${extension}`);
 
         const ocrApiKey = process.env.OCR_API_KEY || '';
+        // Berikan waktu hingga 18 detik agar HuggingFace Space sempat bangun dari cold start
         const ocrResponse = await fetch(`${ocrBackendUrl}/api/v1/scan/ktm`, {
           method: 'POST',
           body: formData,
           headers: ocrApiKey ? { 'X-API-Key': ocrApiKey } : {},
-          signal: AbortSignal.timeout(15000),
+          signal: AbortSignal.timeout(18000),
         });
 
         if (ocrResponse.ok) {
@@ -190,7 +205,7 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // ── 4. TAHAP 3: VISION FALLBACK (jika tidak ada raw text) ─────────────
+    // ── 4. TAHAP 3: VISION FALLBACK (HF Router Qwen Vision → NineRouter model finto) ───
     if (!isOcrSuccessful) {
       console.log('[KTM] Tidak ada raw text memadai, beralih ke Vision Fallback...');
 
@@ -198,69 +213,68 @@ export async function POST(request: NextRequest) {
 
       let parsed: any = null;
 
-      // ── 4a. GEMINI VISION ─────────────────────────────────────────────────
+      // ── 4a. HUGGING FACE QWEN VISION (Qwen3-VL / Qwen2.5-VL via HF Router) ─────
       try {
-        const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
-        const result = await model.generateContent([
-          { inlineData: { data: cleanBase64, mimeType: finalMimeType as any } },
-          visionPrompt,
-        ]);
-        const responseText = result.response.text();
-        const cleaned = responseText.replace(/```json/g, '').replace(/```/g, '').trim();
-
-        try { parsed = JSON.parse(cleaned); } catch {
-          const match = cleaned.match(/\{[\s\S]*\}/);
-          if (match) parsed = JSON.parse(match[0]);
+        console.log('[KTM] Mencoba Hugging Face Qwen Vision (HF Router)...');
+        const hfVisionOutput = await withTimeout(
+          callHuggingFaceVision(visionPrompt, cleanBase64, finalMimeType),
+          7000
+        );
+        parsed = extractJsonFromHfOutput(hfVisionOutput);
+        if (parsed?.valid && parsed?.nim && parsed?.name && parsed?.university) {
+          console.log('[KTM] ✅ Berhasil diverifikasi via Qwen Vision (Hugging Face Router).');
+        } else {
+          parsed = null;
+          throw new Error('HF Qwen Vision tidak menghasilkan data KTM yang valid');
         }
-        console.log('[KTM] Berhasil diverifikasi via Gemini Vision Fallback.');
-      } catch (geminiErr: any) {
-        console.warn('[KTM] Gemini Vision gagal, beralih ke Hugging Face Vision...', geminiErr.message);
+      } catch (hfVisionErr: any) {
+        console.warn('[KTM] Hugging Face Qwen Vision gagal:', hfVisionErr.message);
 
-        // ── 4b. HUGGING FACE VISION ──────────────────────────────────────────
+        // ── 4b. NINEROUTER VISION (Model finto via NINE_ROUTER_MODEL) ────────────
         if (!parsed) {
           try {
-            console.log('[KTM] Mencoba Hugging Face Vision Mode...');
-            const hfVisionOutput = await callHuggingFaceVision(visionPrompt, cleanBase64, finalMimeType);
-            parsed = extractJsonFromHfOutput(hfVisionOutput);
-            if (parsed?.valid && parsed?.nim && parsed?.name && parsed?.university) {
-              console.log('[KTM] Berhasil diverifikasi via Hugging Face Vision.');
-            } else {
-              parsed = null;
-              throw new Error('HF Vision tidak menghasilkan data KTM yang valid');
+            console.log('[KTM] Mencoba NineRouter Vision (model finto)...');
+            const nrOutput = await callNineRouterVision(visionPrompt, cleanBase64, finalMimeType);
+            if (nrOutput) {
+              parsed = extractJsonFromHfOutput(nrOutput);
+              if (parsed?.valid && parsed?.nim && parsed?.name && parsed?.university) {
+                console.log('[KTM] ✅ Berhasil diverifikasi via NineRouter (model finto).');
+              } else {
+                parsed = null;
+              }
             }
-          } catch (hfVisionErr: any) {
-            console.warn('[KTM] Hugging Face Vision gagal:', hfVisionErr.message);
+          } catch (nrErr: any) {
+            console.warn('[KTM] NineRouter Vision gagal:', nrErr.message);
           }
         }
+      }
 
-        // ── 4c. OPENAI VISION ──────────────────────────────────────────────
-        if (!parsed && process.env.OPENAI_API_KEY) {
-          try {
-            console.log('[KTM] Beralih ke OpenAI gpt-4o-mini (Vision Mode)...');
-            const openaiResponse = await openai.chat.completions.create({
+      // ── 4c. OPENAI VISION (Fallback opsional jika HF Qwen & NineRouter gagal) ─
+      if (!parsed && process.env.OPENAI_API_KEY) {
+        try {
+          console.log('[KTM] Beralih ke OpenAI gpt-4o-mini (Vision Mode)...');
+          const openaiResponse = await withTimeout(
+            openai.chat.completions.create({
               model: 'gpt-4o-mini',
               messages: [
-              {
-                role: 'user',
-                content: [
-                  { type: 'text', text: visionPrompt },
-                  { type: 'image_url', image_url: { url: `data:${finalMimeType};base64,${cleanBase64}` } },
-                ],
-              },
-            ],
-            response_format: { type: 'json_object' },
-          });
+                {
+                  role: 'user',
+                  content: [
+                    { type: 'text', text: visionPrompt },
+                    { type: 'image_url', image_url: { url: `data:${finalMimeType};base64,${cleanBase64}` } },
+                  ],
+                },
+              ],
+              response_format: { type: 'json_object' },
+            }),
+            6000
+          );
           const rawOpenAI = openaiResponse.choices[0]?.message?.content || '{}';
           parsed = JSON.parse(rawOpenAI);
-          console.log('[KTM] Berhasil diverifikasi via OpenAI Vision Fallback.');
+          console.log('[KTM] ✅ Berhasil diverifikasi via OpenAI Vision Fallback.');
         } catch (openaiErr: any) {
-          console.error('[KTM] Kedua AI Vision gagal:', openaiErr.message);
-          return NextResponse.json({
-            success: false,
-            message: 'Sistem AI tidak dapat memproses gambar saat ini. Coba lagi nanti.',
-          }, { status: 503 });
+          console.error('[KTM] Vision Fallback gagal:', openaiErr.message);
         }
-      }
       }
 
       if (!parsed || !parsed.valid || !parsed.nim || !parsed.name || !parsed.university || parsed.university === 'Universitas Terdeteksi') {
