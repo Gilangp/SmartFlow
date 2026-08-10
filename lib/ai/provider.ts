@@ -106,7 +106,7 @@ export async function executeTextModel(
       temperature,
       maxTokens: max_tokens,
       useSecondaryToken: options.useSecondaryToken,
-      timeoutMs: 8500,
+      timeoutMs: 15000,
     });
 
     if (text) {
@@ -130,7 +130,7 @@ export async function executeTextModel(
         temperature,
         maxTokens: max_tokens,
         useSecondaryToken: options.useSecondaryToken,
-        timeoutMs: 6000,
+        timeoutMs: 12000,
       });
 
       if (text) {

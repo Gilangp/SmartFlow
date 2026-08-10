@@ -9,7 +9,7 @@ import { showInterstitial } from '@/lib/admob';
 import { DashboardData } from '@/types';
 import { driver } from 'driver.js';
 import 'driver.js/dist/driver.css';
-import { Sun, Moon, HelpCircle, Loader2, Coins, ChevronRight, TrendingDown, TrendingUp } from 'lucide-react';
+import { Sun, Moon, HelpCircle, Loader2, Coins, ChevronRight, TrendingDown, TrendingUp, Bell } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 
 function formatCurrency(amount: number): string {
@@ -283,6 +283,17 @@ export default function DashboardPage() {
                 ) : (
                   <Moon className="w-4 h-4" />
                 )}
+              </button>
+
+              {/* Notification Settings Button (Spacious on Desktop, Icon on Mobile) */}
+              <button
+                onClick={() => router.push('/settings/notifications')}
+                className="h-9 px-2.5 sm:px-3.5 rounded-xl bg-indigo-50/80 dark:bg-indigo-500/10 border border-indigo-100 dark:border-indigo-500/20 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-100 dark:hover:bg-indigo-500/20 transition-all flex items-center gap-2 shadow-sm"
+                aria-label="Pengaturan Notifikasi"
+                title="Pengaturan Notifikasi"
+              >
+                <Bell className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
+                <span className="hidden md:inline text-xs font-semibold tracking-wide">Pengingat & Notifikasi</span>
               </button>
 
               {/* Help/Tour Button */}
